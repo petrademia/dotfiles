@@ -1,0 +1,7 @@
+alias cc='claude'
+alias ccr='claude --resume'
+alias cdc='cd ~/code'
+alias neofetch='fastfetch'
+alias wiztree='open -a GrandPerspective'
+alias vim='nvim'
+alias vi='nvim'
