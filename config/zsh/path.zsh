@@ -6,5 +6,9 @@ eval "$(fnm env --use-on-cd)"
 # Brew keg-only formulas
 export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+
+# JAVA_HOME for tools that need it
+export JAVA_HOME="/opt/homebrew/opt/openjdk"
 
 export PATH="$HOME/.local/bin:$PATH"
