@@ -89,10 +89,11 @@ for cask in "${CASKS[@]}"; do
   brew install --cask "$cask"
 done
 
+# Add rustup to PATH (keg-only, installs binaries to opt/rustup/bin)
+export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
+
 # Install Rust toolchain
-if ! rustup default stable; then
-    echo "Warning: rustup default stable failed - Rust may not be available"
-fi
+rustup default stable || echo "Warning: rustup default stable failed"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 eval "$(fnm env --use-on-cd)"
