@@ -148,7 +148,7 @@ brew --version
 node --version
 python3 --version
 go version
-rustc --version
+rustc --version || true
 
 java --version || true
 javac --version || true
