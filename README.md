@@ -52,6 +52,8 @@ dotfiles/
 ├── bootstrap/        # Java, macOS defaults
 ├── git/
 ├── go/
+├── cursor/
+│   └── cli-config.json  # Disable Cursor commit/PR attribution
 ├── shell/.zshrc      # Shell loader
 ├── config/zsh/       # Shell modules
 └── AGENTS.md         # AI tool guidelines

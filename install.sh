@@ -20,6 +20,9 @@ link "$DOTFILES/AGENTS.md" "$HOME/AGENTS.md"
 mkdir -p "$HOME/Library/Application Support/go"
 link "$DOTFILES/go/env" "$HOME/Library/Application Support/go/env"
 
+mkdir -p "$HOME/.cursor"
+link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
+
 git config --global include.path "$DOTFILES/git/gitconfig"
 
 echo "dotfiles installed"
