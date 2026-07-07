@@ -59,6 +59,8 @@ dotfiles/
 │   └── gitconfig     # Bitbucket SSH insteadOf for private Go modules
 ├── go/
 │   └── env           # GOPRIVATE for Amartha Bitbucket modules
+├── cursor/
+│   └── cli-config.json  # Disable Cursor commit/PR attribution
 ├── scripts/          # Bitbucket sync
 ├── shell/.zshrc      # Shell loader
 ├── config/zsh/       # Shell modules
