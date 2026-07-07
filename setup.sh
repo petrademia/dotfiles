@@ -92,6 +92,8 @@ done
 # Brew keg-only formulas - add to PATH for this script
 export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+export JAVA_HOME="/opt/homebrew/opt/openjdk"
 
 # Install Rust toolchain
 rustup default stable || echo "Warning: rustup default stable failed"
