@@ -3,6 +3,11 @@ set -euo pipefail
 
 echo "==> Applying macOS defaults"
 
+# Clear default dock icons
+if command -v dockutil >/dev/null 2>&1; then
+  dockutil --remove all >/dev/null 2>&1 || true
+fi
+
 # Dock
 defaults write com.apple.dock autohide -bool true
 defaults write com.apple.dock tilesize -int 48
