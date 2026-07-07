@@ -160,10 +160,8 @@ if [ ! -d "$DOTFILES" ]; then
   git clone https://github.com/petrademia/dotfiles.git "$DOTFILES"
 fi
 
-mkdir -p "$(dirname "$HOME/.zshrc")"
-ln -sfn "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
-mkdir -p "$HOME/.config"
-ln -sfn "$DOTFILES/config/zsh" "$HOME/.config/zsh"
+echo "==> Installing dotfiles symlinks"
+"$DOTFILES/install.sh"
 
 echo
 echo "=== Versions ==="
