@@ -28,9 +28,10 @@ PAGE=1
 while [ -n "$URL" ]; do
     echo "Fetching page $PAGE..."
 
-    RESPONSE=$(curl -s -u "$AUTH_CREDS" "$URL")
+    RESPONSE_FILE=$(mktemp)
+    curl -s -u "$AUTH_CREDS" "$URL" > "$RESPONSE_FILE"
 
-    jq -c '.values[]' <<< "$RESPONSE" | while read -r repo; do
+    jq -c '.values[]' < "$RESPONSE_FILE" | while read -r repo; do
         [ -z "$repo" ] || [ "$repo" = "null" ] && continue
 
         PROJECT_NAME=$(echo "$repo" | jq -r '.project.name // empty')
@@ -68,8 +69,9 @@ while [ -n "$URL" ]; do
     done
 
     # Get next page URL
-    URL=$(jq -r '.next // empty' <<< "$RESPONSE")
+    URL=$(jq -r '.next // empty' < "$RESPONSE_FILE")
     PAGE=$((PAGE + 1))
+    rm -f "$RESPONSE_FILE"
 done
 
 echo "Sync complete."
