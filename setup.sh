@@ -21,6 +21,7 @@ brew tap opencoworkai/tap
 brew trust opencoworkai/tap
 
 FORMULAS=(
+  dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip 1password-cli
   gradle maven plantuml kafka tmux ripgrep python
