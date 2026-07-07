@@ -25,7 +25,7 @@ FORMULAS=(
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip 1password-cli
   gradle maven plantuml kafka tmux ripgrep python
-  graphviz z3 zstd ngrok jenv
+  graphviz z3 zstd ngrok jenv mas
   charmbracelet/tap/crush
 )
 
@@ -38,6 +38,7 @@ CASKS=(
   1password
   alacritty
   codex
+  codex-app
   copilot-cli
   cursor
   deskflow
@@ -78,6 +79,7 @@ CASKS=(
   spotify
   monitorcontrol
   rectangle
+  scroll-reverser
   iina
   grandperspective
   omnidisksweeper
@@ -88,6 +90,21 @@ for cask in "${CASKS[@]}"; do
   echo "==> Installing cask: $cask"
   brew install --cask "$cask"
 done
+
+MAS_APPS=(
+  "1284863847 Unsplash Wallpapers"
+)
+
+if mas account >/dev/null 2>&1; then
+  for app in "${MAS_APPS[@]}"; do
+    app_id="${app%% *}"
+    app_name="${app#* }"
+    echo "==> Installing App Store app: $app_name"
+    mas install "$app_id"
+  done
+else
+  echo "==> Skipping App Store apps; sign in to the App Store, then run: mas install 1284863847"
+fi
 
 # Brew keg-only formulas - add to PATH for this script
 export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
