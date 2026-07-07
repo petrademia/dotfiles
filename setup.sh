@@ -89,7 +89,10 @@ for cask in "${CASKS[@]}"; do
   brew install --cask "$cask"
 done
 
-rustup default stable || true
+# Install Rust toolchain
+if ! rustup default stable; then
+    echo "Warning: rustup default stable failed - Rust may not be available"
+fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 eval "$(fnm env --use-on-cd)"
@@ -151,7 +154,7 @@ brew --version
 node --version
 python3 --version
 go version
-rustc --version
+rustc --version || echo "Warning: rustc not found - run 'rustup default stable' to install Rust"
 
 java --version || true
 javac --version || true
