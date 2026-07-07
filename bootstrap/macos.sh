@@ -13,8 +13,13 @@ killall Dock
 # Finder
 defaults write com.apple.finder ShowStatusBar -bool true
 defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
+defaults write com.apple.finder CreateDesktop -bool false
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 killall Finder
+
+# Menu bar - auto hide
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
 
 # Keyboard - faster repeat
 defaults write -g KeyRepeat -int 1
