@@ -29,7 +29,7 @@ while [ -n "$URL" ]; do
     echo "Fetching page $PAGE..."
 
     RESPONSE_FILE=$(mktemp)
-    curl -s -u "$AUTH_CREDS" "$URL" | tr -d '\000-\037' > "$RESPONSE_FILE"
+    curl -s -u "$AUTH_CREDS" "$URL" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)))" > "$RESPONSE_FILE"
 
     jq -c '.values[]' < "$RESPONSE_FILE" | while read -r repo; do
         [ -z "$repo" ] || [ "$repo" = "null" ] && continue
