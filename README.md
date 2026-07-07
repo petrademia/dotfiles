@@ -50,6 +50,8 @@ dotfiles/
 ├── setup.sh          # Full install
 ├── install.sh        # Symlinks only
 ├── bootstrap/        # Java, macOS defaults
+├── git/
+├── go/
 ├── shell/.zshrc      # Shell loader
 ├── config/zsh/       # Shell modules
 └── AGENTS.md         # AI tool guidelines
