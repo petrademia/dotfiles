@@ -50,6 +50,7 @@ CASKS=(
   librewolf
   libreoffice
   obsidian
+  osaurus
   openvpn-connect
   opencode-desktop
   opencoworkai/tap/open-codesign
