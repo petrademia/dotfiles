@@ -27,10 +27,10 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 ## macOS defaults
 
 ```bash
-~/dotfiles/bootstrap/macos.sh
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
 
-Run once or when needed. Restarts Dock/Finder. Sets: autohide, tilesize 48, Finder extensions, fast key repeat, tap-to-click, three-finger drag, screenshots folder, battery percentage.
+Clears default Dock icons, sets: autohide, tilesize 48, Finder list view, clean desktop, fast key repeat, tap-to-click, three-finger drag, screenshots folder, battery percentage.
 
 ## Manual installs
 
