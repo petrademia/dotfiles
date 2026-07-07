@@ -19,6 +19,8 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 ## What's included
 
 - Shell: zsh config, aliases, paths, AI key helper
+- Go: `GOPRIVATE` for Amartha Bitbucket modules
+- Git: Bitbucket SSH `insteadOf` for private Go module fetch
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, Codex app, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
@@ -53,6 +55,10 @@ dotfiles/
 ├── setup.sh          # Full install
 ├── install.sh        # Symlinks only
 ├── bootstrap/        # Java, macOS defaults
+├── git/
+│   └── gitconfig     # Bitbucket SSH insteadOf for private Go modules
+├── go/
+│   └── env           # GOPRIVATE for Amartha Bitbucket modules
 ├── scripts/          # Bitbucket sync
 ├── shell/.zshrc      # Shell loader
 ├── config/zsh/       # Shell modules
