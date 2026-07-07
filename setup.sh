@@ -89,6 +89,10 @@ for cask in "${CASKS[@]}"; do
   brew install --cask "$cask"
 done
 
+# Brew keg-only formulas - add to PATH for this script
+export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+
 # Install Rust toolchain
 rustup default stable || echo "Warning: rustup default stable failed"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
