@@ -30,7 +30,7 @@ while [ -n "$URL" ]; do
 
     RESPONSE=$(curl -s -u "$AUTH_CREDS" "$URL")
 
-    echo "$RESPONSE" | jq -c '.values[]' | while read -r repo; do
+    jq -c '.values[]' <<< "$RESPONSE" | while read -r repo; do
         [ -z "$repo" ] || [ "$repo" = "null" ] && continue
 
         PROJECT_NAME=$(echo "$repo" | jq -r '.project.name // empty')
@@ -68,7 +68,7 @@ while [ -n "$URL" ]; do
     done
 
     # Get next page URL
-    URL=$(echo "$RESPONSE" | jq -r '.next // empty')
+    URL=$(jq -r '.next // empty' <<< "$RESPONSE")
     PAGE=$((PAGE + 1))
 done
 
