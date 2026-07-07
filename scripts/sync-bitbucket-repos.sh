@@ -34,9 +34,9 @@ while [ -n "$URL" ]; do
     jq -c '.values[]' < "$RESPONSE_FILE" | while read -r repo; do
         [ -z "$repo" ] || [ "$repo" = "null" ] && continue
 
-        PROJECT_NAME=$(echo "$repo" | jq -r '.project.name // empty')
-        REPO_NAME=$(echo "$repo" | jq -r '.name // empty')
-        SSH_CLONE_URL=$(echo "$repo" | jq -r '.links.clone[] | select(.name=="ssh") | .href // empty')
+        PROJECT_NAME=$(jq -r '.project.name // empty' <<< "$repo")
+        REPO_NAME=$(jq -r '.name // empty' <<< "$repo")
+        SSH_CLONE_URL=$(jq -r '.links.clone[] | select(.name=="ssh") | .href // empty' <<< "$repo")
 
         [ -z "$PROJECT_NAME" ] || [ -z "$REPO_NAME" ] || [ -z "$SSH_CLONE_URL" ] && continue
 

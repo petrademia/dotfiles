@@ -144,11 +144,14 @@ ln -sfn "$DOTFILES/config/zsh" "$HOME/.config/zsh"
 echo
 echo "=== Versions ==="
 
+# Ensure cargo/bin is in PATH for rustc
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
 brew --version
 node --version
 python3 --version
 go version
-rustc --version || true
+rustc --version
 
 java --version || true
 javac --version || true
