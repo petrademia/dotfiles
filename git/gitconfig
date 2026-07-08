@@ -1,5 +1,6 @@
 [user]
 	name = Petrus Damianus Sammy Wiyadi
+	email = petrus.dsw@gmail.com
 
 [url "git@bitbucket.org:"]
 	insteadOf = https://bitbucket.org/
