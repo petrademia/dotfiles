@@ -20,7 +20,7 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 
 - Shell: zsh config, aliases, paths, AI key helper
 - Go: `GOPRIVATE` for Amartha Bitbucket modules
-- Git: Bitbucket SSH `insteadOf` for private Go module fetch
+- Git: Bitbucket SSH `insteadOf` for private Go module fetch; global hook strips Cursor commit trailers
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, Codex app, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
@@ -57,7 +57,8 @@ dotfiles/
 ├── bootstrap/        # Java, macOS defaults
 ├── git/
 │   ├── gitconfig         # Bitbucket insteadOf, name, Amartha includeIf
-│   └── amartha.gitconfig # Amartha email for ~/Amartha/ repos
+│   ├── amartha.gitconfig # Amartha email for ~/Amartha/ repos
+│   └── hooks/            # Global prepare-commit-msg (strips Cursor trailers)
 ├── go/
 │   └── env           # GOPRIVATE for Amartha Bitbucket modules
 ├── cursor/
