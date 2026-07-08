@@ -1,6 +1,7 @@
 alias cc='claude'
 alias ccr='claude --resume'
 alias cdc='cd ~/code'
+alias gcp='g++-16 -std=c++17 -O2 -Wall'
 alias neofetch='fastfetch'
 alias wiztree='open -a GrandPerspective'
 alias vim='nvim'
