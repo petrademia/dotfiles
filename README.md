@@ -24,7 +24,7 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, Codex app, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
-- Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica)
+- Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
 
 ## macOS defaults
 
@@ -33,6 +33,21 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/
 ```
 
 Clears default Dock icons, sets: autohide, tilesize 48, Finder list view, clean desktop, fast key repeat, tap-to-click, three-finger drag, screenshots folder, battery percentage.
+
+## Java bootstrap
+
+Not run by `setup.sh`. Requires Homebrew and `~/dotfiles` (from setup or manual clone).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java.sh | bash
+```
+
+Installs 20 JDK casks (Temurin, Zulu, Corretto, Liberica for 8/11/17/21/25) and writes `config/zsh/java.zsh` with a `java-use` helper. Reload shell, then switch JDKs:
+
+```bash
+java-use 21-temurin
+java-use 17-corretto
+```
 
 ## Manual installs
 
