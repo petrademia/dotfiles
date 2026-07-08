@@ -2,3 +2,6 @@
 	name = Petrus Damianus Sammy Wiyadi
 
 
+[url "git@github.com:"]
+	insteadOf = https://github.com/
+
