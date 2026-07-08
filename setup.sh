@@ -64,6 +64,7 @@ CASKS=(
   vlc
   warp
   wezterm
+  wispr-flow
   discord
   stremio
   localsend
@@ -119,6 +120,8 @@ rustup default stable || echo "Warning: rustup default stable failed"
 eval "$(fnm env --use-on-cd)"
 fnm use --install-if-missing lts-latest
 fnm default lts-latest
+
+npm install -g @z_ai/coding-helper || true
 
 curl -fsSL https://claude.ai/install.sh | bash
 [ -d "$HOME/.opencode" ] || curl -fsSL https://opencode.ai/install | bash
