@@ -51,6 +51,7 @@ dotfiles/
 ├── install.sh        # Symlinks only
 ├── bootstrap/        # Java, macOS defaults
 ├── git/
+│   └── hooks/            # Global prepare-commit-msg (strips Cursor trailers)
 ├── go/
 ├── cursor/
 │   └── cli-config.json  # Disable Cursor commit/PR attribution

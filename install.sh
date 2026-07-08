@@ -25,4 +25,7 @@ link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
 
 git config --global include.path "$DOTFILES/git/gitconfig"
 
+chmod +x "$DOTFILES/git/hooks/prepare-commit-msg"
+git config --global core.hooksPath "$DOTFILES/git/hooks"
+
 echo "dotfiles installed"
