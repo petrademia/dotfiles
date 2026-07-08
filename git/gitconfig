@@ -1,2 +1,8 @@
+[user]
+	name = Petrus Damianus Sammy Wiyadi
+
 [url "git@bitbucket.org:"]
 	insteadOf = https://bitbucket.org/
+
+[includeIf "gitdir:~/Amartha/"]
+	path = amartha.gitconfig

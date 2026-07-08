@@ -56,7 +56,8 @@ dotfiles/
 ├── install.sh        # Symlinks only
 ├── bootstrap/        # Java, macOS defaults
 ├── git/
-│   └── gitconfig     # Bitbucket SSH insteadOf for private Go modules
+│   ├── gitconfig         # Bitbucket insteadOf, name, Amartha includeIf
+│   └── amartha.gitconfig # Amartha email for ~/Amartha/ repos
 ├── go/
 │   └── env           # GOPRIVATE for Amartha Bitbucket modules
 ├── cursor/
