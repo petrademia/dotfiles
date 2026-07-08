@@ -39,6 +39,7 @@ Clears default Dock icons, sets: autohide, tilesize 48, Finder list view, clean 
 - Velja - [App Store](https://apps.apple.com/app/id1607635845)
 - JetBrains IDEs - via Toolbox
 - RTK - [GitHub releases](https://github.com/rtk-ai/rtk/releases)
+- Wavlink - no Homebrew package. Drivers depend on chipset (DisplayLink, Silicon Motion InstantView, Realtek, etc.). Download for your model from [Wavlink Drivers](https://www.wavlink.com/en_us/Drivers.html). DisplayLink itself is installed by `setup.sh` via `brew install --cask displaylink` (reboot required).
 
 ## Bitbucket sync
 
