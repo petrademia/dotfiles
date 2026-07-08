@@ -42,6 +42,7 @@ CASKS=(
   copilot-cli
   cursor
   deskflow
+  displaylink
   ghostty
   herd
   helium-browser
@@ -196,3 +197,7 @@ echo "✅ Setup complete!"
 echo
 echo "Restart your terminal or run:"
 echo "source ~/.zshrc"
+echo
+echo "Manual follow-ups:"
+echo "  - DisplayLink: reboot so the driver takes effect"
+echo "  - Wavlink: no brew package - install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
