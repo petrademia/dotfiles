@@ -49,6 +49,7 @@ CASKS=(
   hyper
   iterm2
   kitty
+  keka
   librewolf
   libreoffice
   obsidian
@@ -69,6 +70,7 @@ CASKS=(
   discord
   stremio
   localsend
+  macpacker
   brave-browser
   firefox@developer-edition
   floorp
