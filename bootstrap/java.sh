@@ -3,8 +3,8 @@ set -euo pipefail
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-brew tap homebrew/cask-versions
 brew tap bell-sw/liberica
+brew trust bell-sw/liberica
 
 JAVA_CASKS=(
   temurin@8
