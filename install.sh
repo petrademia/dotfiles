@@ -23,6 +23,18 @@ link "$DOTFILES/go/env" "$HOME/Library/Application Support/go/env"
 mkdir -p "$HOME/.cursor"
 link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
 
+mkdir -p "$HOME/.cursor/commands"
+mkdir -p "$HOME/.claude/commands"
+mkdir -p "$HOME/.zai/commands"
+mkdir -p "$HOME/.gemini/commands"
+mkdir -p "$HOME/.codex/skills"
+
+link "$DOTFILES/ai/commands/grammar.md" "$HOME/.cursor/commands/grammar.md"
+link "$DOTFILES/ai/commands/grammar.md" "$HOME/.claude/commands/grammar.md"
+link "$DOTFILES/ai/commands/grammar.md" "$HOME/.zai/commands/grammar.md"
+link "$DOTFILES/ai/gemini/grammar.toml" "$HOME/.gemini/commands/grammar.toml"
+link "$DOTFILES/ai/codex/grammar" "$HOME/.codex/skills/grammar"
+
 git config --global include.path "$DOTFILES/git/gitconfig"
 
 chmod +x "$DOTFILES/git/hooks/prepare-commit-msg"
