@@ -22,6 +22,7 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 - Go: `GOPRIVATE` for Amartha Bitbucket modules
 - Git: Bitbucket SSH `insteadOf` for private Go module fetch; global hook strips Cursor commit trailers
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
+- AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, Codex app, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
 - Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
@@ -64,6 +65,21 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sy
 
 Requires 1Password item "Amartha Bitbucket" with username/password.
 
+## AI commands
+
+Installed by `install.sh` as symlinks from `ai/`:
+
+| Tool | Path | Invoke |
+|---|---|---|
+| Cursor | `~/.cursor/commands/grammar.md` | `/grammar your prompt here` |
+| Claude Code | `~/.claude/commands/grammar.md` | `/grammar your prompt here` |
+| Copilot CLI | `~/.claude/commands/grammar.md` | `/grammar your prompt here` |
+| Zai | `~/.zai/commands/grammar.md` | `/grammar your prompt here` |
+| Gemini CLI | `~/.gemini/commands/grammar.toml` | `/grammar your prompt here` |
+| Codex | `~/.codex/skills/grammar/SKILL.md` | invoke the `grammar` skill |
+
+Canonical Markdown source: `ai/commands/grammar.md`. Gemini uses `ai/gemini/grammar.toml` (`{{args}}`). Codex uses `ai/codex/grammar/SKILL.md`.
+
 ## Structure
 
 ```
@@ -79,6 +95,10 @@ dotfiles/
 │   └── env           # GOPRIVATE for Amartha Bitbucket modules
 ├── cursor/
 │   └── cli-config.json  # Disable Cursor commit/PR attribution
+├── ai/
+│   ├── commands/        # Shared slash commands (Markdown)
+│   ├── gemini/          # Gemini TOML commands
+│   └── codex/           # Codex skills
 ├── scripts/          # Bitbucket sync
 ├── shell/.zshrc      # Shell loader
 ├── config/zsh/       # Shell modules
