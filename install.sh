@@ -14,6 +14,7 @@ link() {
 
 link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
 link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
+link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
 link "$DOTFILES/claude/RTK.md" "$HOME/.claude/RTK.md"
 link "$DOTFILES/AGENTS.md" "$HOME/AGENTS.md"
 

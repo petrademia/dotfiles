@@ -24,7 +24,7 @@ FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip 1password-cli
-  gradle maven plantuml kafka tmux ripgrep python
+  gradle maven plantuml kafka tmux ripgrep python neovim
   graphviz z3 zstd ngrok jenv mas
   charmbracelet/tap/crush
 )
