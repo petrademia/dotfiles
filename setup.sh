@@ -74,7 +74,11 @@ CASKS=(
   brave-browser
   firefox@developer-edition
   floorp
+  google-chrome
+  google-chrome@beta
+  google-chrome@canary
   microsoft-edge
+  mullvad-browser
   vivaldi
   vivaldi@snapshot
   opera
