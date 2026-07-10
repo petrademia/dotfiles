@@ -20,9 +20,9 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 
 - Shell: zsh config, aliases, paths, AI key helper, neovim
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
-- AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex
+- AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
-- Apps: 1Password, Brave, Codex app, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
+- Apps: 1Password, Brave, ChatGPT, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
 - Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
 
 ## macOS defaults
@@ -71,9 +71,9 @@ Installed by `install.sh` as symlinks from `ai/`:
 | Copilot CLI | `~/.claude/commands/grammar.md` | `/grammar your prompt here` |
 | Zai | `~/.zai/commands/grammar.md` | `/grammar your prompt here` |
 | Gemini CLI | `~/.gemini/commands/grammar.toml` | `/grammar your prompt here` |
-| Codex | `~/.codex/skills/grammar/SKILL.md` | invoke the `grammar` skill |
+| Codex CLI / ChatGPT app | `~/.agents/skills/grammar/SKILL.md` | invoke the `grammar` skill |
 
-Canonical Markdown source: `ai/commands/grammar.md`. Gemini uses `ai/gemini/grammar.toml` (`{{args}}`). Codex uses `ai/codex/grammar/SKILL.md`.
+Canonical Markdown source: `ai/commands/grammar.md`. Gemini uses `ai/gemini/grammar.toml` (`{{args}}`). Codex/ChatGPT uses `ai/codex/grammar/SKILL.md` (also symlinked to legacy `~/.codex/skills/grammar`).
 
 ## Structure
 
@@ -90,7 +90,7 @@ dotfiles/
 ├── ai/
 │   ├── commands/        # Shared slash commands (Markdown)
 │   ├── gemini/          # Gemini TOML commands
-│   └── codex/           # Codex skills
+│   └── codex/           # Codex/ChatGPT agent skills (SKILL.md)
 ├── shell/.zshrc      # Shell loader
 ├── config/zsh/       # Shell modules
 ├── config/nvim/      # Neovim config

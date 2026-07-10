@@ -38,7 +38,7 @@ CASKS=(
   1password
   alacritty
   codex
-  codex-app
+  chatgpt
   copilot-cli
   cursor
   deskflow
