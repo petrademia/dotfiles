@@ -81,6 +81,7 @@ CASKS=(
   mullvad-browser
   vivaldi
   vivaldi@snapshot
+  waterfox
   opera
   visual-studio-code
   jetbrains-toolbox
