@@ -132,6 +132,9 @@ fnm default lts-latest
 
 npm install -g @z_ai/coding-helper || true
 
+npm install -g playwright || true
+playwright install || true
+
 curl -fsSL https://claude.ai/install.sh | bash
 [ -d "$HOME/.opencode" ] || curl -fsSL https://opencode.ai/install | bash
 uv tool install zai-cli --python 3 || true
