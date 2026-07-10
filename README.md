@@ -22,7 +22,7 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 - Go: `GOPRIVATE` for Amartha Bitbucket modules
 - Git: Bitbucket SSH `insteadOf` for private Go module fetch; global hook strips Cursor commit trailers
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
-- AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT
+- AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, ChatGPT, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
 - Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
@@ -79,6 +79,21 @@ Installed by `install.sh` as symlinks from `ai/`:
 | Codex CLI / ChatGPT app | `~/.agents/skills/grammar/SKILL.md` | invoke the `grammar` skill |
 
 Canonical Markdown source: `ai/commands/grammar.md`. Gemini uses `ai/gemini/grammar.toml` (`{{args}}`). Codex/ChatGPT uses `ai/codex/grammar/SKILL.md` (also symlinked to legacy `~/.codex/skills/grammar`).
+
+## AI plugins (caveman, ponytail)
+
+`setup.sh` installs these for both **Claude Code** and **Codex / ChatGPT app** (separate plugin systems).
+
+After setup, restart the ChatGPT app and start a new thread. For ponytail, open `/hooks` in Codex mode and trust its lifecycle hooks.
+
+Manual Codex install:
+
+```bash
+codex plugin marketplace add JuliusBrussee/caveman
+codex plugin marketplace add DietrichGebert/ponytail
+codex plugin add caveman@caveman
+codex plugin add ponytail@ponytail
+```
 
 ## Structure
 
