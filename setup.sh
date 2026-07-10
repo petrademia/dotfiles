@@ -144,6 +144,19 @@ claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/
 claude plugin install caveman 2>/dev/null || echo "Note: caveman plugin install failed - may need manual install"
 claude plugin install ponytail 2>/dev/null || echo "Note: ponytail plugin install failed - may need manual install"
 
+# Install Codex / ChatGPT app plugins (separate from Claude Code)
+if command -v codex >/dev/null 2>&1; then
+  echo "==> Installing Codex / ChatGPT plugins"
+  codex plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
+  codex plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
+  codex plugin add caveman@caveman 2>/dev/null || echo "Note: caveman Codex plugin install failed - may need manual install"
+  codex plugin add ponytail@ponytail 2>/dev/null || echo "Note: ponytail Codex plugin install failed - may need manual install"
+  echo "Restart the ChatGPT app and start a new thread to use caveman/ponytail"
+  echo "For ponytail: open /hooks in Codex and trust its lifecycle hooks"
+else
+  echo "==> Skipping Codex plugins; install codex cask first"
+fi
+
 # Install RTK
 if ! command -v rtk >/dev/null 2>&1; then
   echo "==> Installing RTK"
