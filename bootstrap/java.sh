@@ -3,6 +3,11 @@ set -euo pipefail
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
+# JDK 8 casks are Intel-only and need Rosetta 2 on Apple Silicon
+if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
+  softwareupdate --install-rosetta --agree-to-license || true
+fi
+
 brew tap bell-sw/liberica
 brew trust bell-sw/liberica
 
