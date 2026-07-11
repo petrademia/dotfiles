@@ -22,7 +22,7 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 - Go: `GOPRIVATE` for Amartha Bitbucket modules
 - Git: Bitbucket SSH `insteadOf` for private Go module fetch; global hook strips Cursor commit trailers
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
-- AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
+- AI: `/grammar` and `/leetcode` slash commands for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, ChatGPT (Classic), Codex (new unified ChatGPT desktop app), Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
 - Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
@@ -71,14 +71,17 @@ Installed by `install.sh` as symlinks from `ai/`:
 
 | Tool | Path | Invoke |
 |---|---|---|
-| Cursor | `~/.cursor/commands/grammar.md` | `/grammar your prompt here` |
-| Claude Code | `~/.claude/commands/grammar.md` | `/grammar your prompt here` |
-| Copilot CLI | `~/.claude/commands/grammar.md` | `/grammar your prompt here` |
-| Zai | `~/.zai/commands/grammar.md` | `/grammar your prompt here` |
-| Gemini CLI | `~/.gemini/commands/grammar.toml` | `/grammar your prompt here` |
-| Codex CLI / ChatGPT app | `~/.agents/skills/grammar/SKILL.md` | invoke the `grammar` skill |
+| Cursor | `~/.cursor/commands/{grammar,leetcode}.md` | `/grammar ...`, `/leetcode ...` |
+| Claude Code | `~/.claude/commands/{grammar,leetcode}.md` | `/grammar ...`, `/leetcode ...` |
+| Copilot CLI | `~/.claude/commands/{grammar,leetcode}.md` | `/grammar ...`, `/leetcode ...` |
+| Zai | `~/.zai/commands/{grammar,leetcode}.md` | `/grammar ...`, `/leetcode ...` |
+| Gemini CLI | `~/.gemini/commands/{grammar,leetcode}.toml` | `/grammar ...`, `/leetcode ...` |
+| Codex CLI / ChatGPT app | `~/.agents/skills/{grammar,leetcode}/SKILL.md` | invoke the `grammar` / `leetcode` skill |
 
-Canonical Markdown source: `ai/commands/grammar.md`. Gemini uses `ai/gemini/grammar.toml` (`{{args}}`). Codex/ChatGPT uses `ai/codex/grammar/SKILL.md` (also symlinked to legacy `~/.codex/skills/grammar`).
+- `/grammar` - checks grammar, then executes your prompt.
+- `/leetcode` - a coach that guides you to the solution with progressive hints instead of dumping the answer.
+
+Canonical Markdown source: `ai/commands/*.md`. Gemini uses `ai/gemini/*.toml` (`{{args}}`). Codex/ChatGPT uses `ai/codex/<name>/SKILL.md` (also symlinked to legacy `~/.codex/skills/`).
 
 ## AI plugins (caveman, ponytail)
 
