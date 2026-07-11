@@ -24,7 +24,7 @@ git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
 - Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
 - AI: `/grammar` slash command for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
-- Apps: 1Password, Brave, ChatGPT, Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
+- Apps: 1Password, Brave, ChatGPT (Classic), Codex (new unified ChatGPT desktop app), Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
 - Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
 
 ## macOS defaults
