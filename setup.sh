@@ -37,6 +37,7 @@ done
 CASKS=(
   1password
   alacritty
+  appcleaner
   codex
   chatgpt
   copilot-cli
