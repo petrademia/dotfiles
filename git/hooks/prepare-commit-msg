@@ -1,9 +1,17 @@
 #!/bin/sh
-# Strip Cursor attribution trailers before a commit is finalized.
+# Strip AI agent attribution trailers before a commit is finalized.
 
 MSG_FILE="$1"
 [ -f "$MSG_FILE" ] || exit 0
 
-tmp="${MSG_FILE}.cursor-strip.$$"
-grep -v -E '^(Co-authored-by: Cursor( Agent)? <cursoragent@cursor.com>|Co-authored-by: Cursor|Made-with: Cursor|Made with Cursor)$' \
+tmp="${MSG_FILE}.ai-strip.$$"
+grep -v -i -E \
+  -e '^Co-authored-by: Cursor( Agent)? <cursoragent@cursor\.com>$' \
+  -e '^Co-authored-by: Cursor' \
+  -e '^Made-with: Cursor$' \
+  -e '^Made with Cursor$' \
+  -e '^Co-authored-by: Claude( Code)? <.*>$' \
+  -e '^Co-authored-by: Claude' \
+  -e '.*Generated with \[Claude Code\]' \
+  -e '.*🤖 Generated with' \
   "$MSG_FILE" > "$tmp" && mv "$tmp" "$MSG_FILE"
