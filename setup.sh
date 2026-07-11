@@ -44,6 +44,7 @@ CASKS=(
   appcleaner
   codex
   chatgpt
+  codex-app
   copilot-cli
   cursor
   deskflow
