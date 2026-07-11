@@ -4,6 +4,10 @@ set -e
 
 xcode-select -p >/dev/null 2>&1 || xcode-select --install
 
+if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
+  softwareupdate --install-rosetta --agree-to-license || true
+fi
+
 if ! command -v brew >/dev/null 2>&1; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
