@@ -38,6 +38,13 @@ link "$DOTFILES/ai/gemini/grammar.toml" "$HOME/.gemini/commands/grammar.toml"
 link "$DOTFILES/ai/codex/grammar" "$HOME/.agents/skills/grammar"
 link "$DOTFILES/ai/codex/grammar" "$HOME/.codex/skills/grammar"
 
+link "$DOTFILES/ai/commands/leetcode.md" "$HOME/.cursor/commands/leetcode.md"
+link "$DOTFILES/ai/commands/leetcode.md" "$HOME/.claude/commands/leetcode.md"
+link "$DOTFILES/ai/commands/leetcode.md" "$HOME/.zai/commands/leetcode.md"
+link "$DOTFILES/ai/gemini/leetcode.toml" "$HOME/.gemini/commands/leetcode.toml"
+link "$DOTFILES/ai/codex/leetcode" "$HOME/.agents/skills/leetcode"
+link "$DOTFILES/ai/codex/leetcode" "$HOME/.codex/skills/leetcode"
+
 git config --global include.path "$DOTFILES/git/gitconfig"
 
 chmod +x "$DOTFILES/git/hooks/prepare-commit-msg"

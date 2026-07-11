@@ -42,6 +42,7 @@ CASKS=(
   1password
   alacritty
   appcleaner
+  claude
   codex
   chatgpt
   codex-app
