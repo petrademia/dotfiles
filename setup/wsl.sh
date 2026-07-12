@@ -64,7 +64,7 @@ fi
 . "$HOME/.local/bin/env" 2>/dev/null || true
 uv python install 3 --default
 
-echo "==> 6) SDKMAN!, Java & xmake"
+echo "==> 6) SDKMAN!, gradle & xmake"
 if [ ! -d "$HOME/.sdkman" ]; then
     export sdkman_auto_answer=true
     curl -s "https://get.sdkman.io?rcupdate=false" | bash
@@ -72,8 +72,8 @@ fi
 set +u
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
 set -u
-sdk install java 21.0.5-tem </dev/null 2>/dev/null || echo "[-] JDK install via sdkman skipped"
 sdk install gradle </dev/null 2>/dev/null || echo "[-] gradle via sdkman skipped"
+echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
 
 if ! smart_check "xmake" "$HOME/.xmake/bin/xmake"; then
     curl -fsSL https://xmake.io/shget.text | bash
@@ -193,6 +193,25 @@ get-keys() {
   export ANTHROPIC_API_KEY=$(op read "op://Private/Anthropic/credential")
   export GEMINI_API_KEY=$(op read "op://Private/Gemini/credential")
   echo "🔑 AI keys loaded."
+}
+
+java-use() {
+  local spec="${1:-}" major vendor suffix id
+  case "$spec" in
+    (*-*) major="${spec%%-*}"; vendor="${spec#*-}" ;;
+    (*) echo "Usage: java-use <version>-<temurin|zulu|corretto|liberica|microsoft>"; return 1 ;;
+  esac
+  case "$vendor" in
+    (temurin) suffix=tem ;;
+    (zulu) suffix=zulu ;;
+    (corretto) suffix=amzn ;;
+    (liberica) suffix=librca ;;
+    (microsoft) suffix=ms ;;
+    (*) echo "Unknown vendor: $vendor"; return 1 ;;
+  esac
+  id="$(ls -1 "$HOME/.sdkman/candidates/java" 2>/dev/null | grep -E "^${major}[.-].*-${suffix}$" | sort -V | tail -1)"
+  [ -z "$id" ] && { echo "No installed JDK for $spec (run bootstrap/java-wsl.sh)"; return 1; }
+  sdk use java "$id"
 }
 
 command -v fnm >/dev/null 2>&1 && eval "$(fnm env --use-on-cd)"
