@@ -47,19 +47,10 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     uv python install 3 --default
 }
 
-# --- 4. The Precision Java Matrix ---
-Write-Host "☕ Checking Java Matrix..." -ForegroundColor Cyan
-$ltsVersions = @("11", "17", "21", "25")
-$installedList = scoop export
-
-foreach ($v in $ltsVersions) {
-    $standardPkgs = @("temurin$v-jdk", "corretto$v-jdk", "zulu$v-jdk", "liberica$v-jdk")
-    foreach ($p in $standardPkgs) {
-        if (!($installedList -like "*$p*")) { & scoop install $p 2>$null }
-    }
-    $msName = if ($v -eq "25") { "microsoft-jdk" } else { "microsoft$v-jdk" }
-    if (!($installedList -like "*$msName*")) { & scoop install $msName 2>$null }
-}
+# --- 4. Default JDK (full matrix lives in bootstrap/java-windows.ps1) ---
+Write-Host "☕ Installing default JDK (Temurin 21)..." -ForegroundColor Cyan
+if (!(scoop bucket list | Select-String "java")) { scoop bucket add java }
+Smart-Scoop "temurin21-jdk"
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
 Write-Host "📦 Checking Winget Apps..." -ForegroundColor Cyan

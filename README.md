@@ -37,7 +37,7 @@ cd ~/dotfiles
 - AI: `/grammar` and `/leetcode` slash commands for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, ChatGPT (Classic), Codex (new unified ChatGPT desktop app), Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
-- Java bootstrap: 20 JDKs (Temurin, Zulu, Corretto, Liberica) - see below
+- Java bootstrap: synced JDK matrix across macOS / WSL / Windows (Temurin, Zulu, Corretto, Liberica, Microsoft) - see below
 
 ## macOS defaults
 
@@ -49,17 +49,26 @@ Clears default Dock icons, sets: autohide, tilesize 48, Finder list view, clean 
 
 ## Java bootstrap
 
-Not run by `setup.sh`. Requires Homebrew and `~/dotfiles` (from setup or manual clone).
+Not run by `setup.sh` (heavy). Installs the same vendor/version matrix on each OS via that OS's package manager: **Temurin, Zulu, Corretto, Liberica** for 8/11/17/21/25, plus **Microsoft** for 11/17/21/25 (Microsoft ships no Java 8). That's 24 JDKs per platform.
+
+| OS | Command | Manager | Switcher |
+|---|---|---|---|
+| macOS | `bootstrap/java-macos.sh` | Homebrew casks | `java-use 21-temurin` |
+| WSL | `bootstrap/java-wsl.sh` | SDKMAN | `java-use 21-temurin` |
+| Windows | `bootstrap/java-windows.ps1` | Scoop | `jv temurin21-jdk` |
+
+macOS example (requires Homebrew and `~/dotfiles`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java.sh | bash
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-macos.sh | bash
 ```
 
-Installs 20 JDK casks (Temurin, Zulu, Corretto, Liberica for 8/11/17/21/25) and writes `config/zsh/java.zsh` with a `java-use` helper. Reload shell, then switch JDKs:
+`java-macos.sh` writes `config/zsh/java.zsh` with the `java-use` helper. WSL's `java-use` resolves installed SDKMAN identifiers; `setup/wsl.sh` installs a default JDK path via apt/SDKMAN, and Windows `setup.ps1` installs a single Temurin 21 by default. Reload the shell, then switch:
 
 ```bash
 java-use 21-temurin
-java-use 17-corretto
+java-use 21-microsoft   # macOS / WSL
+jv temurin21-jdk        # Windows
 ```
 
 ## Manual installs
@@ -137,7 +146,7 @@ dotfiles/
 │   ├── wsl.sh            # apt stack mirroring macOS + Windows bridges
 │   └── windows.ps1       # Windows setup (PowerShell)
 ├── install.sh        # Symlinks only (OS-aware paths)
-├── bootstrap/        # Java, macOS defaults
+├── bootstrap/        # java-macos.sh, java-wsl.sh, java-windows.ps1, macos.sh, browser-extensions.sh
 ├── git/
 │   ├── gitconfig         # Bitbucket insteadOf, name, Amartha includeIf
 │   ├── amartha.gitconfig # Amartha email for ~/Amartha/ repos
