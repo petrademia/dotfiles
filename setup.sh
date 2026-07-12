@@ -65,8 +65,10 @@ CASKS=(
   opencode-desktop
   opencoworkai/tap/open-codesign
   postman
+  qbittorrent
   rio
   slack
+  transmission
   surfshark
   tabby
   ungoogled-chromium
