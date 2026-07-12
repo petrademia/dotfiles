@@ -50,6 +50,7 @@ CASKS=(
   cursor
   deskflow
   displaylink
+  dockdoor
   ghostty
   herd
   helium-browser
