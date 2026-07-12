@@ -74,6 +74,7 @@ CASKS=(
   ungoogled-chromium
   vlc
   warp
+  whatsapp
   wezterm
   wispr-flow
   discord
