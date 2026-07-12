@@ -2,18 +2,30 @@
 
 ## Install
 
+`setup.sh` is an OS dispatcher: it detects the platform and runs the matching
+script in `setup/` (`macos.sh`, `wsl.sh`). Windows uses `setup/windows.ps1`.
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -o setup.sh
-zsh setup.sh
+bash setup.sh
 ```
 
-Requires sudo for first-time Homebrew install.
+Run standalone, it clones the repo to `~/dotfiles` and dispatches from there.
+Requires sudo for first-time Homebrew (macOS) / apt (WSL) installs.
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
+```
 
 ## Manual install
 
 ```bash
 git clone https://github.com/petrademia/dotfiles.git ~/dotfiles
-~/dotfiles/install.sh
+cd ~/dotfiles
+./setup.sh          # full install (OS-detected)
+./install.sh        # symlinks only (OS-aware paths)
 ```
 
 ## What's included
@@ -119,8 +131,12 @@ codex plugin add ponytail@ponytail
 
 ```
 dotfiles/
-├── setup.sh          # Full install
-├── install.sh        # Symlinks only
+├── setup.sh          # OS dispatcher (detects macOS / WSL)
+├── setup/
+│   ├── macos.sh          # Homebrew stack, AI tools, plugins, RTK
+│   ├── wsl.sh            # apt stack mirroring macOS + Windows bridges
+│   └── windows.ps1       # Windows setup (PowerShell)
+├── install.sh        # Symlinks only (OS-aware paths)
 ├── bootstrap/        # Java, macOS defaults
 ├── git/
 │   ├── gitconfig         # Bitbucket insteadOf, name, Amartha includeIf
