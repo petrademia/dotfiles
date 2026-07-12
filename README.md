@@ -65,6 +65,23 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sy
 
 Requires 1Password item "Amartha Bitbucket" with username/password.
 
+## Browser extensions
+
+Browsers block silent extension installs by design, so this is a helper - not part of `setup.sh`. It opens the correct store page for each extension in the browsers you pick (click "Add" on each), auto-selecting the right uBlock variant per engine.
+
+```bash
+bootstrap/browser-extensions.sh                 # default: Chrome, Brave, Firefox, Edge
+bootstrap/browser-extensions.sh all             # every installed supported browser
+bootstrap/browser-extensions.sh "Google Chrome" "Firefox"
+```
+
+Extensions: uBlock Origin (Lite on Chromium, full on Firefox/Brave), 1Password, Free Download Manager.
+
+- Full uBlock Origin no longer works on Chrome (Manifest V2 removed) - Chromium browsers get uBlock Origin **Lite**.
+- Firefox/Brave get full uBlock Origin; LibreWolf and Mullvad usually ship it preinstalled.
+- 1Password and FDM extensions require their desktop apps to function.
+- For the least effort long-term, just use each browser's account sync.
+
 ## AI commands
 
 Installed by `install.sh` as symlinks from `ai/`:
