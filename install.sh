@@ -18,8 +18,12 @@ link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
 link "$DOTFILES/claude/RTK.md" "$HOME/.claude/RTK.md"
 link "$DOTFILES/AGENTS.md" "$HOME/AGENTS.md"
 
-mkdir -p "$HOME/Library/Application Support/go"
-link "$DOTFILES/go/env" "$HOME/Library/Application Support/go/env"
+case "$(uname -s)" in
+  Darwin) GO_ENV_DIR="$HOME/Library/Application Support/go" ;;
+  *) GO_ENV_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/go" ;;
+esac
+mkdir -p "$GO_ENV_DIR"
+link "$DOTFILES/go/env" "$GO_ENV_DIR/env"
 
 mkdir -p "$HOME/.cursor"
 link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
