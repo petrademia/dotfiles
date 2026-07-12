@@ -80,15 +80,22 @@ foreach ($app in $wingetApps) {
     }
 }
 
-# --- 5b. ChatGPT Desktop App (Microsoft Store) ---
-Write-Host "💬 Checking ChatGPT desktop app..." -ForegroundColor Cyan
-$chatgptId = "9NT1R1C2HH7J"
-$chatgptCheck = winget list --id $chatgptId --source msstore 2>$null
-if ($null -eq $chatgptCheck -or $chatgptCheck -match "No installed package found") {
-    Write-Host "[+] Installing ChatGPT desktop app..." -ForegroundColor Cyan
-    winget install --id $chatgptId --source msstore --accept-package-agreements --accept-source-agreements --silent
-} else {
-    Write-Host "[-] ChatGPT desktop app is already installed." -ForegroundColor Gray
+# --- 5b. OpenAI Desktop Apps (Microsoft Store) ---
+# 9PLM9XGG6VKS = new unified ChatGPT/Codex app (Chat+Work+Codex); 9NT1R1C2HH7J = ChatGPT Classic
+Write-Host "💬 Checking OpenAI desktop apps..." -ForegroundColor Cyan
+$msStoreApps = [ordered]@{
+    "9PLM9XGG6VKS" = "ChatGPT (unified Codex app)"
+    "9NT1R1C2HH7J" = "ChatGPT Classic"
+}
+foreach ($id in $msStoreApps.Keys) {
+    $name = $msStoreApps[$id]
+    $check = winget list --id $id --source msstore 2>$null
+    if ($null -eq $check -or $check -match "No installed package found") {
+        Write-Host "[+] Installing $name..." -ForegroundColor Cyan
+        winget install --id $id --source msstore --accept-package-agreements --accept-source-agreements --silent
+    } else {
+        Write-Host "[-] $name is already installed." -ForegroundColor Gray
+    }
 }
 
 # --- 6. Go Environment (GoLand GOROOT Fix) ---
