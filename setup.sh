@@ -83,6 +83,7 @@ CASKS=(
   brave-browser
   firefox@developer-edition
   floorp
+  free-download-manager
   google-chrome
   google-chrome@beta
   google-chrome@canary
