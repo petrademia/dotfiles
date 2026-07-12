@@ -150,6 +150,10 @@ curl -fsSL https://claude.ai/install.sh | bash
 uv tool install zai-cli --python 3 || true
 uv tool install graphifyy --python 3 || true
 
+if command -v gh >/dev/null 2>&1; then
+  gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
+fi
+
 echo "==> Installing Claude Code plugins"
 claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>/dev/null || true
 claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true

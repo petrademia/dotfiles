@@ -175,7 +175,7 @@ if (!(Get-Command claude -ErrorAction SilentlyContinue)) { irm https://claude.ai
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "📦 Installing Node-based AI Agents..." -ForegroundColor Cyan
-    npm install -g @openai/codex @z_ai/coding-helper opencode-ai playwright --silent
+    npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot playwright --silent
     npx playwright install chromium
 }
 

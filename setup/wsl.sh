@@ -114,6 +114,7 @@ uv tool install graphifyy --python 3 || true
 npm install -g playwright || true
 npx playwright install chromium || true
 
+npm install -g @github/copilot || true
 if command -v gh >/dev/null 2>&1; then
     gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
 fi
