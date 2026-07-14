@@ -31,7 +31,6 @@ cd ~/dotfiles
 ## What's included
 
 - Shell: zsh config, aliases, paths, AI key helper, neovim
-- Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
 - AI: `/grammar` and `/leetcode` slash commands for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, ChatGPT (Classic), Codex (new unified ChatGPT desktop app), Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
@@ -75,6 +74,16 @@ jv temurin21-jdk        # Windows
 - JetBrains IDEs - via Toolbox
 - RTK - [GitHub releases](https://github.com/rtk-ai/rtk/releases)
 - Wavlink - no Homebrew package. Drivers depend on chipset (DisplayLink, Silicon Motion InstantView, Realtek, etc.). Download for your model from [Wavlink Drivers](https://www.wavlink.com/en_us/Drivers.html). DisplayLink itself is installed by `setup.sh` via `brew install --cask displaylink` (reboot required).
+
+
+`setup/macos.sh` installs:
+
+- **`gh`** (Homebrew) - GitHub CLI + `gh-copilot` extension
+
+```bash
+gh auth login
+```
+
 
 
 ```bash

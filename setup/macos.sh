@@ -24,6 +24,9 @@ brew trust deskflow/tap
 brew tap opencoworkai/tap
 brew trust opencoworkai/tap
 
+brew tap omar16100/atlassian-cli
+brew trust omar16100/atlassian-cli
+
 FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
@@ -31,6 +34,7 @@ FORMULAS=(
   gradle maven plantuml kafka tmux ripgrep python neovim
   graphviz z3 zstd ngrok jenv mas opencode
   charmbracelet/tap/crush
+  omar16100/atlassian-cli/atlassian-cli
 )
 
 for formula in "${FORMULAS[@]}"; do
@@ -220,6 +224,7 @@ gradle --version || true
 
 git --version
 gh --version
+atlassian-cli --version || true
 
 op --version || true
 codex --version || true
