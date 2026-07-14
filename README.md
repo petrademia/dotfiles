@@ -45,7 +45,7 @@ cd ~/dotfiles
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
 
-Clears default Dock icons, sets: autohide, tilesize 48, Finder list view, clean desktop, fast key repeat, tap-to-click, three-finger drag, screenshots folder, battery percentage.
+Clears default Dock icons, sets: autohide, tilesize 48, Finder list view (also clears `~/**/.DS_Store` so per-folder views stop overriding the default), clean desktop, fast key repeat, tap-to-click, three-finger drag, screenshots folder, battery percentage.
 
 ## Java bootstrap
 

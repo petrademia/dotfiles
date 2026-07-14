@@ -31,6 +31,14 @@ defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
 defaults write com.apple.finder CreateDesktop -bool false
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 
+# Per-folder views live in .DS_Store and override FXPreferredViewStyle.
+# Clear them under $HOME only (never system-wide) so list view actually sticks.
+echo "--> Clearing Finder per-folder view memory (~/.DS_Store under \$HOME)"
+find "$HOME" -name .DS_Store -type f -delete 2>/dev/null || true
+# Special locations (iCloud / Recents) keep separate icon-biased settings
+defaults delete com.apple.finder ICloudViewSettings 2>/dev/null || true
+defaults delete com.apple.finder SearchRecentsViewSettings 2>/dev/null || true
+
 # ==========================================
 # Menu Bar
 # ==========================================
