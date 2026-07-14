@@ -20,9 +20,14 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/
 
 ~24 JDKs (Temurin, Zulu, Corretto, Liberica 8–25; Microsoft 11–25). Not part of `setup.sh`.
 
+macOS (download then run - needs a TTY for sudo `.pkg` passwords; `curl | bash` looks stuck):
+
 ```bash
-# macOS
-curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-macos.sh | bash
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-macos.sh -o /tmp/java-macos.sh
+bash /tmp/java-macos.sh
+```
+
+```bash
 # WSL
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-wsl.sh | bash
 # Windows

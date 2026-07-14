@@ -1,7 +1,19 @@
 #!/bin/bash
 # macOS Java matrix - Temurin/Zulu/Corretto/Liberica 8-25 + Microsoft 11-25
-# Usage: curl -fsSL .../bootstrap/java-macos.sh | bash
+# Prefer: curl -fsSL .../java-macos.sh -o /tmp/java-macos.sh && bash /tmp/java-macos.sh
+# (Needs a real TTY for sudo .pkg password prompts. curl|bash blocks password entry.)
 set -uo pipefail
+
+if [ ! -t 0 ]; then
+  echo "Don't pipe this script into bash (curl | bash)."
+  echo "JDK casks use .pkg installers and need your macOS password via sudo."
+  echo "When stdin is the script pipe, sudo can't prompt and it looks stuck."
+  echo
+  echo "Run instead:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-macos.sh -o /tmp/java-macos.sh"
+  echo "  bash /tmp/java-macos.sh"
+  exit 1
+fi
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 export HOMEBREW_NO_AUTO_UPDATE=1
