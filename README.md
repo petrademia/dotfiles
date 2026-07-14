@@ -33,7 +33,7 @@ cd ~/dotfiles
 - Shell: zsh config, aliases, paths, AI key helper, neovim
 - Go: `GOPRIVATE` for Amartha Bitbucket modules
 - Git: Bitbucket SSH `insteadOf` for private Go module fetch; global hook strips Cursor commit trailers
-- Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas
+- Tools: brew, fnm, cargo, sdkman, Claude Code, graphify, mas, `gh`, `atlassian-cli` (Bitbucket/Jira)
 - AI: `/grammar` and `/leetcode` slash commands for Cursor, Claude, Copilot, Zai, Gemini, Codex/ChatGPT; caveman and ponytail plugins for Claude Code and ChatGPT/Codex
 - Terminals: Alacritty, Ghostty, Hyper, iTerm2, Kitty, Rio, Tabby, Warp, WezTerm
 - Apps: 1Password, Brave, ChatGPT (Classic), Codex (new unified ChatGPT desktop app), Cursor, Discord, Firefox Dev, Floorp, Freetube, Helm, JetBrains Toolbox, LibreOffice, LibreWolf, Obsidian, OpenVPN, Podman, Postman, Scroll Reverser, Slack, Spotify, Unsplash Wallpapers, Vivaldi, VS Code, VLC
@@ -78,13 +78,28 @@ jv temurin21-jdk        # Windows
 - RTK - [GitHub releases](https://github.com/rtk-ai/rtk/releases)
 - Wavlink - no Homebrew package. Drivers depend on chipset (DisplayLink, Silicon Motion InstantView, Realtek, etc.). Download for your model from [Wavlink Drivers](https://www.wavlink.com/en_us/Drivers.html). DisplayLink itself is installed by `setup.sh` via `brew install --cask displaylink` (reboot required).
 
+## GitHub + Bitbucket CLIs
+
+`setup/macos.sh` installs:
+
+- **`gh`** (Homebrew) - GitHub CLI + `gh-copilot` extension
+- **`atlassian-cli`** (tap `omar16100/atlassian-cli`) - Bitbucket/Jira/Confluence; use `atlassian-cli bitbucket …` (alias: `atlassian-cli bb …`)
+
+```bash
+gh auth login
+atlassian-cli auth login --profile amartha --bitbucket --bearer --workspace Amartha
+atlassian-cli auth test --bitbucket --profile amartha
+```
+
+Use an [Atlassian API token](https://id.atlassian.com/manage-profile/security/api-tokens) (or Bitbucket workspace/repo access token). Prefer storing it in 1Password rather than a plaintext env var.
+
 ## Bitbucket sync
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sync-bitbucket-repos.sh | zsh
 ```
 
-Requires 1Password item "Amartha Bitbucket" with username/password.
+Requires 1Password item "Amartha Bitbucket" with username/password. Kept separate from `atlassian-cli` - this script is for bulk clone/sync of the Amartha workspace.
 
 ## Browser extensions
 
