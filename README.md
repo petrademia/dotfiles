@@ -152,7 +152,7 @@ dotfiles/
 ├── install.sh        # Symlinks only (OS-aware paths)
 ├── bootstrap/        # java-macos.sh, java-wsl.sh, java-windows.ps1, macos.sh, browser-extensions.sh
 ├── git/
-│   └── hooks/            # Global prepare-commit-msg (strips Cursor trailers)
+│   └── hooks/            # Global prepare-commit-msg + commit-msg (strip Cursor/Claude trailers)
 ├── go/
 ├── cursor/
 │   └── cli-config.json  # Disable Cursor commit/PR attribution
