@@ -24,25 +24,17 @@ if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
   softwareupdate --install-rosetta --agree-to-license || true
 fi
 
-# Liberica lives in a third-party tap. `brew tap` clones via git; a global
-# url."git@github.com:".insteadOf = https://github.com/ rewrite turns that into
-# SSH and hangs on 1Password/"Cloning into...". Install the tap over plain HTTPS.
+# Liberica lives in a third-party tap (uses git clone; with insteadOf this is SSH/1Password).
 ensure_liberica_tap() {
   local tap_dir
   tap_dir="$(brew --repository)/Library/Taps/bell-sw/homebrew-liberica"
   if [ -d "$tap_dir/.git" ]; then
     echo "==> skip Liberica tap (already present)"
   else
-    echo "==> Cloning Liberica tap over HTTPS (no SSH rewrite)"
-    mkdir -p "$(dirname "$tap_dir")"
-    # Partial/failed previous clone - remove and retry
+    echo "==> Tapping bell-sw/liberica (SSH via git insteadOf - approve 1Password if prompted)"
+    # Drop a broken partial clone so brew tap can recreate it
     rm -rf "$tap_dir"
-    # Empty gitconfig so global insteadOf cannot force SSH
-    local tmpcfg
-    tmpcfg="$(mktemp)"
-    GIT_CONFIG_GLOBAL="$tmpcfg" GIT_CONFIG_SYSTEM=/dev/null GIT_TERMINAL_PROMPT=0 \
-      git clone --depth 1 https://github.com/bell-sw/homebrew-liberica.git "$tap_dir"
-    rm -f "$tmpcfg"
+    brew tap bell-sw/liberica
   fi
   brew trust bell-sw/liberica
 }
