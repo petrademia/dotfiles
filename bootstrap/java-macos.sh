@@ -24,14 +24,19 @@ if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
   softwareupdate --install-rosetta --agree-to-license || true
 fi
 
-brew tap bell-sw/liberica >/dev/null 2>&1 || true
-brew trust bell-sw/liberica >/dev/null 2>&1 || true
+brew tap bell-sw/liberica
+brew trust bell-sw/liberica
 
+# Fully qualified - Liberica is NOT in homebrew/cask core (short name fails if tap missing)
 JAVA_CASKS=(
   temurin@8 temurin@11 temurin@17 temurin@21 temurin@25
   zulu@8 zulu@11 zulu@17 zulu@21 zulu@25
   corretto@8 corretto@11 corretto@17 corretto@21 corretto@25
-  liberica-jdk8 liberica-jdk11 liberica-jdk17 liberica-jdk21 liberica-jdk25
+  bell-sw/liberica/liberica-jdk8
+  bell-sw/liberica/liberica-jdk11
+  bell-sw/liberica/liberica-jdk17
+  bell-sw/liberica/liberica-jdk21
+  bell-sw/liberica/liberica-jdk25
   microsoft-openjdk@11 microsoft-openjdk@17 microsoft-openjdk@21 microsoft-openjdk@25
 )
 
