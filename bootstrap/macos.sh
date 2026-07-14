@@ -31,13 +31,36 @@ defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
 defaults write com.apple.finder CreateDesktop -bool false
 defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 
+# New Finder windows open to Home
+defaults write com.apple.finder NewWindowTarget -string "PfHm"
+defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/"
+
+# Search the current folder by default (not "This Mac")
+defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+
+# Less nagging when renaming extensions
+defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+
 # Per-folder views live in .DS_Store and override FXPreferredViewStyle.
 # Clear them under $HOME only (never system-wide) so list view actually sticks.
+# Leave /Applications alone - icon view there is intentional/common.
 echo "--> Clearing Finder per-folder view memory (~/.DS_Store under \$HOME)"
 find "$HOME" -name .DS_Store -type f -delete 2>/dev/null || true
 # Special locations (iCloud / Recents) keep separate icon-biased settings
 defaults delete com.apple.finder ICloudViewSettings 2>/dev/null || true
 defaults delete com.apple.finder SearchRecentsViewSettings 2>/dev/null || true
+
+# ==========================================
+# Save / Print dialogs & iCloud docs
+# ==========================================
+echo "--> Configuring save/print defaults"
+# Save to disk (not iCloud) by default
+defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+# Expand save and print panels by default
+defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
+defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
+defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
 
 # ==========================================
 # Menu Bar
@@ -46,9 +69,10 @@ echo "--> Configuring Menu Bar"
 # Auto-hide menu bar
 defaults write NSGlobalDomain _HIHideMenuBar -bool true
 
-# NEW: Modern Battery Percentage key (macOS Ventura and newer)
+# Battery icon + percentage (Ventura+; percentage is per-host on modern macOS)
 defaults write com.apple.controlcenter "NSStatusItem Visible Battery" -bool true
 defaults write com.apple.controlcenter "NSStatusItem Visible WiFi" -bool true
+defaults -currentHost write com.apple.controlcenter BatteryShowPercentage -bool true
 
 # ==========================================
 # Keyboard
@@ -82,6 +106,8 @@ defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool t
 echo "--> Configuring Screenshots"
 mkdir -p ~/Screenshots
 defaults write com.apple.screencapture location ~/Screenshots
+defaults write com.apple.screencapture type -string "png"
+defaults write com.apple.screencapture disable-shadow -bool true
 
 # ==========================================
 # Reset & Apply
