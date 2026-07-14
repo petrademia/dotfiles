@@ -1,0 +1,15 @@
+---
+description: Never add Cursor/Claude attribution to git commits or PRs
+alwaysApply: true
+---
+
+# No AI commit attribution
+
+Never add any of the following to commits, PRs, or code comments:
+
+- `Co-authored-by: Cursor` / `Co-authored-by: Cursor Agent <cursoragent@cursor.com>`
+- `Made-with: Cursor` / `Made with Cursor`
+- `Co-authored-by: Claude` / Claude Code generated banners
+- Any `--trailer` that attributes the change to an AI agent
+
+When creating commits, use only the subject/body you write. Do not pass git `--trailer` for attribution. Global hooks also strip these; do not work around them.

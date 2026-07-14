@@ -165,7 +165,7 @@ dotfiles/
 ├── git/
 │   ├── gitconfig         # Bitbucket insteadOf, name, Amartha includeIf
 │   ├── amartha.gitconfig # Amartha email for ~/Amartha/ repos
-│   └── hooks/            # Global prepare-commit-msg (strips Cursor trailers)
+│   └── hooks/            # Global prepare-commit-msg + commit-msg (strip Cursor/Claude trailers)
 ├── go/
 │   └── env           # GOPRIVATE for Amartha Bitbucket modules
 ├── cursor/
