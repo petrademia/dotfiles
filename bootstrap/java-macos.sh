@@ -1,55 +1,54 @@
 #!/bin/bash
-set -euo pipefail
+# macOS Java matrix - Temurin/Zulu/Corretto/Liberica 8-25 + Microsoft 11-25
+# Usage: curl -fsSL .../bootstrap/java-macos.sh | bash
+set -uo pipefail
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
+export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_NO_ENV_HINTS=1
 
-# JDK 8 casks are Intel-only and need Rosetta 2 on Apple Silicon
+# JDK 8 Intel-only casks need Rosetta on Apple Silicon
 if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
   softwareupdate --install-rosetta --agree-to-license || true
 fi
 
-brew tap bell-sw/liberica
-brew trust bell-sw/liberica
+brew tap bell-sw/liberica >/dev/null 2>&1 || true
+brew trust bell-sw/liberica >/dev/null 2>&1 || true
 
 JAVA_CASKS=(
-  temurin@8
-  temurin@11
-  temurin@17
-  temurin@21
-  temurin@25
-
-  zulu@8
-  zulu@11
-  zulu@17
-  zulu@21
-  zulu@25
-
-  corretto@8
-  corretto@11
-  corretto@17
-  corretto@21
-  corretto@25
-
-  liberica-jdk8
-  liberica-jdk11
-  liberica-jdk17
-  liberica-jdk21
-  liberica-jdk25
-
-  microsoft-openjdk@11
-  microsoft-openjdk@17
-  microsoft-openjdk@21
-  microsoft-openjdk@25
+  temurin@8 temurin@11 temurin@17 temurin@21 temurin@25
+  zulu@8 zulu@11 zulu@17 zulu@21 zulu@25
+  corretto@8 corretto@11 corretto@17 corretto@21 corretto@25
+  liberica-jdk8 liberica-jdk11 liberica-jdk17 liberica-jdk21 liberica-jdk25
+  microsoft-openjdk@11 microsoft-openjdk@17 microsoft-openjdk@21 microsoft-openjdk@25
 )
 
+ok=0 skip=0 fail=0
+echo "Note: Microsoft JDKs use .pkg installers and may prompt for your macOS password."
+echo
+
 for cask in "${JAVA_CASKS[@]}"; do
+  if brew list --cask "$cask" >/dev/null 2>&1; then
+    echo "==> skip $cask (already installed)"
+    skip=$((skip + 1))
+    continue
+  fi
   echo "==> Installing Java cask: $cask"
-  brew install --cask "$cask"
+  if brew install --cask "$cask"; then
+    ok=$((ok + 1))
+  else
+    echo "==> FAILED $cask (continuing)"
+    fail=$((fail + 1))
+  fi
 done
 
 DOTFILES="${DOTFILES:-$HOME/dotfiles}"
-if [[ -f "$(dirname "$0")/java-macos.sh" ]]; then
-  DOTFILES="$(cd "$(dirname "$0")/.." && pwd)"
+# When run as a file (not curl|bash), resolve repo root from script location
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$script_dir/java-macos.sh" ]; then
+    DOTFILES="$(cd "$script_dir/.." && pwd)"
+  fi
 fi
 mkdir -p "$DOTFILES/config/zsh"
 
@@ -124,10 +123,7 @@ java-use() {
     *)
       echo "Usage: java-use <version-vendor>"
       echo "Vendors: temurin, zulu, corretto, liberica (8/11/17/21/25); microsoft (11/17/21/25)"
-      echo "Examples:"
-      echo "  java-use 21-temurin"
-      echo "  java-use 17-corretto"
-      echo "  java-use 21-microsoft"
+      echo "Examples: java-use 21-temurin | java-use 17-corretto | java-use 21-microsoft"
       return 1
       ;;
   esac
@@ -138,8 +134,10 @@ java-use() {
 EOF
 
 echo
-echo "Java env written to:"
-echo "$JAVA_ENV"
+echo "Done. installed=$ok skipped=$skip failed=$fail"
+echo "Java env written to: $JAVA_ENV"
 echo
-echo "Installed JDKs:"
-/usr/libexec/java_home -V || true
+echo "Installed JVMs:"
+/usr/libexec/java_home -V 2>&1 || true
+echo
+echo "Switch: java-use 21-temurin"
