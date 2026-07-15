@@ -16,7 +16,8 @@ link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
 link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
 link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
 link "$DOTFILES/claude/RTK.md" "$HOME/.claude/RTK.md"
-link "$DOTFILES/AGENTS.md" "$HOME/AGENTS.md"
+link "$DOTFILES/global/AGENTS.md" "$HOME/AGENTS.md"
+link "$DOTFILES/global/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 
 case "$(uname -s)" in
   Darwin) GO_ENV_DIR="$HOME/Library/Application Support/go" ;;
