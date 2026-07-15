@@ -1,37 +1,21 @@
-# AGENTS.md
+# AGENTS.md - dotfiles repo
 
-## General Guidelines
+Global personal standards (in `~/AGENTS.md`) also apply here. This file adds rules specific to this dotfiles repo.
 
-- Be concise.
-- Be direct.
-- State assumptions explicitly.
-- Distinguish facts from opinions.
-- Distinguish observations from conclusions.
-- If uncertain, say so.
-- Prefer practical recommendations over theoretical ones.
-- Understand before changing.
-- Investigate root causes before proposing fixes.
+## What this repo is
 
-## Standards
+Reproducible macOS/Windows/WSL setup via Homebrew, symlinks, and bootstrap scripts.
 
-- **No em dash** — use plain dash "-" instead of "—"
-- **Commits** — NEVER auto-add your agent name as co-author
-- **Auto-generated files** — never modify CHANGELOG.md or marked auto-generated files
-- **Technical decisions** — prioritize quality, simplicity, robustness, scalability, long-term maintainability over development cost
-- **Bug fixes** — start with E2E reproduction aligned with end-user experience
-- **UI standards** — be picky, obsessed with pixel perfection
-- **Engineering excellence** — fix lint, test failures, flakiness even if not directly related
+- `setup.sh`, `setup/` - package install (Homebrew formulas/casks, npm, CLIs).
+- `install.sh` - symlinks dotfiles into `$HOME`.
+- `bootstrap/` - one-off provisioners (java, macOS defaults, browser extensions).
+- `ai/` - AI slash commands and skills shared across tools.
+- `global/AGENTS.md` - source for the global `~/AGENTS.md` and `~/.claude/CLAUDE.md`.
 
-## Environment
+## Conventions
 
-- 1Password available. Session managed via `OP_SESSION` in `~/.zshrc`.
-
-@RTK.md
-
-## Preferences
-
-@PREFERENCES.md
-
-## Voice Profile
-
-@VOICE.md
+- Add a new app/tool in `setup.sh` (or `setup/macos.sh`), then keep `README.md` "What's included" / apps list in sync.
+- Add a new dotfile by adding a `link` line in `install.sh`; never hand-create symlinks.
+- Keep AI commands in sync across all variants: `ai/commands/*.md` (Cursor/Claude/Zai), `ai/gemini/*.toml`, `ai/codex/*/SKILL.md`.
+- Bootstrap scripts must be safe and idempotent. Skip already-installed items and continue on individual failures.
+- Scripts fetched via `curl | bash` cannot prompt for `sudo`; anything needing `sudo` (e.g. `.pkg` installs) must be download-then-run.
