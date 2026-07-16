@@ -39,7 +39,7 @@ $apps = @(
     "ninja", "podman", "podman-desktop", "sudo", "uv", "gdb", "cheat-engine",
     "syncthing",
     "xmake", "cmake", "ripgrep", "neovim", "graphviz", "zstd", "ngrok",
-    "gradle", "maven", "plantuml", "z3"
+    "gradle", "maven", "plantuml", "z3", "sqlite"
 )
 foreach ($app in $apps) { Smart-Scoop $app }
 
@@ -57,7 +57,7 @@ Write-Host "📦 Checking Winget Apps..." -ForegroundColor Cyan
 
 $wingetApps = @(
     "AgileBits.1Password", "Surfshark.Surfshark", "Anysphere.Cursor",
-    "Anthropic.Claude", "Microsoft.PowerToys",
+    "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
     "Mozilla.Firefox.DeveloperEdition", "Vivaldi.Vivaldi", "Brave.Brave",
     "Opera.OperaGX", "Ablaze.Floorp",
     "Deskflow.Deskflow", "UpNote.UpNote",
