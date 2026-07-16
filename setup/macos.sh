@@ -30,7 +30,7 @@ brew trust omar16100/atlassian-cli
 FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
-  rustup fastfetch aria2 p7zip 1password-cli
+  rustup fastfetch aria2 p7zip 1password-cli sqlite
   gradle maven plantuml kafka tmux ripgrep python neovim
   graphviz z3 zstd ngrok jenv mas opencode
   charmbracelet/tap/crush
@@ -53,6 +53,7 @@ CASKS=(
   copilot-cli
   coteditor
   cursor
+  kimi
   deskflow
   displaylink
   dockdoor

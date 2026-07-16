@@ -20,7 +20,7 @@ sudo apt update
 sudo apt install -y \
     build-essential curl wget git zip unzip cmake pkg-config gdb ninja-build \
     jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 \
-    llvm clang z3 plantuml maven ca-certificates gnupg
+    llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev
 sudo apt install -y fastfetch 2>/dev/null || echo "[-] fastfetch not in apt; skipping"
 
 echo "==> 2) GitHub CLI (gh)"
