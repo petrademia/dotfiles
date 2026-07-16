@@ -51,6 +51,7 @@ CASKS=(
   chatgpt
   codex-app
   copilot-cli
+  coteditor
   cursor
   deskflow
   displaylink
@@ -116,6 +117,16 @@ for cask in "${CASKS[@]}"; do
   echo "==> Installing cask: $cask"
   brew install --cask "$cask"
 done
+
+# CotEditor cot CLI - https://coteditor.com/cot
+COTEDITOR_COT="/Applications/CotEditor.app/Contents/SharedSupport/bin/cot"
+if [ -x "$COTEDITOR_COT" ]; then
+  echo "==> Linking cot CLI to /usr/local/bin/cot"
+  sudo mkdir -p /usr/local/bin
+  sudo ln -sfn "$COTEDITOR_COT" /usr/local/bin/cot
+else
+  echo "==> Skipping cot CLI link; CotEditor not found at $COTEDITOR_COT"
+fi
 
 MAS_APPS=(
   "1284863847 Unsplash Wallpapers"
