@@ -45,6 +45,8 @@ gh auth login
 ```
 
 
+Atlassian API tokens are per-app (scoped). Keep separate 1Password items:
+
 ## Browser extensions
 
 ```bash
