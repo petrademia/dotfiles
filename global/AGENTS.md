@@ -25,5 +25,9 @@
 ## Environment
 
 - 1Password available. Session managed via `OP_SESSION` in `~/.zshrc`.
+- Amartha Atlassian tokens are separate per app (scoped tokens cannot span Jira + Bitbucket):
+  - Jira: `op://Personal/Amartha Jira API` (`username` + `password`)
+  - Bitbucket API / PR review: `op://Personal/Amartha Bitbucket PR Review` (`username` + `credential`)
+  - Bitbucket git push: SSH key `petruswiyadi-Bitbucket` via 1Password SSH agent
 
 @RTK.md

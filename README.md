@@ -45,7 +45,12 @@ gh auth login
 atlassian-cli auth login --profile amartha --bitbucket --bearer --workspace Amartha
 ```
 
-Amartha repos: `curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sync-bitbucket-repos.sh | zsh` (1Password item `Amartha Bitbucket`).
+Amartha repos: `curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sync-bitbucket-repos.sh | zsh` (1Password item `Amartha Bitbucket PR Review`).
+
+Atlassian API tokens are per-app (scoped). Keep separate 1Password items:
+- `Amartha Jira API` - Jira REST
+- `Amartha Bitbucket PR Review` - Bitbucket PR / API
+- `petruswiyadi-Bitbucket` - SSH for git push
 
 ## Browser extensions
 

@@ -6,12 +6,12 @@ WORKSPACE="${WORKSPACE:-Amartha}"
 # Get credentials from 1Password or env var
 if [ -z "$AUTH_CREDS" ]; then
     if command -v op >/dev/null 2>&1; then
-        BITBUCKET_USER=$(op read "op://Personal/Amartha Bitbucket/username" 2>/dev/null)
-        BITBUCKET_PASS=$(op read "op://Personal/Amartha Bitbucket/password" 2>/dev/null)
+        BITBUCKET_USER=$(op read "op://Personal/Amartha Bitbucket PR Review/username" 2>/dev/null)
+        BITBUCKET_PASS=$(op read "op://Personal/Amartha Bitbucket PR Review/credential" 2>/dev/null)
         AUTH_CREDS="${BITBUCKET_USER}:${BITBUCKET_PASS}"
-        if [ -z "$AUTH_CREDS" ]; then
+        if [ -z "$BITBUCKET_USER" ] || [ -z "$BITBUCKET_PASS" ]; then
             echo "Could not read Bitbucket credentials from 1Password."
-            echo "Create item named 'Amartha Bitbucket' in Personal vault with username and password fields"
+            echo "Create item named 'Amartha Bitbucket PR Review' in Personal vault with username and credential fields"
             exit 1
         fi
     else
