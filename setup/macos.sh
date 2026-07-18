@@ -95,11 +95,14 @@ CASKS=(
   google-chrome
   google-chrome@beta
   google-chrome@canary
+  google-drive
   microsoft-edge
   mullvad-browser
+  onedrive
   vivaldi
   vivaldi@snapshot
   waterfox
+  zen
   opera
   visual-studio-code
   jetbrains-toolbox
@@ -116,7 +119,7 @@ CASKS=(
 
 for cask in "${CASKS[@]}"; do
   echo "==> Installing cask: $cask"
-  brew install --cask "$cask"
+  brew install --cask "$cask" || echo "Warning: cask install failed: $cask"
 done
 
 # CotEditor cot CLI - https://coteditor.com/cot

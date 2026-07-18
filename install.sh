@@ -12,8 +12,11 @@ link() {
   echo "linked $dest -> $src"
 }
 
-link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
-link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
+if [ "$(uname -s)" = "Darwin" ]; then
+  link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
+  link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
+fi
+
 link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
 link "$DOTFILES/claude/RTK.md" "$HOME/.claude/RTK.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/AGENTS.md"
@@ -52,7 +55,7 @@ link "$DOTFILES/ai/codex/leetcode" "$HOME/.codex/skills/leetcode"
 
 git config --global include.path "$DOTFILES/git/gitconfig"
 
-chmod +x "$DOTFILES/git/hooks/prepare-commit-msg"
+chmod +x "$DOTFILES/git/hooks/prepare-commit-msg" "$DOTFILES/git/hooks/commit-msg"
 git config --global core.hooksPath "$DOTFILES/git/hooks"
 
 echo "dotfiles installed"

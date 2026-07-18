@@ -43,6 +43,9 @@ if ! smart_check "rustup" "$HOME/.cargo/bin/rustup"; then
 fi
 . "$HOME/.cargo/env" 2>/dev/null || true
 rustup default stable || echo "Warning: rustup default stable failed"
+if ! smart_check "atlassian-cli"; then
+    cargo install atlassian-cli || echo "[-] atlassian-cli install skipped"
+fi
 
 if ! smart_check "go" "/usr/bin/go"; then
     sudo add-apt-repository ppa:longsleep/golang-backports -y && sudo apt update
@@ -157,6 +160,9 @@ DOTFILES="$HOME/dotfiles"
 if [ ! -d "$DOTFILES" ]; then
     git clone https://github.com/petrademia/dotfiles.git "$DOTFILES"
 fi
+
+echo "==> Installing shared dotfiles"
+"$DOTFILES/install.sh"
 
 echo "==> 12) Injecting WSL shell bridge"
 BLOCK=$(cat << 'EOF'

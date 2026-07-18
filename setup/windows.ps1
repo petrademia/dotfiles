@@ -43,6 +43,15 @@ $apps = @(
 )
 foreach ($app in $apps) { Smart-Scoop $app }
 
+if (Get-Command rustup -ErrorAction SilentlyContinue) {
+    rustup default stable | Out-Null
+    $env:PATH = "$HOME\.cargo\bin;$env:PATH"
+    $atlassianCli = Join-Path $HOME ".cargo\bin\atlassian-cli.exe"
+    if (!(Get-Command atlassian-cli -ErrorAction SilentlyContinue) -and !(Test-Path $atlassianCli)) {
+        cargo install atlassian-cli
+    }
+}
+
 if (Get-Command uv -ErrorAction SilentlyContinue) {
     uv python install 3 --default
 }
@@ -58,9 +67,12 @@ Write-Host "📦 Checking Winget Apps..." -ForegroundColor Cyan
 $wingetApps = @(
     "AgileBits.1Password", "Surfshark.Surfshark", "Anysphere.Cursor",
     "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
+    "Google.Chrome", "Google.GoogleDrive", "Microsoft.OneDrive",
+    "Microsoft.VisualStudioCode", "Zen-Team.Zen-Browser",
     "Mozilla.Firefox.DeveloperEdition", "Vivaldi.Vivaldi", "Brave.Brave",
     "Opera.OperaGX", "Ablaze.Floorp",
-    "Deskflow.Deskflow", "UpNote.UpNote",
+    "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
+    "UpNote.UpNote",
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote"
 )
@@ -107,6 +119,49 @@ $env:GOROOT = $goRootPath
 $env:GOPATH = "$env:USERPROFILE\go"
 $env:PATH = "$goRootPath\bin;$env:GOPATH\bin;$env:PATH"
 
+# --- 6b. Shared Dotfiles ---
+$dotfiles = Join-Path $HOME "dotfiles"
+if (!(Test-Path (Join-Path $dotfiles ".git"))) {
+    Write-Host "📁 Cloning dotfiles..." -ForegroundColor Cyan
+    git clone https://github.com/petrademia/dotfiles.git $dotfiles
+}
+
+function Sync-Dotfile {
+    param([string]$Source, [string]$Destination)
+
+    $parent = Split-Path $Destination -Parent
+    if ($parent) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+
+    if (Test-Path $Source -PathType Container) {
+        if (Test-Path $Destination) { Remove-Item $Destination -Recurse -Force }
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+        Copy-Item (Join-Path $Source "*") $Destination -Recurse -Force
+    } else {
+        Copy-Item $Source $Destination -Force
+    }
+}
+
+Sync-Dotfile (Join-Path $dotfiles "global\AGENTS.md") (Join-Path $HOME "AGENTS.md")
+Sync-Dotfile (Join-Path $dotfiles "global\AGENTS.md") (Join-Path $HOME ".claude\CLAUDE.md")
+Sync-Dotfile (Join-Path $dotfiles "claude\RTK.md") (Join-Path $HOME ".claude\RTK.md")
+Sync-Dotfile (Join-Path $dotfiles "config\nvim") (Join-Path $env:LOCALAPPDATA "nvim")
+Sync-Dotfile (Join-Path $dotfiles "cursor\cli-config.json") (Join-Path $HOME ".cursor\cli-config.json")
+
+foreach ($command in @("grammar", "leetcode")) {
+    Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".cursor\commands\$command.md")
+    Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".claude\commands\$command.md")
+    Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".zai\commands\$command.md")
+    Sync-Dotfile (Join-Path $dotfiles "ai\gemini\$command.toml") (Join-Path $HOME ".gemini\commands\$command.toml")
+    Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".agents\skills\$command")
+    Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".codex\skills\$command")
+}
+
+$goEnv = go env GOENV
+if ($goEnv) { Sync-Dotfile (Join-Path $dotfiles "go\env") $goEnv }
+
+git config --global include.path (Join-Path $dotfiles "git\gitconfig")
+git config --global core.hooksPath (Join-Path $dotfiles "git\hooks")
+
 # --- 7. Deskflow Firewall Rule ---
 Write-Host "🌐 Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
 $dfRule = "Deskflow Inbound (TCP 24800)"
@@ -142,6 +197,7 @@ $profileLogic = @"
 `$env:GOROOT = "$goRootPath"
 `$env:GOPATH = "`$HOME\go"
 if (`$env:PATH -notlike "*`$HOME\.local\bin*") { `$env:PATH = "`$HOME\.local\bin;`$env:PATH" }
+if (`$env:PATH -notlike "*`$HOME\.cargo\bin*") { `$env:PATH = "`$HOME\.cargo\bin;`$env:PATH" }
 if (`$env:PATH -notlike "*`$HOME\go\bin*") { `$env:PATH = "`$HOME\go\bin;`$env:PATH" }
 if (Get-Command fnm -ErrorAction SilentlyContinue) { fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression }
 
@@ -170,6 +226,12 @@ if (!(Select-String -Path $PROFILE -Pattern "AI & Dev Environment Setup" -Quiet)
 Write-Host "🤖 Checking AI Agents..." -ForegroundColor Yellow
 
 if (!(Get-Command claude -ErrorAction SilentlyContinue)) { irm https://claude.ai/install.ps1 | iex }
+
+if (Get-Command fnm -ErrorAction SilentlyContinue) {
+    fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression
+    fnm use --install-if-missing lts-latest
+    fnm default lts-latest
+}
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "📦 Installing Node-based AI Agents..." -ForegroundColor Cyan
@@ -226,6 +288,5 @@ if (!(Get-Command rtk -ErrorAction SilentlyContinue)) {
 }
 
 # --- 11. Final Polish ---
-if (Get-Command rustup -ErrorAction SilentlyContinue) { rustup default stable | Out-Null }
 scoop cleanup *
 Write-Host "🎯 SYSTEM IS MISSION READY." -ForegroundColor Green
