@@ -67,6 +67,7 @@ Write-Host "📦 Checking Winget Apps..." -ForegroundColor Cyan
 $wingetApps = @(
     "AgileBits.1Password", "Surfshark.Surfshark", "Anysphere.Cursor",
     "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
+    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp",
     "Google.Chrome", "Google.GoogleDrive", "Microsoft.OneDrive",
     "Microsoft.VisualStudioCode", "Zen-Team.Zen-Browser",
     "Mozilla.Firefox.DeveloperEdition", "Vivaldi.Vivaldi", "Brave.Brave",
