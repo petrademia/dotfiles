@@ -163,11 +163,17 @@ fnm use --install-if-missing lts-latest
 fnm default lts-latest
 
 npm install -g @z_ai/coding-helper || true
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
+npm install -g openclaw@latest || true
 
 npm install -g playwright || true
 npx playwright install chromium || true
 
 curl -fsSL https://claude.ai/install.sh | bash
+if ! command -v hermes >/dev/null 2>&1; then
+  curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
+    bash -s -- --skip-setup --non-interactive || true
+fi
 uv tool install zai-cli --python 3 || true
 uv tool install graphifyy --python 3 || true
 

@@ -115,6 +115,8 @@ if ! smart_check "crush"; then
 fi
 
 npm install -g @z_ai/coding-helper || true
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
+npm install -g openclaw@latest || true
 uv tool install zai-cli --python 3 || true
 uv tool install graphifyy --python 3 || true
 
@@ -124,6 +126,11 @@ npx playwright install chromium || true
 npm install -g @github/copilot || true
 if command -v gh >/dev/null 2>&1; then
     gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
+fi
+
+if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
+    curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
+        bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"
 fi
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"

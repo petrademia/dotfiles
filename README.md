@@ -63,7 +63,7 @@ Opens store pages for uBlock, 1Password, FDM (Lite on Chromium; full uBO on Fire
 
 ## AI
 
-`/grammar` · `/leetcode` (Cursor, Claude, Copilot, Zai, Gemini, Codex). Caveman + ponytail via setup.
+`/grammar` · `/leetcode` (Cursor, Claude, Copilot, Zai, Gemini, Codex). Caveman + ponytail via setup. Hermes Agent, Pi Coding Agent, and OpenClaw are installed as agent clients.
 
 ## Local AI
 
