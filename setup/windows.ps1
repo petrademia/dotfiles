@@ -228,6 +228,13 @@ Write-Host "🤖 Checking AI Agents..." -ForegroundColor Yellow
 
 if (!(Get-Command claude -ErrorAction SilentlyContinue)) { irm https://claude.ai/install.ps1 | iex }
 
+if (!(Get-Command hermes -ErrorAction SilentlyContinue)) {
+    $hermesInstaller = Join-Path $env:TEMP "hermes-install.ps1"
+    Invoke-WebRequest "https://hermes-agent.nousresearch.com/install.ps1" -OutFile $hermesInstaller
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hermesInstaller -SkipSetup -NonInteractive
+    Remove-Item $hermesInstaller -ErrorAction SilentlyContinue
+}
+
 if (Get-Command fnm -ErrorAction SilentlyContinue) {
     fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression
     fnm use --install-if-missing lts-latest
@@ -236,7 +243,8 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "📦 Installing Node-based AI Agents..." -ForegroundColor Cyan
-    npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot playwright --silent
+    npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent
+    npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest playwright --silent
     npx playwright install chromium
 }
 
