@@ -32,7 +32,7 @@ FORMULAS=(
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip 1password-cli sqlite
   gradle maven plantuml kafka tmux ripgrep python neovim
-  graphviz z3 zstd ngrok jenv mas opencode
+  graphviz z3 zstd ngrok jenv mas opencode llama.cpp
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
 )
@@ -66,7 +66,9 @@ CASKS=(
   keka
   librewolf
   libreoffice
+  lm-studio
   obsidian
+  ollama-app
   osaurus
   openvpn-connect
   opencode-desktop

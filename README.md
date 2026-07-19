@@ -65,6 +65,12 @@ Opens store pages for uBlock, 1Password, FDM (Lite on Chromium; full uBO on Fire
 
 `/grammar` · `/leetcode` (Cursor, Claude, Copilot, Zai, Gemini, Codex). Caveman + ponytail via setup.
 
+## Local AI
+
+Ollama, LM Studio, and llama.cpp are installed on macOS and Windows. WSL installs the llama.cpp CLI, maps `ollama` to the Windows CLI when available, and reuses the Windows Ollama / LM Studio servers.
+
+Models are not downloaded automatically. Start with `ollama run llama3.2`; use `llama --help` (WSL installer) or `llama-cli --help` (package-manager builds).
+
 ## Manual
 
 Velja (App Store) · JetBrains via Toolbox · [RTK](https://github.com/rtk-ai/rtk/releases) · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is a brew cask in setup).

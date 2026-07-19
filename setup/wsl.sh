@@ -94,6 +94,10 @@ if ! smart_check "ngrok"; then
     sudo apt update && sudo apt install -y ngrok || echo "[-] ngrok install skipped"
 fi
 
+if ! smart_check "llama" "$HOME/.llama-app/llama"; then
+    curl -fsSL https://llama.app/install.sh | sh || echo "[-] llama.cpp install skipped"
+fi
+
 echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot, Z.ai"
 curl -fsSL https://claude.ai/install.sh | bash || echo "[-] claude install skipped"
 [ ! -f "$(npm config get prefix)/bin/codex" ] && npm install -g @openai/codex --silent || true
@@ -172,7 +176,7 @@ BLOCK=$(cat << 'EOF'
 [ -f "$HOME/.xmake/profile" ] && . "$HOME/.xmake/profile"
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
 
-export PATH="$HOME/.local/share/fnm:$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+export PATH="$HOME/.local/share/fnm:$HOME/.local/bin:$HOME/.opencode/bin:$HOME/.llama-app:$PATH"
 export GOPATH="$HOME/go"
 export PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"
 
@@ -187,6 +191,10 @@ alias gcp='g++ -std=c++17 -O2 -Wall'
 alias neofetch='fastfetch'
 alias vim='nvim'
 alias vi='nvim'
+
+if command -v ollama.exe >/dev/null 2>&1; then
+  alias ollama='ollama.exe'
+fi
 
 if command -v podman >/dev/null 2>&1; then
   alias docker='podman'
