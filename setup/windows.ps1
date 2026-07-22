@@ -69,6 +69,7 @@ $wingetApps = @(
     "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp",
     "Google.Chrome", "Google.GoogleDrive", "Microsoft.OneDrive",
+    "Google.Antigravity", "Google.AntigravityCLI",
     "Microsoft.VisualStudioCode", "Zen-Team.Zen-Browser",
     "Mozilla.Firefox.DeveloperEdition", "Vivaldi.Vivaldi", "Brave.Brave",
     "Opera.OperaGX", "Ablaze.Floorp",
@@ -148,13 +149,14 @@ Sync-Dotfile (Join-Path $dotfiles "claude\RTK.md") (Join-Path $HOME ".claude\RTK
 Sync-Dotfile (Join-Path $dotfiles "config\nvim") (Join-Path $env:LOCALAPPDATA "nvim")
 Sync-Dotfile (Join-Path $dotfiles "cursor\cli-config.json") (Join-Path $HOME ".cursor\cli-config.json")
 
-foreach ($command in @("grammar", "leetcode")) {
+foreach ($command in @("grammar", "leetcode", "handoff")) {
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".cursor\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".claude\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".zai\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\gemini\$command.toml") (Join-Path $HOME ".gemini\commands\$command.toml")
     Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".agents\skills\$command")
     Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".codex\skills\$command")
+    Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".gemini\antigravity-cli\skills\$command")
 }
 
 $goEnv = go env GOENV
@@ -235,6 +237,11 @@ if (!(Get-Command hermes -ErrorAction SilentlyContinue)) {
     Remove-Item $hermesInstaller -ErrorAction SilentlyContinue
 }
 
+if (!(Get-Command kimi -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing Kimi Code CLI..." -ForegroundColor Cyan
+    irm https://code.kimi.com/kimi-code/install.ps1 | iex
+}
+
 if (Get-Command fnm -ErrorAction SilentlyContinue) {
     fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression
     fnm use --install-if-missing lts-latest
@@ -244,8 +251,14 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "📦 Installing Node-based AI Agents..." -ForegroundColor Cyan
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent
-    npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest playwright --silent
+    npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest impeccable playwright --silent
     npx playwright install chromium
+    npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force
+}
+
+if (!(Get-Command omp -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing Oh My Pi (omp)..." -ForegroundColor Cyan
+    irm https://omp.sh/install.ps1 | iex
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {

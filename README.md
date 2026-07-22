@@ -63,7 +63,7 @@ Opens store pages for uBlock, 1Password, FDM (Lite on Chromium; full uBO on Fire
 
 ## AI
 
-`/grammar` · `/leetcode` (Cursor, Claude, Copilot, Zai, Gemini, Codex). Caveman + ponytail via setup. Hermes Agent, Pi Coding Agent, and OpenClaw are installed as agent clients.
+`/grammar` · `/leetcode` · `/handoff` (Cursor, Claude, Copilot, Zai, Gemini/Antigravity, Codex). Caveman + ponytail via setup. [Impeccable](https://github.com/pbakaus/impeccable) design skills (`/impeccable`) install globally for Claude, Codex, Cursor, Gemini, OpenCode, and Pi. Hermes Agent, Pi Coding Agent, Oh My Pi (`omp`), OpenClaw, Kimi Code CLI, and Antigravity CLI (`agy`) are installed as agent clients. Antigravity desktop (2.0) is installed on macOS and Windows; WSL uses `agy` only and reuses the Windows desktop app.
 
 ## Local AI
 

@@ -32,7 +32,7 @@ FORMULAS=(
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip 1password-cli sqlite
   gradle maven plantuml kafka tmux ripgrep python neovim
-  graphviz z3 zstd ngrok jenv mas opencode llama.cpp
+  graphviz z3 zstd ngrok jenv mas opencode llama.cpp herdr kimi-code
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
 )
@@ -45,6 +45,8 @@ done
 CASKS=(
   1password
   alacritty
+  antigravity
+  antigravity-cli
   appcleaner
   claude
   codex
@@ -58,7 +60,6 @@ CASKS=(
   displaylink
   dockdoor
   ghostty
-  herd
   helium-browser
   hyper
   iterm2
@@ -165,6 +166,7 @@ fnm default lts-latest
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
 npm install -g openclaw@latest || true
+npm install -g impeccable || true
 
 npm install -g playwright || true
 npx playwright install chromium || true
@@ -174,6 +176,10 @@ if ! command -v hermes >/dev/null 2>&1; then
   curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
     bash -s -- --skip-setup --non-interactive || true
 fi
+if ! command -v omp >/dev/null 2>&1; then
+  curl -fsSL https://omp.sh/install | sh || echo "Note: Oh My Pi (omp) install failed"
+fi
+npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force || echo "Note: impeccable skills install failed"
 uv tool install zai-cli --python 3 || true
 uv tool install graphifyy --python 3 || true
 
@@ -253,6 +259,9 @@ op --version || true
 codex --version || true
 crush --version || true
 claude --version || true
+agy --version || true
+omp --version || true
+impeccable --version || true
 
 echo
 echo "✅ Setup complete!"
@@ -263,3 +272,5 @@ echo
 echo "Manual follow-ups:"
 echo "  - DisplayLink: reboot so the driver takes effect"
 echo "  - Wavlink: no brew package - install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
+echo "  - Antigravity: open the desktop app or run \`agy\` and sign in with Google"
+echo "  - Impeccable: in a project, run \`/impeccable init\` once for design context"
