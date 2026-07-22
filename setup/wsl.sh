@@ -117,6 +117,7 @@ fi
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
 npm install -g openclaw@latest || true
+npm install -g impeccable || true
 uv tool install zai-cli --python 3 || true
 uv tool install graphifyy --python 3 || true
 
@@ -132,6 +133,19 @@ if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
     curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
         bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"
 fi
+
+if ! smart_check "kimi"; then
+    curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash || echo "[-] Kimi Code CLI install skipped"
+fi
+
+if ! smart_check "agy" "$HOME/.local/bin/agy"; then
+    curl -fsSL https://antigravity.google/cli/install.sh | bash || echo "[-] Antigravity CLI (agy) install skipped"
+fi
+
+if ! smart_check "omp"; then
+    curl -fsSL https://omp.sh/install | sh || echo "[-] Oh My Pi (omp) install skipped"
+fi
+npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force || echo "[-] impeccable skills install skipped"
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"
 if command -v claude >/dev/null 2>&1; then
