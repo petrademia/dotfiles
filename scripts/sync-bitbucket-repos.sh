@@ -3,6 +3,43 @@ set -e
 
 WORKSPACE="${WORKSPACE:-Amartha}"
 
+# True when the repo has no commits yet (unborn branch / empty clone).
+# Never call bare `git rev-parse HEAD` here - it prints a fatal on empty repos.
+has_commits() {
+    git -C "$1" rev-parse --verify --quiet HEAD >/dev/null 2>&1
+}
+
+# Resolve the remote default branch without assuming a local HEAD exists
+# (empty Bitbucket repos / unfinished clones have no HEAD).
+default_branch() {
+    local dir="$1"
+    local branch=""
+
+    branch=$(git -C "$dir" symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null \
+        | sed 's@^refs/remotes/origin/@@') || true
+
+    if [ -z "$branch" ]; then
+        git -C "$dir" remote set-head origin -a &>/dev/null || true
+        branch=$(git -C "$dir" symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null \
+            | sed 's@^refs/remotes/origin/@@') || true
+    fi
+
+    if [ -z "$branch" ]; then
+        branch=$(git -C "$dir" branch -r --format='%(refname:short)' 2>/dev/null \
+            | sed -n 's|^origin/||p' \
+            | grep -vx 'HEAD' \
+            | head -n1) || true
+    fi
+
+    # Only touch local HEAD when the repo actually has commits.
+    if [ -z "$branch" ] && has_commits "$dir"; then
+        branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null) || true
+        [ "$branch" = "HEAD" ] && branch=""
+    fi
+
+    printf '%s' "$branch"
+}
+
 # Get credentials from 1Password or env var
 if [ -z "$AUTH_CREDS" ]; then
     if command -v op >/dev/null 2>&1; then
@@ -54,15 +91,29 @@ while [ -n "$URL" ]; do
             echo "Cloning [$PROJECT_NAME] -> $LOCAL_PATH"
             if git clone "$SSH_CLONE_URL" "$LOCAL_PATH"; then
                 (cd "$LOCAL_PATH" && graphify . --backend claude --no-docs --no-viz &>/dev/null &)
+            else
+                echo "  Clone failed (empty remote or auth/network error)"
             fi
         else
             echo "Syncing [$PROJECT_NAME] -> $REPO_NAME"
-            if (cd "$LOCAL_PATH" && git fetch origin &>/dev/null); then
-                DEFAULT_BRANCH=$(cd "$LOCAL_PATH" && git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-                [ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH=$(cd "$LOCAL_PATH" && git rev-parse --abbrev-ref HEAD)
-                (cd "$LOCAL_PATH" && git branch -f "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null) && \
-                    echo "  Fast-forwarded $DEFAULT_BRANCH" && \
-                    (cd "$LOCAL_PATH" && graphify . --backend claude --no-docs --no-viz &>/dev/null &)
+            if ! git -C "$LOCAL_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+                echo "  Skipping: not a git repo"
+            elif ! git -C "$LOCAL_PATH" fetch origin --prune &>/dev/null; then
+                echo "  Fetch failed"
+            else
+                DEFAULT_BRANCH=$(default_branch "$LOCAL_PATH")
+                if [ -z "$DEFAULT_BRANCH" ]; then
+                    echo "  Skipping: empty repo (no remote/default branch yet)"
+                elif ! git -C "$LOCAL_PATH" show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH"; then
+                    echo "  Skipping: origin/$DEFAULT_BRANCH missing after fetch"
+                elif git -C "$LOCAL_PATH" branch -f "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null; then
+                    echo "  Fast-forwarded $DEFAULT_BRANCH"
+                    if has_commits "$LOCAL_PATH"; then
+                        (cd "$LOCAL_PATH" && graphify . --backend claude --no-docs --no-viz &>/dev/null &)
+                    fi
+                else
+                    echo "  Could not update local $DEFAULT_BRANCH"
+                fi
             fi
         fi
         echo "------------------------------------------------"
