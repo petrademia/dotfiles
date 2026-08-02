@@ -15,6 +15,7 @@ link() {
 if [ "$(uname -s)" = "Darwin" ]; then
   link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
   link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
+  link "$DOTFILES/config/containers/containers.conf" "$HOME/.config/containers/containers.conf"
 fi
 
 link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
@@ -36,33 +37,48 @@ mkdir -p "$HOME/.cursor/commands"
 mkdir -p "$HOME/.claude/commands"
 mkdir -p "$HOME/.zai/commands"
 mkdir -p "$HOME/.gemini/commands"
+# Antigravity Desktop, CLI, and IDE look in different skill roots.
+# ~/.gemini/config/skills is the only global path shared by all three.
+mkdir -p "$HOME/.gemini/config/skills"
+mkdir -p "$HOME/.gemini/antigravity/skills"
 mkdir -p "$HOME/.gemini/antigravity-cli/skills"
+mkdir -p "$HOME/.gemini/skills"
 mkdir -p "$HOME/.agents/skills"
 mkdir -p "$HOME/.codex/skills"
 
-link "$DOTFILES/ai/commands/grammar.md" "$HOME/.cursor/commands/grammar.md"
-link "$DOTFILES/ai/commands/grammar.md" "$HOME/.claude/commands/grammar.md"
-link "$DOTFILES/ai/commands/grammar.md" "$HOME/.zai/commands/grammar.md"
-link "$DOTFILES/ai/gemini/grammar.toml" "$HOME/.gemini/commands/grammar.toml"
-link "$DOTFILES/ai/codex/grammar" "$HOME/.agents/skills/grammar"
-link "$DOTFILES/ai/codex/grammar" "$HOME/.codex/skills/grammar"
-link "$DOTFILES/ai/codex/grammar" "$HOME/.gemini/antigravity-cli/skills/grammar"
+# Link a skill folder into every Antigravity-relevant global root (+ agents/codex).
+link_skill() {
+  local src="$1"
+  local name="$2"
+  [ -d "$src" ] || return 0
+  link "$src" "$HOME/.agents/skills/$name"
+  link "$src" "$HOME/.codex/skills/$name"
+  link "$src" "$HOME/.gemini/config/skills/$name"
+  link "$src" "$HOME/.gemini/antigravity/skills/$name"
+  link "$src" "$HOME/.gemini/antigravity-cli/skills/$name"
+  link "$src" "$HOME/.gemini/skills/$name"
+}
 
-link "$DOTFILES/ai/commands/leetcode.md" "$HOME/.cursor/commands/leetcode.md"
-link "$DOTFILES/ai/commands/leetcode.md" "$HOME/.claude/commands/leetcode.md"
-link "$DOTFILES/ai/commands/leetcode.md" "$HOME/.zai/commands/leetcode.md"
-link "$DOTFILES/ai/gemini/leetcode.toml" "$HOME/.gemini/commands/leetcode.toml"
-link "$DOTFILES/ai/codex/leetcode" "$HOME/.agents/skills/leetcode"
-link "$DOTFILES/ai/codex/leetcode" "$HOME/.codex/skills/leetcode"
-link "$DOTFILES/ai/codex/leetcode" "$HOME/.gemini/antigravity-cli/skills/leetcode"
+for command in grammar leetcode handoff; do
+  link "$DOTFILES/ai/commands/${command}.md" "$HOME/.cursor/commands/${command}.md"
+  link "$DOTFILES/ai/commands/${command}.md" "$HOME/.claude/commands/${command}.md"
+  link "$DOTFILES/ai/commands/${command}.md" "$HOME/.zai/commands/${command}.md"
+  link "$DOTFILES/ai/gemini/${command}.toml" "$HOME/.gemini/commands/${command}.toml"
+  link_skill "$DOTFILES/ai/codex/${command}" "$command"
+done
 
-link "$DOTFILES/ai/commands/handoff.md" "$HOME/.cursor/commands/handoff.md"
-link "$DOTFILES/ai/commands/handoff.md" "$HOME/.claude/commands/handoff.md"
-link "$DOTFILES/ai/commands/handoff.md" "$HOME/.zai/commands/handoff.md"
-link "$DOTFILES/ai/gemini/handoff.toml" "$HOME/.gemini/commands/handoff.toml"
-link "$DOTFILES/ai/codex/handoff" "$HOME/.agents/skills/handoff"
-link "$DOTFILES/ai/codex/handoff" "$HOME/.codex/skills/handoff"
-link "$DOTFILES/ai/codex/handoff" "$HOME/.gemini/antigravity-cli/skills/handoff"
+# Matt Pocock / npx skills land in ~/.agents/skills; mirror the ones we use
+# into Antigravity global roots (Desktop/CLI do not share the same paths;
+# CLI does not reliably read ~/.agents/skills as global).
+for name in grill-with-docs grill-me grilling domain-modeling; do
+  if [ -d "$HOME/.agents/skills/$name" ]; then
+    src=$(cd "$HOME/.agents/skills/$name" && pwd -P)
+    link "$src" "$HOME/.gemini/config/skills/$name"
+    link "$src" "$HOME/.gemini/antigravity/skills/$name"
+    link "$src" "$HOME/.gemini/antigravity-cli/skills/$name"
+    link "$src" "$HOME/.gemini/skills/$name"
+  fi
+done
 
 git config --global include.path "$DOTFILES/git/gitconfig"
 
