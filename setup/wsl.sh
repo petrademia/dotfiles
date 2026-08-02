@@ -98,6 +98,36 @@ if ! smart_check "llama" "$HOME/.llama-app/llama"; then
     curl -fsSL https://llama.app/install.sh | sh || echo "[-] llama.cpp install skipped"
 fi
 
+echo "==> 7b) Kubernetes tools (kubectl, kind, k3d)"
+ARCH=$(dpkg --print-architecture)
+case "$ARCH" in
+    amd64) K8S_ARCH="amd64" ;;
+    arm64) K8S_ARCH="arm64" ;;
+    *) K8S_ARCH="$ARCH" ;;
+esac
+
+if ! smart_check "kubectl"; then
+    KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+    curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/${K8S_ARCH}/kubectl" \
+        && sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl \
+        || echo "[-] kubectl install skipped"
+    rm -f /tmp/kubectl
+fi
+
+if ! smart_check "kind"; then
+    KIND_VER=$(curl -fsSL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest \
+        | python3 -c 'import sys,json; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo "v0.32.0")
+    curl -fsSLo /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-${K8S_ARCH}" \
+        && sudo install -m 0755 /tmp/kind /usr/local/bin/kind \
+        || echo "[-] kind install skipped"
+    rm -f /tmp/kind
+fi
+
+if ! smart_check "k3d"; then
+    curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash \
+        || echo "[-] k3d install skipped"
+fi
+
 echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot, Z.ai"
 curl -fsSL https://claude.ai/install.sh | bash || echo "[-] claude install skipped"
 [ ! -f "$(npm config get prefix)/bin/codex" ] && npm install -g @openai/codex --silent || true
@@ -116,6 +146,7 @@ fi
 
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
+npm install -g reasonix || true
 npm install -g openclaw@latest || true
 npm install -g impeccable || true
 uv tool install zai-cli --python 3 || true
@@ -145,6 +176,12 @@ fi
 if ! smart_check "omp"; then
     curl -fsSL https://omp.sh/install | sh || echo "[-] Oh My Pi (omp) install skipped"
 fi
+
+if ! smart_check "goose" "$HOME/.local/bin/goose"; then
+    curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh |
+        CONFIGURE=false bash || echo "[-] Goose CLI install skipped"
+fi
+
 npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force || echo "[-] impeccable skills install skipped"
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"

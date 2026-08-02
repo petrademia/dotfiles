@@ -33,6 +33,7 @@ FORMULAS=(
   rustup fastfetch aria2 p7zip 1password-cli sqlite
   gradle maven plantuml kafka tmux ripgrep python neovim
   graphviz z3 zstd ngrok jenv mas opencode llama.cpp herdr kimi-code
+  block-goose-cli kind kubernetes-cli k3d
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
 )
@@ -48,6 +49,7 @@ CASKS=(
   antigravity
   antigravity-cli
   appcleaner
+  block-goose
   claude
   codex
   chatgpt
@@ -165,6 +167,7 @@ fnm default lts-latest
 
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
+npm install -g reasonix || true
 npm install -g openclaw@latest || true
 npm install -g impeccable || true
 
@@ -261,7 +264,12 @@ crush --version || true
 claude --version || true
 agy --version || true
 omp --version || true
+reasonix --version || true
 impeccable --version || true
+goose --version || true
+kubectl version --client --short 2>/dev/null || kubectl version --client || true
+kind version || true
+k3d version || true
 
 echo
 echo "✅ Setup complete!"
@@ -273,4 +281,6 @@ echo "Manual follow-ups:"
 echo "  - DisplayLink: reboot so the driver takes effect"
 echo "  - Wavlink: no brew package - install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 echo "  - Antigravity: open the desktop app or run \`agy\` and sign in with Google"
+echo "  - Goose: open Goose.app or run \`goose\` / \`goose configure\`"
 echo "  - Impeccable: in a project, run \`/impeccable init\` once for design context"
+echo "  - Kubernetes: create clusters yourself (e.g. \`kind create cluster\` / \`k3d cluster create\`); setup does not start one"

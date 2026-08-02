@@ -39,7 +39,8 @@ $apps = @(
     "ninja", "podman", "podman-desktop", "sudo", "uv", "gdb", "cheat-engine",
     "syncthing",
     "xmake", "cmake", "ripgrep", "neovim", "graphviz", "zstd", "ngrok",
-    "gradle", "maven", "plantuml", "z3", "sqlite"
+    "gradle", "maven", "plantuml", "z3", "sqlite",
+    "kubectl", "kind", "k3d"
 )
 foreach ($app in $apps) { Smart-Scoop $app }
 
@@ -154,9 +155,24 @@ foreach ($command in @("grammar", "leetcode", "handoff")) {
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".claude\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".zai\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\gemini\$command.toml") (Join-Path $HOME ".gemini\commands\$command.toml")
-    Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".agents\skills\$command")
-    Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".codex\skills\$command")
-    Sync-Dotfile (Join-Path $dotfiles "ai\codex\$command") (Join-Path $HOME ".gemini\antigravity-cli\skills\$command")
+    $skillSrc = Join-Path $dotfiles "ai\codex\$command"
+    Sync-Dotfile $skillSrc (Join-Path $HOME ".agents\skills\$command")
+    Sync-Dotfile $skillSrc (Join-Path $HOME ".codex\skills\$command")
+    # Antigravity Desktop/CLI/IDE use different roots; config/skills is shared by all.
+    Sync-Dotfile $skillSrc (Join-Path $HOME ".gemini\config\skills\$command")
+    Sync-Dotfile $skillSrc (Join-Path $HOME ".gemini\antigravity\skills\$command")
+    Sync-Dotfile $skillSrc (Join-Path $HOME ".gemini\antigravity-cli\skills\$command")
+    Sync-Dotfile $skillSrc (Join-Path $HOME ".gemini\skills\$command")
+}
+
+foreach ($name in @("grill-with-docs", "grill-me", "grilling", "domain-modeling")) {
+    $src = Join-Path $HOME ".agents\skills\$name"
+    if (Test-Path $src) {
+        Sync-Dotfile $src (Join-Path $HOME ".gemini\config\skills\$name")
+        Sync-Dotfile $src (Join-Path $HOME ".gemini\antigravity\skills\$name")
+        Sync-Dotfile $src (Join-Path $HOME ".gemini\antigravity-cli\skills\$name")
+        Sync-Dotfile $src (Join-Path $HOME ".gemini\skills\$name")
+    }
 }
 
 $goEnv = go env GOENV
@@ -251,6 +267,7 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "📦 Installing Node-based AI Agents..." -ForegroundColor Cyan
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent
+    npm install -g reasonix --silent
     npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest impeccable playwright --silent
     npx playwright install chromium
     npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force
@@ -259,6 +276,49 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
 if (!(Get-Command omp -ErrorAction SilentlyContinue)) {
     Write-Host "Installing Oh My Pi (omp)..." -ForegroundColor Cyan
     irm https://omp.sh/install.ps1 | iex
+}
+
+# Goose CLI (native Windows) + Desktop (no winget ID; zip from GitHub stable)
+if (!(Get-Command goose -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing Goose CLI..." -ForegroundColor Cyan
+    $gooseInstaller = Join-Path $env:TEMP "goose-download_cli.ps1"
+    try {
+        Invoke-WebRequest "https://github.com/aaif-goose/goose/releases/download/stable/download_cli.ps1" -OutFile $gooseInstaller
+        $env:CONFIGURE = "false"
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gooseInstaller
+    } catch {
+        Write-Host "[!] Goose CLI install failed: $_" -ForegroundColor Yellow
+    } finally {
+        Remove-Item $gooseInstaller -ErrorAction SilentlyContinue
+        Remove-Item Env:CONFIGURE -ErrorAction SilentlyContinue
+    }
+}
+
+$gooseDesktopDir = Join-Path $env:LOCALAPPDATA "Programs\Goose"
+$gooseDesktopExe = Join-Path $gooseDesktopDir "Goose.exe"
+if (!(Test-Path $gooseDesktopExe)) {
+    Write-Host "Installing Goose Desktop..." -ForegroundColor Cyan
+    $gooseZip = Join-Path $env:TEMP "Goose-win32-x64.zip"
+    $gooseExtract = Join-Path $env:TEMP "Goose-win32-x64"
+    try {
+        Invoke-WebRequest "https://github.com/aaif-goose/goose/releases/download/stable/Goose-win32-x64.zip" -OutFile $gooseZip
+        if (Test-Path $gooseExtract) { Remove-Item $gooseExtract -Recurse -Force }
+        Expand-Archive -Path $gooseZip -DestinationPath $gooseExtract -Force
+        New-Item -ItemType Directory -Force -Path $gooseDesktopDir | Out-Null
+        # Zip may contain a nested folder or files at the root
+        $goosePayload = Get-ChildItem $gooseExtract -Directory | Select-Object -First 1
+        if ($null -ne $goosePayload) {
+            Copy-Item -Path (Join-Path $goosePayload.FullName "*") -Destination $gooseDesktopDir -Recurse -Force
+        } else {
+            Copy-Item -Path (Join-Path $gooseExtract "*") -Destination $gooseDesktopDir -Recurse -Force
+        }
+        Write-Host "Goose Desktop installed to $gooseDesktopDir" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Goose Desktop install failed: $_" -ForegroundColor Yellow
+    } finally {
+        Remove-Item $gooseZip -ErrorAction SilentlyContinue
+        Remove-Item $gooseExtract -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
