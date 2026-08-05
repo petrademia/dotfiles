@@ -106,13 +106,26 @@ while [ -n "$URL" ]; do
                     echo "  Skipping: empty repo (no remote/default branch yet)"
                 elif ! git -C "$LOCAL_PATH" show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH"; then
                     echo "  Skipping: origin/$DEFAULT_BRANCH missing after fetch"
-                elif git -C "$LOCAL_PATH" branch -f "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null; then
-                    echo "  Fast-forwarded $DEFAULT_BRANCH"
-                    if has_commits "$LOCAL_PATH"; then
-                        (cd "$LOCAL_PATH" && graphify . --backend claude --no-docs --no-viz &>/dev/null &)
-                    fi
                 else
-                    echo "  Could not update local $DEFAULT_BRANCH"
+                    CURRENT=$(git -C "$LOCAL_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+                    UPDATED=0
+                    if [ "$CURRENT" = "$DEFAULT_BRANCH" ]; then
+                        # Cannot `branch -f` the checked-out branch; ff-merge instead.
+                        if git -C "$LOCAL_PATH" merge --ff-only "origin/$DEFAULT_BRANCH" &>/dev/null; then
+                            UPDATED=1
+                        fi
+                    elif git -C "$LOCAL_PATH" branch -f "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null; then
+                        UPDATED=1
+                    fi
+
+                    if [ "$UPDATED" -eq 1 ]; then
+                        echo "  Fast-forwarded $DEFAULT_BRANCH"
+                        if has_commits "$LOCAL_PATH"; then
+                            (cd "$LOCAL_PATH" && graphify . --backend claude --no-docs --no-viz &>/dev/null &)
+                        fi
+                    else
+                        echo "  Could not update local $DEFAULT_BRANCH (dirty tree or non-ff history?)"
+                    fi
                 fi
             fi
         fi
