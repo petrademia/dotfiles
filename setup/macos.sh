@@ -61,6 +61,7 @@ CASKS=(
   deskflow
   displaylink
   dockdoor
+  cmux
   ghostty
   helium-browser
   hyper
