@@ -19,6 +19,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
 fi
 
 link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
+link "$DOTFILES/config/zellij" "$HOME/.config/zellij"
 link "$DOTFILES/claude/RTK.md" "$HOME/.claude/RTK.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/AGENTS.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/.claude/CLAUDE.md"

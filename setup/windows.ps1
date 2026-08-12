@@ -38,7 +38,7 @@ $apps = @(
     "fnm", "gcc", "jetbrains-toolbox", "JetBrainsMono-NF", "llvm",
     "ninja", "podman", "podman-desktop", "sudo", "uv", "gdb", "cheat-engine",
     "syncthing",
-    "xmake", "cmake", "ripgrep", "neovim", "graphviz", "zstd", "ngrok",
+    "xmake", "cmake", "ripgrep", "neovim", "zellij", "graphviz", "zstd", "ngrok",
     "gradle", "maven", "plantuml", "z3", "sqlite",
     "kubectl", "kind", "k3d"
 )
@@ -148,6 +148,7 @@ Sync-Dotfile (Join-Path $dotfiles "global\AGENTS.md") (Join-Path $HOME "AGENTS.m
 Sync-Dotfile (Join-Path $dotfiles "global\AGENTS.md") (Join-Path $HOME ".claude\CLAUDE.md")
 Sync-Dotfile (Join-Path $dotfiles "claude\RTK.md") (Join-Path $HOME ".claude\RTK.md")
 Sync-Dotfile (Join-Path $dotfiles "config\nvim") (Join-Path $env:LOCALAPPDATA "nvim")
+Sync-Dotfile (Join-Path $dotfiles "config\zellij") (Join-Path $HOME ".config\zellij")
 Sync-Dotfile (Join-Path $dotfiles "cursor\cli-config.json") (Join-Path $HOME ".cursor\cli-config.json")
 
 foreach ($command in @("grammar", "leetcode", "handoff")) {

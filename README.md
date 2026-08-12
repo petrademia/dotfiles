@@ -87,5 +87,5 @@ macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libk
 setup.sh setup/   installers
 install.sh        symlinks
 bootstrap/        java-*, macos.sh, browser-extensions.sh
-ai/ git/ go/ cursor/ shell/ config/ scripts/
+ai/ git/ go/ cursor/ shell/ config/ (nvim, zellij, zsh, containers) scripts/
 ```

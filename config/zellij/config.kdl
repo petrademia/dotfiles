@@ -1,0 +1,10 @@
+// Dotfiles-managed Zellij config (keeps stock keybinds).
+// Docs: https://zellij.dev/documentation/configuration.html
+
+mouse_mode true
+copy_on_select true
+copy_clipboard "system"
+scroll_buffer_size 10000
+session_serialization true
+pane_frames true
+simplified_ui false
