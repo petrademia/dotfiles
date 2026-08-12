@@ -105,6 +105,7 @@ CASKS=(
   microsoft-edge
   mullvad-browser
   onedrive
+  orion
   vivaldi
   vivaldi@snapshot
   waterfox
