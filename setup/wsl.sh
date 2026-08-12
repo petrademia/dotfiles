@@ -23,6 +23,25 @@ sudo apt install -y \
     llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev
 sudo apt install -y fastfetch 2>/dev/null || echo "[-] fastfetch not in apt; skipping"
 
+echo "==> 1b) Zellij (terminal multiplexer)"
+if ! smart_check "zellij"; then
+    ZELLIJ_VER=$(curl -fsSL https://api.github.com/repos/zellij-org/zellij/releases/latest \
+        | python3 -c 'import sys,json; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo "v0.44.3")
+    case "$(uname -m)" in
+        aarch64|arm64) ZELLIJ_ARCH="aarch64" ;;
+        *) ZELLIJ_ARCH="x86_64" ;;
+    esac
+    ZELLIJ_URL="https://github.com/zellij-org/zellij/releases/download/${ZELLIJ_VER}/zellij-${ZELLIJ_ARCH}-unknown-linux-musl.tar.gz"
+    if curl -fL "$ZELLIJ_URL" -o /tmp/zellij.tar.gz \
+        && tar xzf /tmp/zellij.tar.gz -C /tmp \
+        && sudo install -m 0755 /tmp/zellij /usr/local/bin/zellij; then
+        echo "Zellij ${ZELLIJ_VER} installed"
+    else
+        echo "[-] Zellij install skipped"
+    fi
+    rm -f /tmp/zellij.tar.gz /tmp/zellij
+fi
+
 echo "==> 2) GitHub CLI (gh)"
 if ! smart_check "gh"; then
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
