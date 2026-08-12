@@ -106,6 +106,7 @@ CASKS=(
   mullvad-browser
   onedrive
   orion
+  sigmaos
   vivaldi
   vivaldi@snapshot
   waterfox
