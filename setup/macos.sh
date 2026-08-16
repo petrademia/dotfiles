@@ -259,6 +259,8 @@ kind version || true
 k3d version || true
 tmux -V || true
 zellij --version || true
+hx --version || true
+zed --version || true
 
 echo
 echo "✅ Setup complete!"
