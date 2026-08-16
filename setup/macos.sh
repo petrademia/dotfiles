@@ -31,7 +31,7 @@ FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip 1password-cli sqlite
-  gradle maven plantuml kafka tmux zellij ripgrep python neovim
+  gradle maven plantuml kafka tmux zellij helix ripgrep python neovim
   graphviz z3 zstd ngrok jenv mas opencode llama.cpp herdr kimi-code
   block-goose-cli kind kubernetes-cli k3d
   charmbracelet/tap/crush
@@ -68,9 +68,11 @@ CASKS=(
   iterm2
   kitty
   keka
+  lapce
   librewolf
   libreoffice
   lm-studio
+  neovide-app
   obsidian
   ollama-app
   osaurus
@@ -84,6 +86,7 @@ CASKS=(
   transmission
   surfshark
   tabby
+  trae
   ungoogled-chromium
   vlc
   warp
@@ -120,6 +123,7 @@ CASKS=(
   rectangle
   scroll-reverser
   iina
+  zed
   grandperspective
   omnidisksweeper
   font-jetbrains-mono-nerd-font

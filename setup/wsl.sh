@@ -42,6 +42,25 @@ if ! smart_check "zellij"; then
     rm -f /tmp/zellij.tar.gz /tmp/zellij
 fi
 
+echo "==> 1c) Helix (modal editor)"
+if ! smart_check "hx" && ! smart_check "helix"; then
+    HELIX_VER=$(curl -fsSL https://api.github.com/repos/helix-editor/helix/releases/latest \
+        | python3 -c 'import sys,json; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo "25.07.1")
+    case "$(uname -m)" in
+        aarch64|arm64) HELIX_ARCH="aarch64-linux" ;;
+        *) HELIX_ARCH="x86_64-linux" ;;
+    esac
+    HELIX_URL="https://github.com/helix-editor/helix/releases/download/${HELIX_VER}/helix-${HELIX_VER}-${HELIX_ARCH}.tar.xz"
+    if curl -fL "$HELIX_URL" -o /tmp/helix.tar.xz \
+        && tar xJf /tmp/helix.tar.xz -C /tmp \
+        && sudo install -m 0755 "/tmp/helix-${HELIX_VER}-${HELIX_ARCH}/hx" /usr/local/bin/hx; then
+        echo "Helix ${HELIX_VER} installed"
+    else
+        echo "[-] Helix install skipped"
+    fi
+    rm -rf /tmp/helix.tar.xz "/tmp/helix-${HELIX_VER}-${HELIX_ARCH}"
+fi
+
 echo "==> 2) GitHub CLI (gh)"
 if ! smart_check "gh"; then
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
