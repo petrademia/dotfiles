@@ -38,7 +38,7 @@ $apps = @(
     "fnm", "gcc", "jetbrains-toolbox", "JetBrainsMono-NF", "llvm",
     "ninja", "podman", "podman-desktop", "sudo", "uv", "gdb", "cheat-engine",
     "syncthing",
-    "xmake", "cmake", "ripgrep", "neovim", "zellij", "graphviz", "zstd", "ngrok",
+    "xmake", "cmake", "ripgrep", "neovim", "zellij", "helix", "zed", "lapce", "neovide", "trae", "graphviz", "zstd", "ngrok",
     "gradle", "maven", "plantuml", "z3", "sqlite",
     "kubectl", "kind", "k3d"
 )
