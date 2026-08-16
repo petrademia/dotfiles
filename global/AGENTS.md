@@ -25,5 +25,3 @@
 ## Environment
 
 - 1Password available. Session managed via `OP_SESSION` in `~/.zshrc`.
-
-@RTK.md

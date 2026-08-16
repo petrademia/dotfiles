@@ -211,26 +211,6 @@ else
   echo "==> Skipping Codex plugins; install codex cask first"
 fi
 
-if ! command -v rtk >/dev/null 2>&1; then
-  echo "==> Installing RTK"
-  RTK_VERSION=$(curl -fsSL https://api.github.com/repos/rtk-ai/rtk/releases/latest 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "v0.43.0")
-  ARCH=$(uname -m)
-  case "$ARCH" in
-    arm64) RTK_ARCH="aarch64" ;;
-    x86_64) RTK_ARCH="x86_64" ;;
-  esac
-  RTK_URL="https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-${RTK_ARCH}-apple-darwin.tar.gz"
-  echo "Downloading: $RTK_URL"
-  if curl -fL "$RTK_URL" -o /tmp/rtk.tar.gz 2>/dev/null && tar xzf /tmp/rtk.tar.gz -C /tmp 2>/dev/null; then
-    sudo mv /tmp/rtk /usr/local/bin/rtk 2>/dev/null && echo "RTK installed"
-  else
-    echo "RTK download failed - install manually from GitHub releases"
-  fi
-  rm -f /tmp/rtk.tar.gz /tmp/rtk 2>/dev/null || true
-else
-  echo "RTK already installed"
-fi
-
 DOTFILES="$HOME/dotfiles"
 
 if [ ! -d "$DOTFILES" ]; then

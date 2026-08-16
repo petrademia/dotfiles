@@ -65,7 +65,7 @@ The current `install.sh` cannot be run unchanged in WSL because it links macOS-s
 Create an OS-neutral installer boundary for:
 
 - `global/AGENTS.md`
-- Claude global instructions and RTK reference
+- Claude global instructions (AGENTS.md)
 - Neovim configuration
 - Cursor CLI configuration
 - `/grammar` and `/leetcode` commands and skills
