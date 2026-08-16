@@ -29,5 +29,3 @@
   - Jira: `op://Personal/Amartha Jira API` (`username` + `password`)
   - Bitbucket API / PR review: `op://Personal/Amartha Bitbucket PR Review` (`username` + `credential`)
   - Bitbucket git push: SSH key `petruswiyadi-Bitbucket` via 1Password SSH agent
-
-@RTK.md

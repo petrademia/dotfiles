@@ -146,7 +146,6 @@ function Sync-Dotfile {
 
 Sync-Dotfile (Join-Path $dotfiles "global\AGENTS.md") (Join-Path $HOME "AGENTS.md")
 Sync-Dotfile (Join-Path $dotfiles "global\AGENTS.md") (Join-Path $HOME ".claude\CLAUDE.md")
-Sync-Dotfile (Join-Path $dotfiles "claude\RTK.md") (Join-Path $HOME ".claude\RTK.md")
 Sync-Dotfile (Join-Path $dotfiles "config\nvim") (Join-Path $env:LOCALAPPDATA "nvim")
 Sync-Dotfile (Join-Path $dotfiles "config\zellij") (Join-Path $HOME ".config\zellij")
 Sync-Dotfile (Join-Path $dotfiles "cursor\cli-config.json") (Join-Path $HOME ".cursor\cli-config.json")
@@ -349,25 +348,6 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
     codex plugin marketplace add DietrichGebert/ponytail 2>$null
     codex plugin add caveman@caveman 2>$null
     codex plugin add ponytail@ponytail 2>$null
-}
-
-# --- 10c. RTK (Rust Token Killer) ---
-if (!(Get-Command rtk -ErrorAction SilentlyContinue)) {
-    Write-Host "⚡ Installing RTK..." -ForegroundColor Cyan
-    try {
-        $rel = Invoke-RestMethod "https://api.github.com/repos/rtk-ai/rtk/releases/latest"
-        $tag = $rel.tag_name
-        $rtkUrl = "https://github.com/rtk-ai/rtk/releases/download/$tag/rtk-x86_64-pc-windows-msvc.zip"
-        $binDir = "$HOME\.local\bin"
-        New-Item -Type Directory -Path $binDir -Force | Out-Null
-        $tmp = "$env:TEMP\rtk.zip"
-        Invoke-WebRequest $rtkUrl -OutFile $tmp
-        Expand-Archive $tmp -DestinationPath $binDir -Force
-        Remove-Item $tmp -ErrorAction SilentlyContinue
-        Write-Host "RTK installed to $binDir" -ForegroundColor Green
-    } catch {
-        Write-Host "[!] RTK auto-install failed - grab it from https://github.com/rtk-ai/rtk/releases" -ForegroundColor Yellow
-    }
 }
 
 # --- 11. Final Polish ---

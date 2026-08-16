@@ -75,7 +75,7 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 
 ## Manual
 
-Velja (App Store) · JetBrains via Toolbox · [RTK](https://github.com/rtk-ai/rtk/releases) · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is a brew cask in setup).
+Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is a brew cask in setup).
 
 macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libkrun/`krunkit --timesync` skew with Podman Desktop). New machines inherit that provider; stop or remove any leftover libkrun default machine if Desktop keeps trying to start it.
 
