@@ -77,7 +77,8 @@ $wingetApps = @(
     "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
     "UpNote.UpNote",
     "Streetwriters.Notesnook",
-    "StandardNotes.StandardNotes", "Automattic.Simplenote"
+    "StandardNotes.StandardNotes", "Automattic.Simplenote",
+    "Joplin.Joplin"
 )
 
 foreach ($app in $wingetApps) {
@@ -268,6 +269,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "📦 Installing Node-based AI Agents..." -ForegroundColor Cyan
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent
     npm install -g reasonix --silent
+    npm install -g @deepseek-ai/dsh --silent
     npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest impeccable playwright --silent
     npx playwright install chromium
     npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force

@@ -73,6 +73,7 @@ CASKS=(
   libreoffice
   lm-studio
   neovide-app
+  notesnook
   obsidian
   ollama-app
   osaurus
@@ -110,6 +111,8 @@ CASKS=(
   onedrive
   orion
   sigmaos
+  simplenote
+  standard-notes
   vivaldi
   vivaldi@snapshot
   waterfox
@@ -123,6 +126,7 @@ CASKS=(
   rectangle
   scroll-reverser
   iina
+  joplin
   zed
   grandperspective
   omnidisksweeper
@@ -146,17 +150,22 @@ fi
 
 MAS_APPS=(
   "1284863847 Unsplash Wallpapers"
+  "1398373917 UpNote"
 )
 
-if mas account >/dev/null 2>&1; then
-  for app in "${MAS_APPS[@]}"; do
-    app_id="${app%% *}"
-    app_name="${app#* }"
-    echo "==> Installing App Store app: $app_name"
-    mas install "$app_id"
-  done
-else
-  echo "==> Skipping App Store apps; sign in to the App Store, then run: mas install 1284863847"
+# mas 7 needs root. curl|bash has no TTY for sudo, so skip there.
+if command -v mas >/dev/null 2>&1; then
+  if [ -t 0 ]; then
+    for app in "${MAS_APPS[@]}"; do
+      app_id="${app%% *}"
+      app_name="${app#* }"
+      echo "==> Installing App Store app: $app_name"
+      sudo mas get "$app_id" || sudo mas install "$app_id" || echo "Warning: mas failed for $app_name ($app_id)"
+    done
+  else
+    echo "==> Skipping App Store apps (mas 7 needs sudo on a TTY). Later run:"
+    echo "    sudo mas get 1284863847 1398373917"
+  fi
 fi
 
 # Brew keg-only formulas - add to PATH for this script
@@ -175,6 +184,7 @@ fnm default lts-latest
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
 npm install -g reasonix || true
+npm install -g @deepseek-ai/dsh || true
 npm install -g openclaw@latest || true
 npm install -g impeccable || true
 
@@ -252,6 +262,7 @@ claude --version || true
 agy --version || true
 omp --version || true
 reasonix --version || true
+dsh --version || true
 impeccable --version || true
 goose --version || true
 kubectl version --client --short 2>/dev/null || kubectl version --client || true

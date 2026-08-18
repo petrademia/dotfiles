@@ -63,7 +63,7 @@ Opens store pages for uBlock, 1Password, FDM (Lite on Chromium; full uBO on Fire
 
 ## AI
 
-`/grammar` · `/leetcode` · `/handoff` (Cursor, Claude, Copilot, Zai, Gemini/Antigravity, Codex). Caveman + ponytail via setup. [Impeccable](https://github.com/pbakaus/impeccable) design skills (`/impeccable`) install globally for Claude, Codex, Cursor, Gemini, OpenCode, and Pi. Hermes Agent, Pi Coding Agent, Oh My Pi (`omp`), [Reasonix](https://github.com/esengine/DeepSeek-Reasonix) (`reasonix`), OpenClaw, Kimi Code CLI, Antigravity CLI (`agy`), and [Goose](https://github.com/aaif-goose/goose) are installed as agent clients. Antigravity desktop (2.0) and Goose desktop are installed on macOS and Windows; WSL uses CLI agents (`agy`, `goose`) and reuses the Windows desktop apps.
+`/grammar` · `/leetcode` · `/handoff` (Cursor, Claude, Copilot, Zai, Gemini/Antigravity, Codex). Caveman + ponytail via setup. [Impeccable](https://github.com/pbakaus/impeccable) design skills (`/impeccable`) install globally for Claude, Codex, Cursor, Gemini, OpenCode, and Pi. Hermes Agent, Pi Coding Agent, Oh My Pi (`omp`), [Reasonix](https://github.com/esengine/DeepSeek-Reasonix) (`reasonix`), [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`; needs Node 22.19+ or 24+), OpenClaw, Kimi Code CLI, Antigravity CLI (`agy`), and [Goose](https://github.com/aaif-goose/goose) are installed as agent clients. Antigravity desktop (2.0) and Goose desktop are installed on macOS and Windows; WSL uses CLI agents (`agy`, `goose`) and reuses the Windows desktop apps.
 
 Antigravity skills are linked into `~/.gemini/config/skills/` (works in Desktop + CLI + IDE). Product-specific roots (`antigravity/`, `antigravity-cli/`) are also filled. Skills with `disable-model-invocation` must be run as slash commands (e.g. `/grammar`), not auto-picked.
 
@@ -76,6 +76,12 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 ## Manual
 
 Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is a brew cask in setup).
+
+## Notes
+
+Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote. Obsidian is already in setup (sync is separate). Windows already had UpNote / Notesnook / Standard Notes / Simplenote; Joplin is added there too.
+
+## Manual
 
 macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libkrun/`krunkit --timesync` skew with Podman Desktop). New machines inherit that provider; stop or remove any leftover libkrun default machine if Desktop keeps trying to start it.
 

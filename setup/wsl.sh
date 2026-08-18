@@ -185,6 +185,7 @@ fi
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
 npm install -g reasonix || true
+npm install -g @deepseek-ai/dsh || true
 npm install -g openclaw@latest || true
 npm install -g impeccable || true
 uv tool install zai-cli --python 3 || true
