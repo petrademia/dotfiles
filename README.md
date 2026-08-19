@@ -38,7 +38,7 @@ Switch: `java-use 21-temurin` (macOS/WSL) · `jv temurin21-jdk` (Windows).
 
 ## CLIs
 
-`gh` and `atlassian-cli` come with setup.
+`gh`, `atlassian-cli`, and `wrangler` (Cloudflare Pages/Workers) come with setup.
 
 ```bash
 gh auth login
