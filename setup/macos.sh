@@ -185,6 +185,7 @@ npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
 npm install -g reasonix || true
 npm install -g @deepseek-ai/dsh || true
+npm install -g wrangler || true
 npm install -g openclaw@latest || true
 npm install -g impeccable || true
 
@@ -263,6 +264,7 @@ agy --version || true
 omp --version || true
 reasonix --version || true
 dsh --version || true
+wrangler --version || true
 impeccable --version || true
 goose --version || true
 kubectl version --client --short 2>/dev/null || kubectl version --client || true
