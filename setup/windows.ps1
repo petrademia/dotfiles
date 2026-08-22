@@ -75,6 +75,41 @@ function Test-WingetExit1603 {
     return ($Code -eq 1603) -or ($Text -match "exit code:\s*1603")
 }
 
+# Winget's Warp.Warp installer URL is an HTML landing page, so `winget install`
+# sits on "Downloading https://app.warp.dev/download/windows?..." forever.
+function Install-Warp {
+    $existing = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Warp\Warp.exe"),
+        (Join-Path $env:LOCALAPPDATA "Warp\Warp.exe")
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($existing) {
+        Write-Host "[-] Warp is already installed." -ForegroundColor Gray
+        return
+    }
+
+    Write-Host "[+] Installing Warp..." -ForegroundColor Cyan
+    $show = winget show -e --id Warp.Warp --source winget 2>$null | Out-String
+    if ($show -notmatch '(?m)^\s*Version:\s+(\S+)') {
+        Write-Host "[!] Could not read Warp version from Winget. Skipping." -ForegroundColor Yellow
+        return
+    }
+    $ver = $Matches[1]
+    $setup = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "WarpSetup-arm64.exe" } else { "WarpSetup.exe" }
+    $url = "https://releases.warp.dev/stable/$ver/$setup"
+    $out = Join-Path $env:TEMP $setup
+    Write-Host "    $url"
+    & curl.exe -fL --retry 3 $url -o $out
+    if (($LASTEXITCODE -ne 0) -or !(Test-Path $out) -or ((Get-Item $out).Length -lt 1MB)) {
+        Write-Host "[!] Warp download failed. Skipping." -ForegroundColor Yellow
+        return
+    }
+    $proc = Start-Process -FilePath $out -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES" -Wait -PassThru
+    Remove-Item $out -ErrorAction SilentlyContinue
+    if ($proc.ExitCode -ne 0) {
+        Write-Host "[!] Warp installer exit $($proc.ExitCode)." -ForegroundColor Yellow
+    }
+}
+
 # Same as right-click Unpin from taskbar. File Explorer has no shell verb; this COM
 # API unpins the pin shortcut without deleting explorer.exe or restarting Explorer.
 function Invoke-TaskbarUnpin {
@@ -498,7 +533,7 @@ $wingetApps = @(
     "Google.GoogleDrive", "Microsoft.OneDrive",
     "Google.Antigravity", "Google.AntigravityCLI",
     "Microsoft.VisualStudioCode", "Microsoft.WindowsTerminal", "Postman.Postman",
-    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Warp.Warp", "Vercel.Hyper",
+    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper",
     "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition",
     "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Ablaze.Floorp",
     "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser",
@@ -535,6 +570,8 @@ foreach ($app in $wingetApps) {
         Write-Host "[-] $app is already installed." -ForegroundColor Gray
     }
 }
+
+Install-Warp
 
 Initialize-TrafficMonitor
 
