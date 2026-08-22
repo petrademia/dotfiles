@@ -29,7 +29,7 @@ $Catalog = [ordered]@{
     "Firefox Developer Edition"  = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Firefox Developer Edition\firefox.exe", "$env:LocalAppData\Firefox Developer Edition\firefox.exe") }
     "Vivaldi"                    = @{ Engine = "chromium"; Paths = @("$env:LocalAppData\Vivaldi\Application\vivaldi.exe") }
     "Opera GX"                   = @{ Engine = "chromium"; Paths = @("$env:LocalAppData\Programs\Opera GX\opera.exe", "$env:AppData\Opera Software\Opera GX\opera.exe") }
-    "Floorp"                     = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Ablaze Floorp\floorp.exe") }
+    "Floorp"                     = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Ablaze Floorp\floorp.exe", "$env:ProgramFiles\Floorp\floorp.exe", "$env:LocalAppData\Ablaze Floorp\floorp.exe", "$env:LocalAppData\Floorp\floorp.exe") }
 }
 
 function Get-BrowserExe {
