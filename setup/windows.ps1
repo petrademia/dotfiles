@@ -152,6 +152,7 @@ $wingetApps = @(
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
     "DisplayLink.GraphicsDriver",
+    "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
 
@@ -504,6 +505,7 @@ Write-Host "     irm https://raw.githubusercontent.com/petrademia/dotfiles/main/
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - TrafficMonitor: right-click → Show taskbar window (first run)"
+Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot so the driver takes effect"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
