@@ -115,7 +115,7 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 
 ## Manual
 
-Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed; enable TrafficMonitor's taskbar window once after first run.
+Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed; enable TrafficMonitor's taskbar window once after first run. ROG Flow X13 gets [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) as a lightweight Armoury Crate alternative; do not run both at once.
 
 ## Notes
 
