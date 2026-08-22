@@ -43,6 +43,38 @@ function Add-UserPath {
     if ($env:PATH -notlike "*$Dir*") { $env:PATH = "$Dir;$env:PATH" }
 }
 
+function Save-RemoteFile {
+    param([string]$Uri, [string]$OutFile, [int]$Tries = 3)
+    for ($i = 1; $i -le $Tries; $i++) {
+        try {
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+            if ((Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) { return $true }
+        } catch {}
+        & curl.exe -fsSL $Uri -o $OutFile
+        if (($LASTEXITCODE -eq 0) -and (Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) { return $true }
+        Start-Sleep -Seconds ($i * 2)
+    }
+    return $false
+}
+
+function Sync-DotfilesClone {
+    $dest = Join-Path $HOME "dotfiles"
+    Protect-ScoopGit {
+        if (!(Test-Path (Join-Path $dest ".git"))) {
+            Write-Host "Cloning dotfiles..." -ForegroundColor Cyan
+            git clone https://github.com/petrademia/dotfiles.git $dest
+        } else {
+            git -C $dest pull --ff-only --quiet 2>$null | Out-Null
+        }
+    }
+    return $dest
+}
+
+function Test-WingetExit1603 {
+    param([string]$Text, [int]$Code)
+    return ($Code -eq 1603) -or ($Text -match "exit code:\s*1603")
+}
+
 function New-StartMenuShortcut {
     param([string]$Name, [string]$Target)
     if (!(Test-Path $Target)) { return }
@@ -121,12 +153,12 @@ function Set-WindowsHostDefaults {
     Write-Host "Applying Windows defaults..." -ForegroundColor Cyan
 
     $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-    Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0
-    Set-ItemProperty -Path $adv -Name Hidden -Type DWord -Value 1
+    Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0 -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $adv -Name Hidden -Type DWord -Value 1 -ErrorAction SilentlyContinue
     # Settings > Personalization > Taskbar > Taskbar items: hide Search, Task view,
     # Widgets, Chat, Copilot, Resume. TaskbarDa is ACL-locked on some builds.
-    Set-ItemProperty -Path $adv -Name MultiTaskingAltTabFilter -Type DWord -Value 3
-    Set-ItemProperty -Path $adv -Name ShowTaskViewButton -Type DWord -Value 0
+    Set-ItemProperty -Path $adv -Name MultiTaskingAltTabFilter -Type DWord -Value 3 -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $adv -Name ShowTaskViewButton -Type DWord -Value 0 -ErrorAction SilentlyContinue
     foreach ($name in @("TaskbarDa", "TaskbarMn", "ShowCopilotButton", "IsEnabled")) {
         & reg.exe add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v $name /t REG_DWORD /d 0 /f 2>$null | Out-Null
     }
@@ -180,26 +212,123 @@ function Set-WindowsHostDefaults {
     }
 
     try {
+        $unpinNames = @(
+            "Microsoft Edge",
+            "Microsoft Store",
+            "Store",
+            "Copilot",
+            "Microsoft Copilot",
+            "Microsoft 365 Copilot",
+            "Windows Copilot",
+            "File Explorer",
+            "Explorer",
+            "Mail",
+            "Outlook",
+            "Microsoft Teams",
+            "Teams",
+            "Chat",
+            "Xbox"
+        )
         $appsFolder = (New-Object -ComObject Shell.Application).NameSpace("shell:::{4234d49b-0245-4df3-b780-3893943456e1}")
         if ($appsFolder) {
-            foreach ($name in @(
-                "Microsoft Edge",
-                "Microsoft Store",
-                "Store",
-                "Copilot",
-                "Mail",
-                "Outlook",
-                "Microsoft Teams",
-                "Teams",
-                "Chat",
-                "Xbox"
-            )) {
+            foreach ($name in $unpinNames) {
                 $item = $appsFolder.Items() | Where-Object { $_.Name -eq $name }
                 if (-not $item) { continue }
                 $item.Verbs() | Where-Object { ($_.Name -replace "&", "") -match "Unpin from taskbar" } | ForEach-Object { $_.DoIt() }
             }
         }
+        # File Explorer (and other OEM defaults) often have no Unpin verb; the .lnk is the pin.
+        $pinDir = Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+        $removedPin = $false
+        if (Test-Path $pinDir) {
+            Get-ChildItem -LiteralPath $pinDir -Filter "*.lnk" -ErrorAction SilentlyContinue | Where-Object {
+                $unpinNames -contains $_.BaseName
+            } | ForEach-Object {
+                Remove-Item -LiteralPath $_.FullName -Force
+                $removedPin = $true
+            }
+        }
+        if ($removedPin) {
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+            Start-Process explorer.exe
+        }
     } catch {}
+
+    Set-WindowsStartupApps
+}
+
+function Set-StartupApproved {
+    param([string]$Key, [string]$Name, [bool]$Enabled)
+    if (!(Test-Path $Key)) { return }
+    $item = Get-Item -LiteralPath $Key
+    if ($item.GetValueNames() -notcontains $Name) { return }
+    $flag = if ($Enabled) { [byte]2 } else { [byte]3 }
+    $bytes = [byte[]](@($flag) + @(0) * 11)
+    New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force | Out-Null
+}
+
+function Set-AppXStartupState {
+    param([string]$FamilyPrefix, [string]$TaskName, [int]$State)
+    $root = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData"
+    if (!(Test-Path $root)) { return }
+    Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Where-Object {
+        $_.PSChildName -like "$FamilyPrefix*"
+    } | ForEach-Object {
+        $task = Join-Path $_.PSPath $TaskName
+        if (Test-Path $task) {
+            Set-ItemProperty -LiteralPath $task -Name State -Type DWord -Value $State
+        }
+    }
+}
+
+function Set-WindowsStartupApps {
+    Write-Host "Applying startup app allow/deny list..." -ForegroundColor Cyan
+    $run = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+    $folder = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
+    $runLm = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+    $runLmWow = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32"
+
+    foreach ($name in @(
+        "TrafficMonitor",
+        "WindowSwitcher",
+        "Surfshark",
+        "GoogleDriveFS",
+        "OneDrive"
+    )) { Set-StartupApproved $run $name $true }
+
+    foreach ($name in @(
+        "BraveSoftware Update",
+        "Opera GX Browser Assistant",
+        "Opera GX Stable",
+        "Discord",
+        "com.squirrel.slack.slack"
+    )) { Set-StartupApproved $run $name $false }
+
+    Set-StartupApproved $folder "Ollama.lnk" $false
+
+    foreach ($pair in @(
+        @{ Key = $runLm; Name = "Virtual Pet"; On = $false },
+        @{ Key = $runLm; Name = "SecurityHealth"; On = $true },
+        @{ Key = $runLmWow; Name = "ASUS Smart Display Control"; On = $false }
+    )) {
+        try { Set-StartupApproved $pair.Key $pair.Name $pair.On } catch {}
+    }
+
+    Set-AppXStartupState "Agilebits.1Password_" "1PasswordStartup" 2
+    Set-AppXStartupState "*ThreeFinger*" "ThreeFingerDragOnWindows" 2
+    Set-AppXStartupState "MicrosoftWindows.CrossDevice_" "CrossDevice.Start" 0
+    Set-AppXStartupState "Microsoft.MicrosoftOfficeHub_" "WebViewHostStartupId" 0
+    Set-AppXStartupState "MicrosoftTeams_" "TeamsStartupTask" 0
+    Set-AppXStartupState "MSTeams_" "TeamsTfwStartupTask" 0
+    Set-AppXStartupState "OpenAI.ChatGPT-Desktop_" "ChatGPT" 0
+    Set-AppXStartupState "AdvancedMicroDevicesInc-2.AMDRadeonSoftware_" "launcherrsxruntimeTask" 0
+    Set-AppXStartupState "Microsoft.CommandPalette_" "CmdPalStartup" 0
+    Set-AppXStartupState "Microsoft.YourPhone_" "YourPhone.Start" 0
+    Set-AppXStartupState "Microsoft.Todos_" "ToDoStartupId" 0
+    Set-AppXStartupState "Microsoft.GamingApp_" "Xbox.App.Tasks.FullTrustComponent" 0
+    Set-AppXStartupState "Microsoft.PowerAutomateDesktop_" "AutoStartTask" 0
+    Set-AppXStartupState "Microsoft.WindowsTerminal_" "StartTerminalOnLoginTask" 0
+    Set-AppXStartupState "LGElectronics.LGMonitorApp_" "LGMonitorAutoStart" 0
 }
 
 function Add-ScoopBucket {
@@ -294,10 +423,12 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
 }
 
 # --- 4. Java matrix (same packages as bootstrap/java-windows.ps1) ---
+# irm | iex uses ~/dotfiles; pull first so this is not a stale first-run clone.
+$dotfiles = Sync-DotfilesClone
 Write-Host "Installing Java matrix..." -ForegroundColor Cyan
 $javaLocal = @(
     $(if ($PSScriptRoot) { Join-Path $PSScriptRoot "..\bootstrap\java-windows.ps1" }),
-    (Join-Path $HOME "dotfiles\bootstrap\java-windows.ps1")
+    (Join-Path $dotfiles "bootstrap\java-windows.ps1")
 ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 if ($javaLocal) {
     Protect-ScoopGit { param($p) & $p } -Arg $javaLocal
@@ -332,11 +463,13 @@ foreach ($app in $wingetApps) {
     $check = winget list --id $app --source winget 2>$null
     if ($null -eq $check -or $check -match "No installed package found") {
         Write-Host "[+] Installing $app..." -ForegroundColor Cyan
-        winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget
-
-        if ($LASTEXITCODE -eq 1603) {
+        $wingetLines = @()
+        winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
+        $wingetText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
+        $wingetCode = $LASTEXITCODE
+        if (Test-WingetExit1603 $wingetText $wingetCode) {
             Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Skipping retry." -ForegroundColor Yellow
-        } elseif ($LASTEXITCODE -ne 0) {
+        } elseif ($wingetCode -ne 0) {
             Write-Host "[!] Exact ID failed for $app. Attempting search-install..." -ForegroundColor Yellow
             winget install $app --accept-package-agreements --accept-source-agreements --silent
         }
@@ -357,7 +490,7 @@ $msStoreApps = [ordered]@{
 }
 foreach ($id in $msStoreApps.Keys) {
     $name = $msStoreApps[$id]
-    $check = winget list --id $id --source msstore 2>$null
+    $check = winget list --id $id 2>$null
     if ($null -eq $check -or $check -match "No installed package found") {
         Write-Host "[+] Installing $name..." -ForegroundColor Cyan
         winget install --id $id --source msstore --accept-package-agreements --accept-source-agreements --silent
@@ -376,11 +509,7 @@ $env:GOPATH = "$env:USERPROFILE\go"
 $env:PATH = "$goRootPath\bin;$env:GOPATH\bin;$env:PATH"
 
 # --- 6b. Shared Dotfiles ---
-$dotfiles = Join-Path $HOME "dotfiles"
-if (!(Test-Path (Join-Path $dotfiles ".git"))) {
-    Write-Host "Cloning dotfiles..." -ForegroundColor Cyan
-    git clone https://github.com/petrademia/dotfiles.git $dotfiles
-}
+$dotfiles = Sync-DotfilesClone
 
 function Sync-Dotfile {
     param([string]$Source, [string]$Destination)
@@ -441,7 +570,7 @@ Write-Host "Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
 $dfRule = "Deskflow Inbound (TCP 24800)"
 try {
     if (!(Get-NetFirewallRule -DisplayName $dfRule -ErrorAction SilentlyContinue)) {
-        New-NetFirewallRule -DisplayName $dfRule -Direction Inbound -LocalPort 24800 -Protocol TCP -Action Allow -Description "Deskflow KVM" | Out-Null
+        New-NetFirewallRule -DisplayName $dfRule -Direction Inbound -LocalPort 24800 -Protocol TCP -Action Allow -Description "Deskflow KVM" -ErrorAction Stop | Out-Null
     }
 } catch {
     Write-Host "[!] Deskflow firewall rule skipped (needs an elevated PowerShell)." -ForegroundColor Yellow
@@ -450,7 +579,8 @@ try {
 # --- 8. Window Switcher (sigoden/window-switcher) ---
 Write-Host "Checking Alt-Backtick Switcher (sigoden)..." -ForegroundColor Cyan
 
-if (!(Get-Command window-switcher -ErrorAction SilentlyContinue)) {
+$wsScoop = Join-Path $HOME "scoop\apps\window-switcher\current"
+if (!(Test-Path $wsScoop) -and !(Get-Command window-switcher -ErrorAction SilentlyContinue)) {
     Write-Host "[+] Installing window-switcher via Scoop..." -ForegroundColor Yellow
     Add-ScoopBucket extras
     scoop install window-switcher
@@ -543,26 +673,38 @@ if (!(Get-Command omp -ErrorAction SilentlyContinue)) {
     irm https://omp.sh/install.ps1 | iex
 }
 
-# Goose CLI (native Windows) + Desktop (no winget ID; zip from GitHub stable)
+# Goose CLI: Scoop extras first (release tag download_cli.ps1 is 404). Desktop zip is separate.
 if (!(Get-Command goose -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing Goose CLI..." -ForegroundColor Cyan
+    $gooseScoop = Join-Path $HOME "scoop\apps\goose\current"
+    if (!(Test-Path $gooseScoop)) {
+        Write-Host "Installing Goose CLI..." -ForegroundColor Cyan
+        Add-ScoopBucket extras
+        scoop install goose
+        Update-SessionPath
+    }
+}
+if (!(Get-Command goose -ErrorAction SilentlyContinue) -and !(Test-Path (Join-Path $HOME "scoop\apps\goose\current"))) {
+    Write-Host "Installing Goose CLI (download_cli.ps1)..." -ForegroundColor Cyan
     $gooseInstaller = Join-Path $env:TEMP "goose-download_cli.ps1"
-    try {
-        Invoke-WebRequest "https://github.com/aaif-goose/goose/releases/download/stable/download_cli.ps1" -OutFile $gooseInstaller
-        $env:CONFIGURE = "false"
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gooseInstaller
-    } catch {
-        Write-Host "[!] Goose CLI via Invoke-WebRequest failed, retrying with curl..." -ForegroundColor Yellow
-        try {
-            & curl.exe -fsSL "https://github.com/aaif-goose/goose/releases/download/stable/download_cli.ps1" -o $gooseInstaller
+    $gooseOk = $false
+    foreach ($gooseUrl in @(
+        "https://raw.githubusercontent.com/block/goose/main/download_cli.ps1",
+        "https://raw.githubusercontent.com/aaif-goose/goose/main/download_cli.ps1"
+    )) {
+        if (Save-RemoteFile $gooseUrl $gooseInstaller) {
             $env:CONFIGURE = "false"
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gooseInstaller
-        } catch {
-            Write-Host "[!] Goose CLI install failed: $_" -ForegroundColor Yellow
+            try {
+                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gooseInstaller
+                $gooseOk = $true
+            } finally {
+                Remove-Item Env:CONFIGURE -ErrorAction SilentlyContinue
+                Remove-Item $gooseInstaller -ErrorAction SilentlyContinue
+            }
+            if ($gooseOk) { break }
         }
-    } finally {
-        Remove-Item $gooseInstaller -ErrorAction SilentlyContinue
-        Remove-Item Env:CONFIGURE -ErrorAction SilentlyContinue
+    }
+    if (-not $gooseOk) {
+        Write-Host "[!] Goose CLI install failed." -ForegroundColor Yellow
     }
 }
 
@@ -684,10 +826,8 @@ function Invoke-WslMsiRepair {
 
     Write-Host "[+] WSL COM is broken. Installing official wsl.msi (UAC prompt)..." -ForegroundColor Yellow
     $msi = Join-Path $env:TEMP "wsl-setup.msi"
-    try {
-        Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing
-    } catch {
-        Write-Host "[!] Failed to download wsl.msi: $_" -ForegroundColor Yellow
+    if (-not (Save-RemoteFile $url $msi)) {
+        Write-Host "[!] Failed to download wsl.msi after retries. Re-run, or install from https://github.com/microsoft/WSL/releases" -ForegroundColor Yellow
         return $false
     }
 
@@ -801,7 +941,7 @@ if (Test-WslDistroInstalled $wslDistro) {
 $extScript = Join-Path $dotfiles "bootstrap\browser-extensions.ps1"
 if (Test-Path $extScript) {
     Write-Host "Opening browser extension store pages..." -ForegroundColor Cyan
-    & $extScript
+    & $extScript -All
 }
 
 # --- 13. Final Polish ---
@@ -826,4 +966,4 @@ Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
 Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
-Write-Host "  - Java: jv temurin21-jdk  (re-run bootstrap/java-windows.ps1 to fill gaps)"
+Write-Host "  - Java: jv temurin21-jdk"
