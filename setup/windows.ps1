@@ -183,6 +183,8 @@ if ($goEnv) { Sync-Dotfile (Join-Path $dotfiles "go\env") $goEnv }
 
 git config --global include.path (Join-Path $dotfiles "git\gitconfig")
 git config --global core.hooksPath (Join-Path $dotfiles "git\hooks")
+# Git for Windows ships its own ssh.exe, which cannot use the 1Password SSH agent.
+git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
 
 # --- 7. Deskflow Firewall Rule ---
 Write-Host "🌐 Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
