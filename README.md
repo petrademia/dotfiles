@@ -60,12 +60,37 @@ Atlassian API tokens are per-app (scoped). Keep separate 1Password items:
 
 ## Browser extensions
 
+macOS (opens store pages in installed browsers):
+
 ```bash
 ~/dotfiles/bootstrap/browser-extensions.sh       # defaults
 ~/dotfiles/bootstrap/browser-extensions.sh all
 ```
 
+Windows:
+
+```powershell
+~\dotfiles\bootstrap\browser-extensions.ps1
+~\dotfiles\bootstrap\browser-extensions.ps1 -All
+```
+
 Opens store pages for uBlock, 1Password, FDM (Lite on Chromium; full uBO on Firefox/Brave).
+
+## Post-setup (Windows)
+
+After `windows.ps1`, sign into 1Password, then:
+
+```powershell
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex
+```
+
+Configures `gh` and `atlassian-cli` from 1Password when tokens exist. Optional Bitbucket clone/sync (needs SSH agent):
+
+```powershell
+$s = $env:TEMP\post-setup.ps1
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile $s
+& $s -SyncBitbucket
+```
 
 ## AI
 
@@ -81,7 +106,7 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 
 ## Manual
 
-Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is a brew cask in setup).
+Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install).
 
 ## Notes
 
@@ -98,6 +123,6 @@ macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libk
 ```
 setup.sh setup/   installers
 install.sh        symlinks
-bootstrap/        java-*, macos.sh, browser-extensions.sh
+bootstrap/        java-*, macos.sh, browser-extensions.{sh,ps1}, post-setup.ps1
 ai/ git/ go/ cursor/ shell/ config/ (nvim, zellij, zsh, containers) scripts/
 ```

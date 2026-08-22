@@ -78,7 +78,8 @@ $wingetApps = @(
     "UpNote.UpNote",
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
-    "Joplin.Joplin", "Obsidian.Obsidian"
+    "Joplin.Joplin", "Obsidian.Obsidian",
+    "DisplayLink.GraphicsDriver"
 )
 
 foreach ($app in $wingetApps) {
@@ -367,12 +368,38 @@ function Test-WslDistroInstalled {
     return ($list -match [regex]::Escape($Name))
 }
 
+function Invoke-WslLinuxSetup {
+    if (!(Test-WslDistroInstalled $wslDistro)) { return }
+
+    wsl.exe -d $wslDistro -- bash -lc "echo ok" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] $wslDistro not ready yet (reboot or open Ubuntu once)." -ForegroundColor Yellow
+        Write-Host "    Then re-run setup or: $wslSetupCmd" -ForegroundColor DarkGray
+        return
+    }
+
+    $needsSetup = wsl.exe -d $wslDistro -- bash -lc 'grep -q "MISSION READY DEV ENV" ~/.bashrc 2>/dev/null || grep -q "MISSION READY DEV ENV" ~/.zshrc 2>/dev/null; echo $?'
+    if ($needsSetup -match "0") {
+        Write-Host "[-] WSL Linux stack already configured." -ForegroundColor Gray
+        return
+    }
+
+    Write-Host "[+] Running Linux setup inside $wslDistro (may take a while)..." -ForegroundColor Cyan
+    wsl.exe -d $wslDistro -- bash -lc $wslSetupCmd
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[+] WSL Linux stack deployed." -ForegroundColor Green
+    } else {
+        Write-Host "[!] WSL setup failed (exit $LASTEXITCODE). Run manually in Ubuntu:" -ForegroundColor Yellow
+        Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
+    }
+}
+
 if (Test-WslDistroInstalled $wslDistro) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
-    Write-Host "    Linux stack (if needed): $wslSetupCmd" -ForegroundColor DarkGray
+    Invoke-WslLinuxSetup
 } else {
     Write-Host "[+] Installing WSL + $wslDistro (elevation may be required)..." -ForegroundColor Yellow
-    Write-Host "    After reboot, open Ubuntu and run:" -ForegroundColor Yellow
+    Write-Host "    After reboot, re-run this script or open Ubuntu and run:" -ForegroundColor Yellow
     Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
 
     wsl.exe --install -d $wslDistro --no-launch 2>&1 | ForEach-Object { Write-Host $_ }
@@ -381,10 +408,31 @@ if (Test-WslDistroInstalled $wslDistro) {
         Write-Host "[!] wsl --install failed (exit $LASTEXITCODE). Run elevated PowerShell:" -ForegroundColor Yellow
         Write-Host "    wsl --install -d $wslDistro" -ForegroundColor Cyan
     } else {
-        Write-Host "[+] WSL install initiated. Reboot if prompted, then run the curl command above in Ubuntu." -ForegroundColor Green
+        Write-Host "[+] WSL install initiated. Reboot if prompted, then re-run setup or the curl command above." -ForegroundColor Green
     }
 }
 
-# --- 12. Final Polish ---
+# --- 12. Browser extension store pages ---
+$extScript = Join-Path $dotfiles "bootstrap\browser-extensions.ps1"
+if (Test-Path $extScript) {
+    Write-Host "🧩 Opening browser extension store pages..." -ForegroundColor Cyan
+    & $extScript
+}
+
+# --- 13. Final Polish ---
 scoop cleanup *
 Write-Host "🎯 SYSTEM IS MISSION READY." -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Host "  1. Sign into 1Password, then:" -ForegroundColor Yellow
+Write-Host "     irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex" -ForegroundColor Cyan
+Write-Host "  2. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor Yellow
+Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Manual follow-ups:" -ForegroundColor Yellow
+Write-Host "  - DisplayLink: reboot so the driver takes effect"
+Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
+Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
+Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
+Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
+Write-Host "  - Java matrix (optional): irm .../bootstrap/java-windows.ps1 | iex"
