@@ -2,9 +2,10 @@
 
 # --- 0. Pre-Flight ---
 # Restricted is the Windows default, so the profile fails to load until this is set.
-# Process covers this session; CurrentUser persists for the next PowerShell launch.
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+# CurrentUser first (persists). Process Bypass after that, or PowerShell errors that
+# CurrentUser is overridden by the more specific Process scope.
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 # irm | iex often starts in System32; keep installers from writing into that tree.
 Set-Location $HOME
 
