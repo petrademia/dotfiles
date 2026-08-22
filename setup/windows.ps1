@@ -353,6 +353,38 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
     codex plugin add ponytail@ponytail 2>$null
 }
 
-# --- 11. Final Polish ---
+# --- 11. WSL host provisioning ---
+Write-Host "🐧 Checking WSL..." -ForegroundColor Cyan
+
+$wslDistro = "Ubuntu"
+$wslSetupCmd = "curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash"
+
+function Test-WslDistroInstalled {
+    param([string]$Name)
+    if (!(Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return $false }
+    $list = (wsl.exe -l -v 2>$null) -replace "`0", ""
+    if ($LASTEXITCODE -ne 0) { return $false }
+    return ($list -match [regex]::Escape($Name))
+}
+
+if (Test-WslDistroInstalled $wslDistro) {
+    Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
+    Write-Host "    Linux stack (if needed): $wslSetupCmd" -ForegroundColor DarkGray
+} else {
+    Write-Host "[+] Installing WSL + $wslDistro (elevation may be required)..." -ForegroundColor Yellow
+    Write-Host "    After reboot, open Ubuntu and run:" -ForegroundColor Yellow
+    Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
+
+    wsl.exe --install -d $wslDistro --no-launch 2>&1 | ForEach-Object { Write-Host $_ }
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] wsl --install failed (exit $LASTEXITCODE). Run elevated PowerShell:" -ForegroundColor Yellow
+        Write-Host "    wsl --install -d $wslDistro" -ForegroundColor Cyan
+    } else {
+        Write-Host "[+] WSL install initiated. Reboot if prompted, then run the curl command above in Ubuntu." -ForegroundColor Green
+    }
+}
+
+# --- 12. Final Polish ---
 scoop cleanup *
 Write-Host "🎯 SYSTEM IS MISSION READY." -ForegroundColor Green
