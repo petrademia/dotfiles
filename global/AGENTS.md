@@ -24,7 +24,7 @@
 
 ## Environment
 
-- 1Password available. Session managed via `OP_SESSION` in `~/.zshrc`.
+- 1Password available. Session: macOS/WSL `OP_SESSION` in `~/.zshrc`; Windows `Get-Keys` in the PowerShell profile.
 - Amartha Atlassian tokens are separate per app (scoped tokens cannot span Jira + Bitbucket):
   - Jira: `op://Personal/Amartha Jira API` (`username` + `password`)
   - Bitbucket API / PR review: `op://Personal/Amartha Bitbucket PR Review` (`username` + `credential`)

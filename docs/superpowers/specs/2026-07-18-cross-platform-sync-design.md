@@ -1,5 +1,16 @@
 # Cross-Platform Setup Synchronization Design
 
+Status: implemented in `setup/macos.sh`, `setup/windows.ps1`, `setup/wsl.sh`, and `install.sh`. This file is the original design (2026-07-18), not a live checklist.
+
+Still true as constraints: WSL stays CLI-only and reuses Windows GUI; package lists are not numerically identical; no generated cross-platform manifest.
+
+Known remaining gaps:
+
+- Windows `atlassian-cli` needs Visual Studio Build Tools (`link.exe`).
+- DisplayLink / Deskflow Winget 1603 needs elevation or a reboot.
+- Broken WSL COM (`REGDB_E_CLASSNOTREG`): download official `wsl.msi`, UAC, then `wsl --install -d Ubuntu`. Reboot if it still fails.
+- Podman WSL interoperability is not auto-configured.
+
 ## Goal
 
 Make macOS, Windows, and WSL provide a consistent working environment without forcing identical applications onto operating systems where they do not belong.
@@ -18,13 +29,9 @@ Success means:
 
 macOS owns its native desktop applications, Homebrew packages, shell configuration, and local developer runtimes.
 
-Pending additions to retain:
+Shipped on macOS: Zen Browser, Google Drive, OneDrive.
 
-- Zen Browser
-- Google Drive
-- OneDrive
-
-macOS-only utilities such as CotEditor, AppCleaner, Finder tools, DisplayLink, Rectangle, and DockDoor remain macOS-only.
+macOS-only utilities such as CotEditor, AppCleaner, Finder tools, Rectangle, and DockDoor remain macOS-only. DisplayLink is installed on macOS and Windows.
 
 ### Windows
 
@@ -60,40 +67,37 @@ WSL must reuse Windows GUI applications and storage:
 
 ## Shared configuration architecture
 
-The current `install.sh` cannot be run unchanged in WSL because it links macOS-specific zsh and Java configuration. Shared assets must therefore be separated from OS-specific shell configuration.
+`install.sh` keeps macOS-only zsh and container config behind a Darwin check. Shared assets install on every platform:
 
-Create an OS-neutral installer boundary for:
-
-- `global/AGENTS.md`
-- Claude global instructions (AGENTS.md)
+- `global/AGENTS.md` (also copied to `~/.claude/CLAUDE.md`)
 - Neovim configuration
 - Cursor CLI configuration
-- `/grammar` and `/leetcode` commands and skills
+- `/grammar`, `/leetcode`, and `/handoff` commands and skills
 - Go private-module environment
 - Global Git include configuration
 - Git hooks that remove AI attribution
 
-macOS may continue to install zsh configuration from `config/zsh`.
+macOS continues to install zsh configuration from `config/zsh`.
 
-WSL installs only Linux-safe shell configuration plus the shared assets.
+WSL installs Linux-safe shell configuration plus the shared assets.
 
-Windows receives PowerShell equivalents for shared file links or copies and Git configuration. Windows must not depend on Bash to complete setup.
+Windows copies those files from `setup/windows.ps1` and does not depend on Bash to complete setup.
 
 ## Package synchronization
 
 ### Windows Node bootstrap
 
-After installing `fnm`, the Windows setup must initialize it and install an LTS Node.js release before running `npm`. This prevents the current behavior where npm-based AI tools are silently skipped on a fresh Windows installation.
+After installing `fnm`, Windows setup initializes it and installs an LTS Node.js release before running `npm`, so npm-based AI tools are not skipped on a fresh machine.
 
 ### Atlassian CLI
 
 Install `atlassian-cli` on all three platforms:
 
 - Homebrew on macOS
-- Official Linux installer, Homebrew, or Cargo on WSL
-- Official Windows binary or Cargo on Windows
+- Cargo on WSL
+- Cargo on Windows (skipped until Visual Studio Build Tools provide `link.exe`)
 
-The implementation must use a supported upstream installation method and preserve the separate Jira and Bitbucket credentials documented in the global agent instructions.
+Preserve the separate Jira and Bitbucket credentials documented in the global agent instructions.
 
 ### Windows desktop applications
 

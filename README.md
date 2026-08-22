@@ -9,19 +9,18 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -
 Windows:
 
 ```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
 ```
 
-The first line unlocks scripts (and your profile). Windows defaults to Restricted, which prints `running scripts is disabled` when PowerShell starts.
+The script sets CurrentUser `RemoteSigned` (Windows defaults to Restricted, which prints `running scripts is disabled` when the profile loads). If `irm | iex` itself is blocked, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force` first.
 
-That script also enables WSL and installs Ubuntu (idempotent). Reboot if Windows asks, then inside Ubuntu:
+It tries to enable WSL and install Ubuntu. If `wsl` reports `REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi` from GitHub and prompts for UAC, then `wsl --install -d Ubuntu`. Reboot if Windows asks. Then inside Ubuntu:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
 ```
 
-Or from a clone: `./setup.sh` (full) / `./install.sh` (symlinks only).
+Or from a clone: `./setup.sh` (full) / `./install.sh` (symlinks only; Windows copies files instead).
 
 ## macOS defaults
 
@@ -45,7 +44,7 @@ bash /tmp/java-macos.sh
 ```bash
 # WSL
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-wsl.sh | bash
-# Windows
+# Windows (already run by windows.ps1; safe to re-run)
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1 | iex
 ```
 
@@ -53,7 +52,7 @@ Switch: `java-use 21-temurin` (macOS/WSL) · `jv temurin21-jdk` (Windows).
 
 ## CLIs
 
-`gh`, `atlassian-cli`, and `wrangler` (Cloudflare Pages/Workers) come with setup.
+`gh`, `atlassian-cli`, and `wrangler` (Cloudflare Pages/Workers) come with setup. Windows `atlassian-cli` needs Visual Studio Build Tools (MSVC + Windows SDK) for `cargo install`; without `link.exe` the script skips it.
 
 ```bash
 gh auth login
@@ -115,23 +114,21 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 
 ## Manual
 
-Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed; enable TrafficMonitor's taskbar window once after first run. ROG Flow X13 gets [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) as a lightweight Armoury Crate alternative; do not run both at once.
-
-## Notes
-
-Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote, Obsidian. Obsidian sync is separate. Windows gets the same set via Winget (UpNote, Notesnook, Standard Notes, Simplenote, Joplin, Obsidian).
-
-## Manual
+Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). On Windows, DisplayLink and Deskflow may exit Winget 1603 until you reboot and re-run those IDs elevated. Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed; enable TrafficMonitor's taskbar window once after first run. ROG Flow X13 gets [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) as a lightweight Armoury Crate alternative; do not run both at once.
 
 macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libkrun/`krunkit --timesync` skew with Podman Desktop). New machines inherit that provider; stop or remove any leftover libkrun default machine if Desktop keeps trying to start it.
 
 `kubectl`, `kind`, and `k3d` are installed by setup on macOS, Windows, and WSL. Clusters are not created automatically - run `kind create cluster` or `k3d cluster create` when you need one (Podman/Docker must be running).
 
+## Notes
+
+Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote, Obsidian. Obsidian sync is separate. Windows gets the same set via Winget (UpNote, Notesnook, Standard Notes, Simplenote, Joplin, Obsidian).
+
 ## Layout
 
 ```
-setup.sh setup/   installers
-install.sh        symlinks
+setup.sh setup/   installers (macos.sh, windows.ps1, wsl.sh)
+install.sh        symlinks (macOS/WSL; Windows copies via windows.ps1)
 bootstrap/        java-*, macos.sh, browser-extensions.{sh,ps1}, post-setup.ps1
 ai/ git/ go/ cursor/ shell/ config/ (nvim, zellij, zsh, containers) scripts/
 ```

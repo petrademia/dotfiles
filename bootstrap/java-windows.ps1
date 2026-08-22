@@ -74,4 +74,3 @@ try {
 Write-Host ""
 Write-Host "Done. installed=$ok skipped=$skip failed=$fail" -ForegroundColor Green
 Write-Host "Switch JDKs:  jv <name>   (e.g. jv temurin21-jdk)"
-Write-Host "Optional:    scoop config aria2-warning-enabled false   # quiet aria2 WARN lines"
