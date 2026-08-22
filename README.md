@@ -72,14 +72,14 @@ Atlassian API tokens are per-app (scoped). Keep separate 1Password items:
 
 ## Browser extensions
 
-macOS (opens store pages in installed browsers):
+macOS (opens store pages in installed browsers; not run by `setup.sh`):
 
 ```bash
 ~/dotfiles/bootstrap/browser-extensions.sh       # defaults
 ~/dotfiles/bootstrap/browser-extensions.sh all
 ```
 
-Windows:
+Windows (not run by `windows.ps1`; browsers cannot silently install extensions):
 
 ```powershell
 ~\dotfiles\bootstrap\browser-extensions.ps1
@@ -118,7 +118,7 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 
 ## Manual
 
-Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). On Windows, DisplayLink and Deskflow may exit Winget 1603 until you reboot and re-run those IDs elevated. Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed. Setup adds a Start Menu shortcut and autostart for TrafficMonitor, and turns on its taskbar window. Three-finger drag (macOS parity) is [ThreeFingerDragOnWindows](https://github.com/ClementGre/ThreeFingerDragOnWindows) (`9MSX91WQCM2V`); Windows three-finger Task View swipes are turned off so it can work. ROG Flow X13 gets [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) as a lightweight Armoury Crate alternative; do not run both at once.
+Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). On Windows, DisplayLink and Deskflow may exit Winget 1603 until you reboot and re-run those IDs elevated. Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed. Setup adds a Start Menu shortcut and autostart for TrafficMonitor, and turns on its taskbar window. Three-finger drag (macOS parity) is [ThreeFingerDragOnWindows](https://github.com/ClementGre/ThreeFingerDragOnWindows) (`9MSX91WQCM2V`); Windows three-finger Task View swipes are turned off so it can work. ROG Flow X13 gets [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) as a lightweight Armoury Crate alternative; setup installs .NET 10 Desktop Runtime first. Do not run G-Helper and Armoury Crate at once.
 
 macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libkrun/`krunkit --timesync` skew with Podman Desktop). New machines inherit that provider; stop or remove any leftover libkrun default machine if Desktop keeps trying to start it.
 

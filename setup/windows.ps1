@@ -504,6 +504,7 @@ $wingetApps = @(
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
     "DisplayLink.GraphicsDriver",
+    "Microsoft.DotNet.DesktopRuntime.10",
     "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
@@ -705,27 +706,28 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 }
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
-    Write-Host "Installing Node-based AI Agents..." -ForegroundColor Cyan
     function Smart-NpmGlobal {
         param([string]$Package, [string]$Command, [switch]$IgnoreScripts)
-        if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) {
-            Write-Host "[-] $Command is already installed. Skipping..." -ForegroundColor Gray
-            return
-        }
+        if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) { return $false }
         Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
-        if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent }
-        else { npm install -g $Package --silent }
+        if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent | Out-Null }
+        else { npm install -g $Package --silent | Out-Null }
+        return $true
     }
-    Smart-NpmGlobal "@earendil-works/pi-coding-agent" "pi" -IgnoreScripts
-    Smart-NpmGlobal "reasonix" "reasonix"
-    Smart-NpmGlobal "@deepseek-ai/dsh" "dsh"
-    Smart-NpmGlobal "wrangler" "wrangler"
-    Smart-NpmGlobal "@openai/codex" "codex"
-    Smart-NpmGlobal "@z_ai/coding-helper" "coding-helper"
-    Smart-NpmGlobal "@github/copilot" "copilot"
-    Smart-NpmGlobal "openclaw@latest" "openclaw"
-    Smart-NpmGlobal "impeccable" "impeccable"
-    Smart-NpmGlobal "playwright" "playwright"
+    # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
+    # OpenCode is Scoop; Copilot is built into gh; Z.ai is uv zai-cli.
+    $installedAny = $false
+    $installedAny = (Smart-NpmGlobal "@earendil-works/pi-coding-agent" "pi" -IgnoreScripts) -or $installedAny
+    $installedAny = (Smart-NpmGlobal "reasonix" "reasonix") -or $installedAny
+    $installedAny = (Smart-NpmGlobal "@deepseek-ai/dsh" "dsh") -or $installedAny
+    $installedAny = (Smart-NpmGlobal "wrangler" "wrangler") -or $installedAny
+    $installedAny = (Smart-NpmGlobal "@openai/codex" "codex") -or $installedAny
+    $installedAny = (Smart-NpmGlobal "openclaw@latest" "openclaw") -or $installedAny
+    $installedAny = (Smart-NpmGlobal "impeccable" "impeccable") -or $installedAny
+    $installedAny = (Smart-NpmGlobal "playwright" "playwright") -or $installedAny
+    if (-not $installedAny) {
+        Write-Host "[-] Node AI CLIs already installed. Skipping..." -ForegroundColor Gray
+    }
     $pwBrowsers = Join-Path $env:LOCALAPPDATA "ms-playwright"
     $hasChromium = $false
     if (Test-Path $pwBrowsers) {
@@ -1016,12 +1018,9 @@ if (Test-WslDistroInstalled $wslDistro) {
     }
 }
 
-# --- 12. Browser extension store pages ---
-$extScript = Join-Path $dotfiles "bootstrap\browser-extensions.ps1"
-if (Test-Path $extScript) {
-    Write-Host "Opening browser extension store pages..." -ForegroundColor Cyan
-    & $extScript -All
-}
+# --- 12. Browser extensions (manual: browsers block silent installs) ---
+# ~\dotfiles\bootstrap\browser-extensions.ps1        # Chrome, Brave, Firefox, Edge
+# ~\dotfiles\bootstrap\browser-extensions.ps1 -All   # every installed catalog browser
 
 # --- 13. Final Polish ---
 Set-WindowsHostDefaults
@@ -1046,3 +1045,4 @@ Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop a
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
 Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
 Write-Host "  - Java: jv temurin21-jdk"
+Write-Host "  - Browser extensions (uBlock, 1Password, FDM): ~\dotfiles\bootstrap\browser-extensions.ps1"
