@@ -75,6 +75,11 @@ function Test-WingetExit1603 {
     return ($Code -eq 1603) -or ($Text -match "exit code:\s*1603")
 }
 
+function Test-WingetAdminContext {
+    param([string]$Text)
+    return $Text -match "cannot be run from an administrator context"
+}
+
 # Winget's Warp.Warp installer URL is an HTML landing page, so `winget install`
 # sits on "Downloading https://app.warp.dev/download/windows?..." forever.
 function Install-Warp {
@@ -107,6 +112,8 @@ function Install-Warp {
     Remove-Item $out -ErrorAction SilentlyContinue
     if ($proc.ExitCode -ne 0) {
         Write-Host "[!] Warp installer exit $($proc.ExitCode)." -ForegroundColor Yellow
+    } else {
+        Write-Host "[+] Warp installed." -ForegroundColor Green
     }
 }
 
@@ -544,7 +551,7 @@ $wingetApps = @(
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
     "TheDocumentFoundation.LibreOffice",
-    "VideoLAN.VLC", "Spotify.Spotify", "Stremio.Stremio",
+    "VideoLAN.VLC", "Stremio.Stremio",
     "qBittorrent.qBittorrent", "Transmission.Transmission",
     "SoftDeluxe.FreeDownloadManager",
     "DisplayLink.GraphicsDriver",
@@ -562,6 +569,8 @@ foreach ($app in $wingetApps) {
         $wingetCode = $LASTEXITCODE
         if (Test-WingetExit1603 $wingetText $wingetCode) {
             Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Skipping retry." -ForegroundColor Yellow
+        } elseif (Test-WingetAdminContext $wingetText) {
+            Write-Host "[!] $app installer refuses an elevated session. Skipping retry." -ForegroundColor Yellow
         } elseif ($wingetCode -ne 0) {
             Write-Host "[!] Exact ID failed for $app. Attempting search-install..." -ForegroundColor Yellow
             winget install $app --accept-package-agreements --accept-source-agreements --silent
@@ -575,14 +584,16 @@ Install-Warp
 
 Initialize-TrafficMonitor
 
-# --- 5b. OpenAI Desktop Apps (Microsoft Store) ---
-# 9PLM9XGG6VKS = new unified ChatGPT/Codex app (Chat+Work+Codex); 9NT1R1C2HH7J = ChatGPT Classic
-Write-Host "Checking OpenAI desktop apps..." -ForegroundColor Cyan
+# --- 5b. Microsoft Store apps ---
+# 9PLM9XGG6VKS = unified ChatGPT/Codex; 9NT1R1C2HH7J = ChatGPT Classic
+# Spotify's Winget NSIS installer refuses an elevated / UAC-elevated session.
+Write-Host "Checking Microsoft Store apps..." -ForegroundColor Cyan
 $msStoreApps = @(
     @{ Id = "9PLM9XGG6VKS"; Label = "ChatGPT (unified Codex app)"; Appx = "OpenAI.Codex" }
     @{ Id = "9NT1R1C2HH7J"; Label = "ChatGPT Classic"; Appx = "OpenAI.ChatGPT-Desktop" }
     @{ Id = "9MSX91WQCM2V"; Label = "ThreeFingerDrag"; Appx = "50931ClmentGrennerat.ThreeFingersDragOnWindows" }
     @{ Id = "9NKSQGP7F2NH"; Label = "WhatsApp"; Appx = "*WhatsApp*" }
+    @{ Id = "9NCBCSZSJRSB"; Label = "Spotify"; Appx = "SpotifyAB.SpotifyMusic" }
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
@@ -1093,7 +1104,7 @@ Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubuserconten
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
-Write-Host "  - DisplayLink / Deskflow: reboot, then re-run elevated if Winget still reports 1603"
+Write-Host "  - DisplayLink / Deskflow / LibreOffice: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - WSL: CLASSNOTREG uses a UAC wsl.msi repair; reboot and re-run if it still fails"
 Write-Host "  - Hibernate / long paths: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
