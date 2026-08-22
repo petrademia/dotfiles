@@ -43,6 +43,119 @@ function Add-UserPath {
     if ($env:PATH -notlike "*$Dir*") { $env:PATH = "$Dir;$env:PATH" }
 }
 
+function New-StartMenuShortcut {
+    param([string]$Name, [string]$Target)
+    if (!(Test-Path $Target)) { return }
+    $dir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    $shell = New-Object -ComObject WScript.Shell
+    $lnk = $shell.CreateShortcut((Join-Path $dir "$Name.lnk"))
+    $lnk.TargetPath = $Target
+    $lnk.WorkingDirectory = Split-Path $Target
+    $lnk.Save()
+}
+
+function Set-UserRun {
+    param([string]$Name, [string]$Target)
+    if (!(Test-Path $Target)) { return }
+    $reg = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    if (!(Test-Path $reg)) { New-Item -Path $reg -Force | Out-Null }
+    Set-ItemProperty -Path $reg -Name $Name -Value "`"$Target`""
+}
+
+function Set-IniKeyPreserveEncoding {
+    param([string]$Path, [string]$Key, [string]$Value)
+    if (!(Test-Path $Path)) { return }
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $enc = New-Object System.Text.UTF8Encoding $false
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+        $enc = [Text.Encoding]::Unicode
+    } elseif ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $enc = New-Object System.Text.UTF8Encoding $true
+    }
+    $text = $enc.GetString($bytes)
+    $pattern = "(?m)^" + [regex]::Escape($Key) + "\s*=.*$"
+    $line = "$Key = $Value"
+    if ($text -match $pattern) {
+        $next = [regex]::Replace($text, $pattern, $line)
+    } else {
+        $next = [regex]::Replace($text, "(?m)^(\[config\])", "`$1`r`n$line")
+    }
+    if ($next -ne $text) { [IO.File]::WriteAllText($Path, $next, $enc) }
+}
+
+function Initialize-TrafficMonitor {
+    $exe = $null
+    $pkgRoot = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages"
+    if (Test-Path $pkgRoot) {
+        $pkg = Get-ChildItem -LiteralPath $pkgRoot -Directory -Filter "zhongyang219.TrafficMonitor.Lite*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($pkg) {
+            $candidate = Join-Path $pkg.FullName "TrafficMonitor\TrafficMonitor.exe"
+            if (Test-Path $candidate) { $exe = $candidate }
+        }
+    }
+    if (-not $exe) {
+        $exe = Get-ChildItem -Path @($env:ProgramFiles, ${env:ProgramFiles(x86)}) -Filter "TrafficMonitor.exe" -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName -First 1
+    }
+    if (-not $exe) {
+        Write-Host "[!] TrafficMonitor.exe not found (WinGet package missing or install failed)." -ForegroundColor Yellow
+        return
+    }
+
+    $ini = Join-Path (Split-Path $exe) "config.ini"
+    $running = Get-Process TrafficMonitor -ErrorAction SilentlyContinue
+    if (-not $running) { Set-IniKeyPreserveEncoding $ini "show_task_bar_wnd" "true" }
+
+    New-StartMenuShortcut -Name "TrafficMonitor" -Target $exe
+    Set-UserRun -Name "TrafficMonitor" -Target $exe
+    if (-not $running) {
+        Start-Process $exe -WorkingDirectory (Split-Path $exe)
+        Write-Host "[+] TrafficMonitor started (Start Menu + autostart)." -ForegroundColor Green
+    } else {
+        Write-Host "[-] TrafficMonitor already running (Start Menu + autostart set)." -ForegroundColor Gray
+    }
+}
+
+function Set-WindowsHostDefaults {
+    Write-Host "Applying Windows defaults..." -ForegroundColor Cyan
+
+    $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+    Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0
+    Set-ItemProperty -Path $adv -Name Hidden -Type DWord -Value 1
+
+    $shots = Join-Path $HOME "Screenshots"
+    New-Item -ItemType Directory -Path $shots -Force | Out-Null
+    $shellFolders = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
+    Set-ItemProperty -Path $shellFolders -Name "{B7BEDE81-DF25-465F-82AD-D4F0086DC39B}" -Value $shots
+
+    Set-ItemProperty -Path "HKCU:\Control Panel\Keyboard" -Name KeyboardDelay -Value "0"
+    Set-ItemProperty -Path "HKCU:\Control Panel\Keyboard" -Name KeyboardSpeed -Value "31"
+
+    $ptp = "HKCU:\Software\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"
+    if (Test-Path $ptp) {
+        Set-ItemProperty -Path $ptp -Name TapsEnabled -Type DWord -Value 1 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $ptp -Name TapAndDrag -Type DWord -Value 0 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $ptp -Name ThreeFingerSlideEnabled -Type DWord -Value 0
+        Set-ItemProperty -Path $ptp -Name ThreeFingerTapEnabled -Type DWord -Value 0
+    }
+
+    powercfg /hibernate on 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Hibernate skipped (needs an elevated PowerShell)." -ForegroundColor Yellow
+    } else {
+        try {
+            $fly = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"
+            if (!(Test-Path $fly)) { New-Item -Path $fly -Force | Out-Null }
+            Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1
+            Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1
+        } catch {
+            Write-Host "[!] Hibernate power-menu / long paths skipped (needs elevation)." -ForegroundColor Yellow
+        }
+    }
+}
+
 function Add-ScoopBucket {
     param([string]$Name)
     $listed = (scoop bucket list | Out-String)
@@ -186,12 +299,15 @@ foreach ($app in $wingetApps) {
     }
 }
 
+Initialize-TrafficMonitor
+
 # --- 5b. OpenAI Desktop Apps (Microsoft Store) ---
 # 9PLM9XGG6VKS = new unified ChatGPT/Codex app (Chat+Work+Codex); 9NT1R1C2HH7J = ChatGPT Classic
 Write-Host "Checking OpenAI desktop apps..." -ForegroundColor Cyan
 $msStoreApps = [ordered]@{
     "9PLM9XGG6VKS" = "ChatGPT (unified Codex app)"
     "9NT1R1C2HH7J" = "ChatGPT Classic"
+    "9MSX91WQCM2V" = "ThreeFingerDrag"
 }
 foreach ($id in $msStoreApps.Keys) {
     $name = $msStoreApps[$id]
@@ -643,6 +759,7 @@ if (Test-Path $extScript) {
 }
 
 # --- 13. Final Polish ---
+Set-WindowsHostDefaults
 scoop cleanup *
 Write-Host "SYSTEM IS MISSION READY." -ForegroundColor Green
 Write-Host ""
@@ -653,10 +770,11 @@ Write-Host "  2. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor 
 Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
-Write-Host "  - TrafficMonitor: right-click → Show taskbar window (first run)"
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink / Deskflow: reboot, then re-run elevated if Winget still reports 1603"
-Write-Host "  - WSL: CLASSNOTREG triggers a UAC wsl.msi repair; reboot and re-run if it still fails"
+Write-Host "  - WSL: CLASSNOTREG uses a UAC wsl.msi repair; reboot and re-run if it still fails"
+Write-Host "  - Hibernate / long paths: re-run an elevated PowerShell if those were skipped"
+Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - atlassian-cli: Visual Studio Build Tools (MSVC + Windows SDK), then cargo install atlassian-cli"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
