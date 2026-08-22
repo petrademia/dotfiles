@@ -8,8 +8,18 @@ if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
     irm get.scoop.sh | iex
 }
 
-foreach ($b in @('java', 'versions')) {
-    scoop bucket add $b 6>$null | Out-Null
+# Ignore global insteadOf (HTTPS -> SSH) so Scoop can clone public GitHub buckets.
+$prevGitConfig = $env:GIT_CONFIG_GLOBAL
+$emptyGitConfig = Join-Path $env:TEMP "dotfiles-empty.gitconfig"
+if (!(Test-Path $emptyGitConfig)) { New-Item -ItemType File -Path $emptyGitConfig -Force | Out-Null }
+$env:GIT_CONFIG_GLOBAL = $emptyGitConfig
+try {
+    foreach ($b in @('java', 'versions')) {
+        scoop bucket add $b 6>$null | Out-Null
+    }
+} finally {
+    if ([string]::IsNullOrEmpty($prevGitConfig)) { Remove-Item Env:GIT_CONFIG_GLOBAL -ErrorAction SilentlyContinue }
+    else { $env:GIT_CONFIG_GLOBAL = $prevGitConfig }
 }
 
 function Test-ScoopApp([string]$Name) {
