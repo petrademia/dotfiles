@@ -32,6 +32,17 @@ function Protect-ScoopGit {
     }
 }
 
+function Add-UserPath {
+    param([string]$Dir)
+    if ([string]::IsNullOrWhiteSpace($Dir)) { return }
+    if (!(Test-Path $Dir)) { New-Item -ItemType Directory -Path $Dir -Force | Out-Null }
+    $user = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ($user -notlike "*$Dir*") {
+        [Environment]::SetEnvironmentVariable("Path", "$Dir;$user", "User")
+    }
+    if ($env:PATH -notlike "*$Dir*") { $env:PATH = "$Dir;$env:PATH" }
+}
+
 function Add-ScoopBucket {
     param([string]$Name)
     $listed = (scoop bucket list | Out-String)
@@ -138,6 +149,7 @@ if ($javaLocal) {
 Write-Host "📦 Checking Winget Apps..." -ForegroundColor Cyan
 
 $wingetApps = @(
+    "Microsoft.VCRedist.2015+.x64",
     "AgileBits.1Password", "Surfshark.Surfshark", "Anysphere.Cursor",
     "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp",
@@ -162,7 +174,9 @@ foreach ($app in $wingetApps) {
         Write-Host "[+] Installing $app..." -ForegroundColor Cyan
         winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget
 
-        if ($LASTEXITCODE -ne 0) {
+        if ($LASTEXITCODE -eq 1603) {
+            Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Skipping retry." -ForegroundColor Yellow
+        } elseif ($LASTEXITCODE -ne 0) {
             Write-Host "[!] Exact ID failed for $app. Attempting search-install..." -ForegroundColor Yellow
             winget install $app --accept-package-agreements --accept-source-agreements --silent
         }
@@ -262,8 +276,12 @@ git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
 # --- 7. Deskflow Firewall Rule ---
 Write-Host "🌐 Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
 $dfRule = "Deskflow Inbound (TCP 24800)"
-if (!(Get-NetFirewallRule -DisplayName $dfRule -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $dfRule -Direction Inbound -LocalPort 24800 -Protocol TCP -Action Allow -Description "Deskflow KVM"
+try {
+    if (!(Get-NetFirewallRule -DisplayName $dfRule -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -DisplayName $dfRule -Direction Inbound -LocalPort 24800 -Protocol TCP -Action Allow -Description "Deskflow KVM" | Out-Null
+    }
+} catch {
+    Write-Host "[!] Deskflow firewall rule skipped (needs an elevated PowerShell)." -ForegroundColor Yellow
 }
 
 # --- 8. Window Switcher (sigoden/window-switcher) ---
@@ -318,6 +336,7 @@ Set-Alias vim nvim
 Set-Alias vi nvim
 "@
 if (!(Select-String -Path $PROFILE -Pattern "AI & Dev Environment Setup" -Quiet)) { Add-Content $PROFILE "`n$profileLogic" }
+Add-UserPath (Join-Path $HOME ".local\bin")
 
 # --- 10. AI Agent Initializations ---
 Write-Host "🤖 Checking AI Agents..." -ForegroundColor Yellow
@@ -327,7 +346,10 @@ if (!(Get-Command claude -ErrorAction SilentlyContinue)) { irm https://claude.ai
 if (!(Get-Command hermes -ErrorAction SilentlyContinue)) {
     $hermesInstaller = Join-Path $env:TEMP "hermes-install.ps1"
     Invoke-WebRequest "https://hermes-agent.nousresearch.com/install.ps1" -OutFile $hermesInstaller
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hermesInstaller -SkipSetup -NonInteractive
+    # Child git inherits this; otherwise git/gitconfig insteadOf rewrites GitHub HTTPS to SSH.
+    Protect-ScoopGit {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hermesInstaller -SkipSetup -NonInteractive
+    }
     Remove-Item $hermesInstaller -ErrorAction SilentlyContinue
 }
 
@@ -350,7 +372,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     npm install -g wrangler --silent
     npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest impeccable playwright --silent
     npx playwright install chromium
-    npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force
+    cmd /c "echo Y| npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force"
 }
 
 if (!(Get-Command omp -ErrorAction SilentlyContinue)) {
@@ -367,7 +389,14 @@ if (!(Get-Command goose -ErrorAction SilentlyContinue)) {
         $env:CONFIGURE = "false"
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gooseInstaller
     } catch {
-        Write-Host "[!] Goose CLI install failed: $_" -ForegroundColor Yellow
+        Write-Host "[!] Goose CLI via Invoke-WebRequest failed, retrying with curl..." -ForegroundColor Yellow
+        try {
+            & curl.exe -fsSL "https://github.com/aaif-goose/goose/releases/download/stable/download_cli.ps1" -o $gooseInstaller
+            $env:CONFIGURE = "false"
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $gooseInstaller
+        } catch {
+            Write-Host "[!] Goose CLI install failed: $_" -ForegroundColor Yellow
+        }
     } finally {
         Remove-Item $gooseInstaller -ErrorAction SilentlyContinue
         Remove-Item Env:CONFIGURE -ErrorAction SilentlyContinue
@@ -417,17 +446,21 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 # --- 10b. Claude Code & Codex plugins (caveman, ponytail) ---
 if (Get-Command claude -ErrorAction SilentlyContinue) {
     Write-Host "🧩 Installing Claude Code plugins..." -ForegroundColor Cyan
-    claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>$null
-    claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>$null
-    claude plugin install caveman 2>$null
-    claude plugin install ponytail 2>$null
+    Protect-ScoopGit {
+        claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>$null
+        claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>$null
+        claude plugin install caveman 2>$null
+        claude plugin install ponytail 2>$null
+    }
 }
 if (Get-Command codex -ErrorAction SilentlyContinue) {
     Write-Host "🧩 Installing Codex plugins..." -ForegroundColor Cyan
-    codex plugin marketplace add JuliusBrussee/caveman 2>$null
-    codex plugin marketplace add DietrichGebert/ponytail 2>$null
-    codex plugin add caveman@caveman 2>$null
-    codex plugin add ponytail@ponytail 2>$null
+    Protect-ScoopGit {
+        codex plugin marketplace add JuliusBrussee/caveman 2>$null
+        codex plugin marketplace add DietrichGebert/ponytail 2>$null
+        codex plugin add caveman@caveman 2>$null
+        codex plugin add ponytail@ponytail 2>$null
+    }
 }
 
 # --- 11. WSL host provisioning ---
@@ -439,9 +472,16 @@ $wslSetupCmd = "curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles
 function Test-WslDistroInstalled {
     param([string]$Name)
     if (!(Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return $false }
-    $list = (wsl.exe -l -v 2>$null) -replace "`0", ""
+    $raw = & wsl.exe -l -v 2>&1 | Out-String
+    $raw = $raw -replace "`0", ""
+    if ($raw -match "REGDB_E_CLASSNOTREG|corrupted") {
+        $script:WslBroken = $true
+        Write-Host "[!] WSL looks corrupted. Repair in an elevated PowerShell: wsl --update" -ForegroundColor Yellow
+        Write-Host "    Then: wsl --install -d $Name" -ForegroundColor DarkGray
+        return $false
+    }
     if ($LASTEXITCODE -ne 0) { return $false }
-    return ($list -match [regex]::Escape($Name))
+    return ($raw -match [regex]::Escape($Name))
 }
 
 function Invoke-WslLinuxSetup {
@@ -470,9 +510,12 @@ function Invoke-WslLinuxSetup {
     }
 }
 
+$script:WslBroken = $false
 if (Test-WslDistroInstalled $wslDistro) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
     Invoke-WslLinuxSetup
+} elseif ($script:WslBroken) {
+    Write-Host "[-] Skipping wsl --install until WSL is repaired." -ForegroundColor Yellow
 } else {
     Write-Host "[+] Installing WSL + $wslDistro (elevation may be required)..." -ForegroundColor Yellow
     Write-Host "    After reboot, re-run this script or open Ubuntu and run:" -ForegroundColor Yellow
@@ -508,7 +551,9 @@ Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - TrafficMonitor: right-click → Show taskbar window (first run)"
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
-Write-Host "  - DisplayLink: reboot so the driver takes effect"
+Write-Host "  - DisplayLink / Deskflow: reboot, then re-run elevated if Winget still reports 1603"
+Write-Host "  - WSL: if REGDB_E_CLASSNOTREG, elevated: wsl --update ; wsl --install -d Ubuntu"
+Write-Host "  - atlassian-cli: Visual Studio Build Tools (MSVC + Windows SDK), then cargo install atlassian-cli"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"

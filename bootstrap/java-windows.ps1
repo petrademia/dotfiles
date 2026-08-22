@@ -23,7 +23,16 @@ try {
 }
 
 function Test-ScoopApp([string]$Name) {
-    $null -ne (scoop list $Name 6>$null | Select-String -SimpleMatch $Name -Quiet)
+    Test-Path (Join-Path $env:USERPROFILE "scoop\apps\$Name\current")
+}
+
+function Install-ScoopJdk([string]$Name) {
+    scoop install $Name
+    if (Test-ScoopApp $Name) { return $true }
+    Write-Host "==> retry $Name (clear cache, no aria2)" -ForegroundColor Yellow
+    scoop cache rm $Name 6>$null | Out-Null
+    scoop install $Name
+    Test-ScoopApp $Name
 }
 
 # Temurin/Zulu/Corretto/Liberica: 8/11/17/21/25. Microsoft: 11/17/21 + unversioned microsoft-jdk (Scoop's 25+ slot).
@@ -35,20 +44,30 @@ $packages = @(
     'temurin25-jdk', 'corretto25-jdk', 'zulu25-jdk', 'liberica25-jdk', 'microsoft-jdk'
 )
 
+# Azul (Zulu) CDN rejects aria2 range requests and leaves a truncated zip that fails the hash check.
+$prevAria = $null
+try { $prevAria = scoop config aria2-enabled } catch { }
+scoop config aria2-enabled false | Out-Null
+
 $ok = 0; $skip = 0; $fail = 0
-foreach ($p in $packages) {
-    if (Test-ScoopApp $p) {
-        Write-Host "==> skip $p (already installed)" -ForegroundColor DarkGray
-        $skip++
-        continue
+try {
+    foreach ($p in $packages) {
+        if (Test-ScoopApp $p) {
+            Write-Host "==> skip $p (already installed)" -ForegroundColor DarkGray
+            $skip++
+            continue
+        }
+        Write-Host "==> Installing $p" -ForegroundColor Cyan
+        if (Install-ScoopJdk $p) {
+            $ok++
+        } else {
+            Write-Host "==> FAILED $p" -ForegroundColor Red
+            $fail++
+        }
     }
-    Write-Host "==> Installing $p" -ForegroundColor Cyan
-    scoop install $p
-    if ($LASTEXITCODE -eq 0 -or (Test-ScoopApp $p)) {
-        $ok++
-    } else {
-        Write-Host "==> FAILED $p" -ForegroundColor Red
-        $fail++
+} finally {
+    if ($null -ne $prevAria -and "$prevAria" -ne "" -and "$prevAria" -ne "False") {
+        scoop config aria2-enabled $prevAria | Out-Null
     }
 }
 
