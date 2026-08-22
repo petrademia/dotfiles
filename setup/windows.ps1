@@ -79,7 +79,8 @@ $wingetApps = @(
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
-    "DisplayLink.GraphicsDriver"
+    "DisplayLink.GraphicsDriver",
+    "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
 
 foreach ($app in $wingetApps) {
@@ -430,6 +431,7 @@ Write-Host "  2. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor 
 Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
+Write-Host "  - TrafficMonitor: right-click → Show taskbar window (first run)"
 Write-Host "  - DisplayLink: reboot so the driver takes effect"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"

@@ -106,7 +106,7 @@ Models are not downloaded automatically. Start with `ollama run llama3.2`; use `
 
 ## Manual
 
-Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install).
+Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed; enable TrafficMonitor's taskbar window once after first run.
 
 ## Notes
 
