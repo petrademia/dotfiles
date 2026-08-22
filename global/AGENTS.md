@@ -24,4 +24,4 @@
 
 ## Environment
 
-- 1Password available. Session managed via `OP_SESSION` in `~/.zshrc`.
+- 1Password available. Session: macOS/WSL `OP_SESSION` in `~/.zshrc`; Windows `Get-Keys` in the PowerShell profile.

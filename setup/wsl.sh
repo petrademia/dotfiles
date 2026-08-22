@@ -304,7 +304,7 @@ get-keys() {
   export ZAI_API_KEY=\$(op read "op://Private/ZAI/credential")
   export ANTHROPIC_API_KEY=\$(op read "op://Private/Anthropic/credential")
   export GEMINI_API_KEY=\$(op read "op://Private/Gemini/credential")
-  echo "🔑 AI keys loaded."
+  echo "AI keys loaded."
 }
 
 java-use() {
@@ -351,5 +351,5 @@ crush --version 2>/dev/null || true
 claude --version 2>/dev/null || true
 
 echo
-echo "✅ MISSION COMPLETE: WSL stack deployed (macOS parity)"
+echo "MISSION COMPLETE: WSL stack deployed (macOS parity)"
 echo "Reload your shell: source ~/.zshrc  (or ~/.bashrc)"

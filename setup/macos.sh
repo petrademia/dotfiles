@@ -276,7 +276,7 @@ hx --version || true
 zed --version || true
 
 echo
-echo "✅ Setup complete!"
+echo "Setup complete!"
 echo
 echo "Restart your terminal or run:"
 echo "source ~/.zshrc"
