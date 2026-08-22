@@ -1,14 +1,78 @@
 # Windows setup - mirrors the macOS/WSL tool stack via Scoop + Winget.
 
-# --- 0. Pre-Flight & Self-Update ---
+# --- 0. Pre-Flight ---
+# Restricted is the Windows default, so the profile fails to load until this is set.
+# Process covers this session; CurrentUser persists for the next PowerShell launch.
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+# irm | iex often starts in System32; keep installers from writing into that tree.
+Set-Location $HOME
+
+function Update-SessionPath {
+    $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $user = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $env:PATH = "$user;$machine"
+}
+
+# Scoop clones GitHub over HTTPS. git/gitconfig rewrites that to SSH, which
+# fails on a fresh machine before the 1Password agent is available.
+function Protect-ScoopGit {
+    param([scriptblock]$Block, $Arg)
+    $empty = Join-Path $env:TEMP "dotfiles-empty.gitconfig"
+    if (!(Test-Path $empty)) { New-Item -ItemType File -Path $empty -Force | Out-Null }
+    $prev = $env:GIT_CONFIG_GLOBAL
+    $env:GIT_CONFIG_GLOBAL = $empty
+    try {
+        if ($PSBoundParameters.ContainsKey("Arg")) { & $Block $Arg }
+        else { & $Block }
+    } finally {
+        if ([string]::IsNullOrEmpty($prev)) { Remove-Item Env:GIT_CONFIG_GLOBAL -ErrorAction SilentlyContinue }
+        else { $env:GIT_CONFIG_GLOBAL = $prev }
+    }
+}
+
+function Add-ScoopBucket {
+    param([string]$Name)
+    $listed = (scoop bucket list | Out-String)
+    if ($listed -like "*$Name*") { return }
+    Protect-ScoopGit { param($n) scoop bucket add $n | Out-Host } -Arg $Name
+}
+
+function Install-GitHubKnownHosts {
+    $sshDir = Join-Path $HOME ".ssh"
+    New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
+    $knownHosts = Join-Path $sshDir "known_hosts"
+    $scan = Join-Path $HOME "scoop\apps\git\current\usr\bin\ssh-keyscan.exe"
+    if (!(Test-Path $scan)) { return }
+    $keys = & $scan -t ed25519,ecdsa,rsa github.com 2>$null
+    if (-not $keys) { return }
+    $existing = @()
+    if (Test-Path $knownHosts) { $existing = Get-Content $knownHosts }
+    foreach ($line in $keys) {
+        if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($existing -notcontains $line) {
+            Add-Content -Path $knownHosts -Value $line
+            $existing += $line
+        }
+    }
+}
+
 if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Host "📦 Installing Scoop..." -ForegroundColor Yellow
     irm get.scoop.sh | iex
+    Update-SessionPath
 }
 
+# Git is required before scoop update / bucket add.
+if (!(Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "📦 Installing git (required for Scoop buckets)..." -ForegroundColor Cyan
+    scoop install git
+    Update-SessionPath
+}
+Install-GitHubKnownHosts
+
 Write-Host "🔄 Updating Scoop Manifests..." -ForegroundColor Cyan
-scoop update
+Protect-ScoopGit { scoop update | Out-Host }
 
 # --- 1. Intelligence Layer: Scoop Check Function ---
 function Smart-Scoop {
@@ -23,11 +87,7 @@ function Smart-Scoop {
 }
 
 # --- 2. Core Dependencies & Buckets ---
-$buckets = @("extras", "versions", "nerd-fonts", "java")
-$currentBuckets = scoop bucket list
-foreach ($b in $buckets) {
-    if (!($currentBuckets -like "*$b*")) { scoop bucket add $b }
-}
+foreach ($b in @("extras", "versions", "nerd-fonts", "java")) { Add-ScoopBucket $b }
 
 $core = @("git", "7zip", "gh", "go", "rustup-msvc", "fastfetch", "aria2")
 foreach ($app in $core) { Smart-Scoop $app }
@@ -49,7 +109,11 @@ if (Get-Command rustup -ErrorAction SilentlyContinue) {
     $env:PATH = "$HOME\.cargo\bin;$env:PATH"
     $atlassianCli = Join-Path $HOME ".cargo\bin\atlassian-cli.exe"
     if (!(Get-Command atlassian-cli -ErrorAction SilentlyContinue) -and !(Test-Path $atlassianCli)) {
-        cargo install atlassian-cli
+        if (Get-Command link.exe -ErrorAction SilentlyContinue) {
+            cargo install atlassian-cli
+        } else {
+            Write-Host "[!] Skipping atlassian-cli: MSVC linker (link.exe) not found. Install Visual Studio Build Tools (MSVC + Windows SDK), then re-run." -ForegroundColor Yellow
+        }
     }
 }
 
@@ -57,10 +121,17 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     uv python install 3 --default
 }
 
-# --- 4. Default JDK (full matrix lives in bootstrap/java-windows.ps1) ---
-Write-Host "☕ Installing default JDK (Temurin 21)..." -ForegroundColor Cyan
-if (!(scoop bucket list | Select-String "java")) { scoop bucket add java }
-Smart-Scoop "temurin21-jdk"
+# --- 4. Java matrix (same packages as bootstrap/java-windows.ps1) ---
+Write-Host "☕ Installing Java matrix..." -ForegroundColor Cyan
+$javaLocal = @(
+    $(if ($PSScriptRoot) { Join-Path $PSScriptRoot "..\bootstrap\java-windows.ps1" }),
+    (Join-Path $HOME "dotfiles\bootstrap\java-windows.ps1")
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+if ($javaLocal) {
+    Protect-ScoopGit { param($p) & $p } -Arg $javaLocal
+} else {
+    Protect-ScoopGit { irm "https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1" | iex }
+}
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
 Write-Host "📦 Checking Winget Apps..." -ForegroundColor Cyan
@@ -198,7 +269,7 @@ Write-Host "🪟 Checking Alt-Backtick Switcher (sigoden)..." -ForegroundColor C
 
 if (!(Get-Command window-switcher -ErrorAction SilentlyContinue)) {
     Write-Host "[+] Installing window-switcher via Scoop..." -ForegroundColor Yellow
-    if (!(scoop bucket list | Select-String "extras")) { scoop bucket add extras }
+    Add-ScoopBucket extras
     scoop install window-switcher
 }
 
@@ -439,4 +510,4 @@ Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
 Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
-Write-Host "  - Java matrix (optional): irm .../bootstrap/java-windows.ps1 | iex"
+Write-Host "  - Java: jv temurin21-jdk  (re-run bootstrap/java-windows.ps1 to fill gaps)"

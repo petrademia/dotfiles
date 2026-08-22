@@ -6,7 +6,14 @@
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -o setup.sh && bash setup.sh
 ```
 
-Windows: `irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex`
+Windows:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
+```
+
+The first line unlocks scripts (and your profile). Windows defaults to Restricted, which prints `running scripts is disabled` when PowerShell starts.
 
 That script also enables WSL and installs Ubuntu (idempotent). Reboot if Windows asks, then inside Ubuntu:
 
@@ -22,9 +29,11 @@ Or from a clone: `./setup.sh` (full) / `./install.sh` (symlinks only).
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
 
-## Java (optional)
+## Java
 
-~24 JDKs (Temurin, Zulu, Corretto, Liberica 8–25; Microsoft 11–25). Not part of `setup.sh`.
+~24 JDKs (Temurin, Zulu, Corretto, Liberica 8–25; Microsoft 11–25).
+
+Windows `setup/windows.ps1` installs this matrix via `bootstrap/java-windows.ps1` (idempotent). macOS and WSL still use the standalone scripts (not part of `setup.sh`).
 
 macOS (download then run - needs a TTY for sudo `.pkg` passwords; `curl | bash` looks stuck):
 
