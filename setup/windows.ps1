@@ -490,21 +490,29 @@ Write-Host "Checking Winget Apps..." -ForegroundColor Cyan
 
 $wingetApps = @(
     "Microsoft.VCRedist.2015+.x64",
-    "AgileBits.1Password", "Surfshark.Surfshark", "Anysphere.Cursor",
-    "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
-    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp",
-    "Google.Chrome", "Google.GoogleDrive", "Microsoft.OneDrive",
+    "Microsoft.DotNet.DesktopRuntime.10",
+    "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
+    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
+    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
+    "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
+    "Google.GoogleDrive", "Microsoft.OneDrive",
     "Google.Antigravity", "Google.AntigravityCLI",
-    "Microsoft.VisualStudioCode", "Zen-Team.Zen-Browser",
-    "Mozilla.Firefox.DeveloperEdition", "Vivaldi.Vivaldi", "Brave.Brave",
-    "Opera.OperaGX", "Ablaze.Floorp",
+    "Microsoft.VisualStudioCode", "Microsoft.WindowsTerminal", "Postman.Postman",
+    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Warp.Warp", "Vercel.Hyper",
+    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition",
+    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Ablaze.Floorp",
+    "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser",
+    "eloston.ungoogled-chromium",
     "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
     "UpNote.UpNote",
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
+    "TheDocumentFoundation.LibreOffice",
+    "VideoLAN.VLC", "Spotify.Spotify", "Stremio.Stremio",
+    "qBittorrent.qBittorrent", "Transmission.Transmission",
+    "SoftDeluxe.FreeDownloadManager",
     "DisplayLink.GraphicsDriver",
-    "Microsoft.DotNet.DesktopRuntime.10",
     "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
@@ -537,6 +545,7 @@ $msStoreApps = @(
     @{ Id = "9PLM9XGG6VKS"; Label = "ChatGPT (unified Codex app)"; Appx = "OpenAI.Codex" }
     @{ Id = "9NT1R1C2HH7J"; Label = "ChatGPT Classic"; Appx = "OpenAI.ChatGPT-Desktop" }
     @{ Id = "9MSX91WQCM2V"; Label = "ThreeFingerDrag"; Appx = "50931ClmentGrennerat.ThreeFingersDragOnWindows" }
+    @{ Id = "9NKSQGP7F2NH"; Label = "WhatsApp"; Appx = "*WhatsApp*" }
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
