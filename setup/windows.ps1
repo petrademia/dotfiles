@@ -75,6 +75,51 @@ function Test-WingetExit1603 {
     return ($Code -eq 1603) -or ($Text -match "exit code:\s*1603")
 }
 
+# Same as right-click Unpin from taskbar. File Explorer has no shell verb; this COM
+# API unpins the pin shortcut without deleting explorer.exe or restarting Explorer.
+function Invoke-TaskbarUnpin {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    if (-not ("DotfilesTaskbarUnpin" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+[ComImport]
+[Guid("4CD19ADA-25A5-4A32-B3B7-347BEE5BE36B")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IStartMenuPinnedList {
+    [PreserveSig] int RemoveFromList(IntPtr pitem);
+}
+
+[ComImport]
+[Guid("a2a9545d-a0c2-42b4-9708-a0b2badd77c8")]
+class StartMenuPin {}
+
+public static class DotfilesTaskbarUnpin {
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
+    static extern int SHCreateItemFromParsingName(string pszPath, IntPtr pbc, ref Guid riid, out IntPtr ppv);
+
+    static readonly Guid IID_IShellItem = new Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE");
+
+    public static int UnpinPath(string path) {
+        IntPtr item;
+        Guid iid = IID_IShellItem;
+        int hr = SHCreateItemFromParsingName(path, IntPtr.Zero, ref iid, out item);
+        if (hr != 0) return hr;
+        try {
+            var pin = (IStartMenuPinnedList)new StartMenuPin();
+            return pin.RemoveFromList(item);
+        } finally {
+            Marshal.Release(item);
+        }
+    }
+}
+"@
+    }
+    [void][DotfilesTaskbarUnpin]::UnpinPath($Path)
+}
+
 function New-StartMenuShortcut {
     param([string]$Name, [string]$Target)
     if (!(Test-Path $Target)) { return }
@@ -168,7 +213,7 @@ function Set-WindowsHostDefaults {
     Set-ItemProperty -Path $search -Name SearchboxTaskbarModeCache -Type DWord -Value 0
     $feeds = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Feeds"
     if (!(Test-Path $feeds)) { New-Item -Path $feeds -Force | Out-Null }
-    try { Set-ItemProperty -Path $feeds -Name ShellFeedsTaskbarViewMode -Type DWord -Value 2 } catch {}
+    try { Set-ItemProperty -Path $feeds -Name ShellFeedsTaskbarViewMode -Type DWord -Value 2 -ErrorAction Stop } catch {}
     $resume = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CrossDeviceResume\Configuration"
     if (!(Test-Path $resume)) { New-Item -Path $resume -Force | Out-Null }
     Set-ItemProperty -Path $resume -Name IsResumeAllowed -Type DWord -Value 0
@@ -196,18 +241,18 @@ function Set-WindowsHostDefaults {
     } else {
         try {
             $fly = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"
-            if (!(Test-Path $fly)) { New-Item -Path $fly -Force | Out-Null }
-            Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1
-            Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1
-            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1
+            if (!(Test-Path $fly)) { New-Item -Path $fly -Force -ErrorAction Stop | Out-Null }
+            Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1 -ErrorAction Stop
+            Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1 -ErrorAction Stop
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1 -ErrorAction Stop
             $dsh = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
-            if (!(Test-Path $dsh)) { New-Item -Path $dsh -Force | Out-Null }
-            Set-ItemProperty -Path $dsh -Name AllowNewsAndInterests -Type DWord -Value 0
+            if (!(Test-Path $dsh)) { New-Item -Path $dsh -Force -ErrorAction Stop | Out-Null }
+            Set-ItemProperty -Path $dsh -Name AllowNewsAndInterests -Type DWord -Value 0 -ErrorAction Stop
             $winFeeds = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
-            if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force | Out-Null }
-            Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0
+            if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force -ErrorAction Stop | Out-Null }
+            Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0 -ErrorAction Stop
         } catch {
-            Write-Host "[!] Hibernate power-menu / long paths skipped (needs elevation)." -ForegroundColor Yellow
+            Write-Host "[!] Hibernate power-menu / long paths / Widgets policy skipped (needs elevation)." -ForegroundColor Yellow
         }
     }
 
@@ -229,29 +274,33 @@ function Set-WindowsHostDefaults {
             "Chat",
             "Xbox"
         )
-        $appsFolder = (New-Object -ComObject Shell.Application).NameSpace("shell:::{4234d49b-0245-4df3-b780-3893943456e1}")
+        $unpinFromTaskbar = {
+            param($item)
+            if (-not $item) { return }
+            $item.Verbs() | Where-Object { ($_.Name -replace "&", "") -match "Unpin from taskbar" } | ForEach-Object { $_.DoIt() }
+        }
+        $shell = New-Object -ComObject Shell.Application
+        $appsFolder = $shell.NameSpace("shell:::{4234d49b-0245-4df3-b780-3893943456e1}")
         if ($appsFolder) {
             foreach ($name in $unpinNames) {
-                $item = $appsFolder.Items() | Where-Object { $_.Name -eq $name }
-                if (-not $item) { continue }
-                $item.Verbs() | Where-Object { ($_.Name -replace "&", "") -match "Unpin from taskbar" } | ForEach-Object { $_.DoIt() }
+                $item = $appsFolder.Items() | Where-Object { $_.Name -eq $name } | Select-Object -First 1
+                & $unpinFromTaskbar $item
             }
         }
-        # File Explorer (and other OEM defaults) often have no Unpin verb; the .lnk is the pin.
+        # Same Unpin verb on the pin shortcut. File Explorer has none in AppsFolder;
+        # IStartMenuPinnedList is the documented unpin (not deleting the .lnk by hand).
         $pinDir = Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
-        $removedPin = $false
         if (Test-Path $pinDir) {
+            $pinNs = $shell.NameSpace($pinDir)
             Get-ChildItem -LiteralPath $pinDir -Filter "*.lnk" -ErrorAction SilentlyContinue | Where-Object {
                 $unpinNames -contains $_.BaseName
             } | ForEach-Object {
-                Remove-Item -LiteralPath $_.FullName -Force
-                $removedPin = $true
+                if ($pinNs) { & $unpinFromTaskbar ($pinNs.ParseName($_.Name)) }
+                Invoke-TaskbarUnpin $_.FullName
             }
         }
-        if ($removedPin) {
-            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-            Start-Process explorer.exe
-        }
+        Invoke-TaskbarUnpin (Join-Path $env:WINDIR "explorer.exe")
+        Invoke-TaskbarUnpin "shell:AppsFolder\Microsoft.Windows.Explorer"
     } catch {}
 
     Set-WindowsStartupApps
@@ -271,8 +320,8 @@ function Set-AppXStartupState {
     param([string]$FamilyPrefix, [string]$TaskName, [int]$State)
     $root = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData"
     if (!(Test-Path $root)) { return }
-    Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Where-Object {
-        $_.PSChildName -like "$FamilyPrefix*"
+    Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | Where-Object {
+        $_.PSIsContainer -and ($_.PSChildName -like "$FamilyPrefix*")
     } | ForEach-Object {
         $task = Join-Path $_.PSPath $TaskName
         if (Test-Path $task) {
@@ -483,20 +532,18 @@ Initialize-TrafficMonitor
 # --- 5b. OpenAI Desktop Apps (Microsoft Store) ---
 # 9PLM9XGG6VKS = new unified ChatGPT/Codex app (Chat+Work+Codex); 9NT1R1C2HH7J = ChatGPT Classic
 Write-Host "Checking OpenAI desktop apps..." -ForegroundColor Cyan
-$msStoreApps = [ordered]@{
-    "9PLM9XGG6VKS" = "ChatGPT (unified Codex app)"
-    "9NT1R1C2HH7J" = "ChatGPT Classic"
-    "9MSX91WQCM2V" = "ThreeFingerDrag"
-}
-foreach ($id in $msStoreApps.Keys) {
-    $name = $msStoreApps[$id]
-    $check = winget list --id $id 2>$null
-    if ($null -eq $check -or $check -match "No installed package found") {
-        Write-Host "[+] Installing $name..." -ForegroundColor Cyan
-        winget install --id $id --source msstore --accept-package-agreements --accept-source-agreements --silent
-    } else {
-        Write-Host "[-] $name is already installed." -ForegroundColor Gray
+$msStoreApps = @(
+    @{ Id = "9PLM9XGG6VKS"; Label = "ChatGPT (unified Codex app)"; Appx = "OpenAI.Codex" }
+    @{ Id = "9NT1R1C2HH7J"; Label = "ChatGPT Classic"; Appx = "OpenAI.ChatGPT-Desktop" }
+    @{ Id = "9MSX91WQCM2V"; Label = "ThreeFingerDrag"; Appx = "50931ClmentGrennerat.ThreeFingersDragOnWindows" }
+)
+foreach ($app in $msStoreApps) {
+    if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
+        Write-Host "[-] $($app.Label) is already installed." -ForegroundColor Gray
+        continue
     }
+    Write-Host "[+] Installing $($app.Label)..." -ForegroundColor Cyan
+    winget install --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent
 }
 
 # --- 6. Go Environment (GoLand GOROOT Fix) ---
@@ -659,13 +706,47 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     Write-Host "Installing Node-based AI Agents..." -ForegroundColor Cyan
-    npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent
-    npm install -g reasonix --silent
-    npm install -g @deepseek-ai/dsh --silent
-    npm install -g wrangler --silent
-    npm install -g @openai/codex @z_ai/coding-helper opencode-ai @github/copilot openclaw@latest impeccable playwright --silent
-    npx playwright install chromium
-    cmd /c "echo Y| npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force"
+    function Smart-NpmGlobal {
+        param([string]$Package, [string]$Command, [switch]$IgnoreScripts)
+        if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) {
+            Write-Host "[-] $Command is already installed. Skipping..." -ForegroundColor Gray
+            return
+        }
+        Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
+        if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent }
+        else { npm install -g $Package --silent }
+    }
+    Smart-NpmGlobal "@earendil-works/pi-coding-agent" "pi" -IgnoreScripts
+    Smart-NpmGlobal "reasonix" "reasonix"
+    Smart-NpmGlobal "@deepseek-ai/dsh" "dsh"
+    Smart-NpmGlobal "wrangler" "wrangler"
+    Smart-NpmGlobal "@openai/codex" "codex"
+    Smart-NpmGlobal "@z_ai/coding-helper" "coding-helper"
+    Smart-NpmGlobal "@github/copilot" "copilot"
+    Smart-NpmGlobal "openclaw@latest" "openclaw"
+    Smart-NpmGlobal "impeccable" "impeccable"
+    Smart-NpmGlobal "playwright" "playwright"
+    $pwBrowsers = Join-Path $env:LOCALAPPDATA "ms-playwright"
+    $hasChromium = $false
+    if (Test-Path $pwBrowsers) {
+        $hasChromium = @(Get-ChildItem -LiteralPath $pwBrowsers -Directory -Filter "chromium*" -ErrorAction SilentlyContinue).Count -gt 0
+    }
+    if ($hasChromium) {
+        Write-Host "[-] Playwright Chromium already installed. Skipping..." -ForegroundColor Gray
+    } else {
+        npx playwright install chromium
+    }
+    if (Test-Path (Join-Path $HOME ".cursor\skills\impeccable")) {
+        Write-Host "[-] impeccable skills already installed. Skipping..." -ForegroundColor Gray
+    } else {
+        cmd /c "echo Y| npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force"
+    }
+}
+
+if (!(Get-Command opencode -ErrorAction SilentlyContinue)) {
+    Write-Host "[+] Installing OpenCode via Scoop..." -ForegroundColor Cyan
+    Add-ScoopBucket extras
+    scoop install opencode
 }
 
 if (!(Get-Command omp -ErrorAction SilentlyContinue)) {
@@ -744,9 +825,7 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
     go install github.com/charmbracelet/crush@latest
 }
 
-if (Get-Command gh -ErrorAction SilentlyContinue) {
-    gh extension install github/gh-copilot --force
-}
+# gh ships a built-in `copilot` command; github/gh-copilot collides with it.
 
 # --- 10b. Claude Code & Codex plugins (caveman, ponytail) ---
 if (Get-Command claude -ErrorAction SilentlyContinue) {

@@ -45,9 +45,17 @@ $packages = @(
 )
 
 # Azul (Zulu) CDN rejects aria2 range requests and leaves a truncated zip that fails the hash check.
+$pending = @($packages | Where-Object { -not (Test-ScoopApp $_) })
+if ($pending.Count -eq 0) {
+    Write-Host ""
+    Write-Host "Done. installed=0 skipped=$($packages.Count) failed=0" -ForegroundColor Green
+    Write-Host "Switch JDKs:  jv <name>   (e.g. jv temurin21-jdk)"
+    return
+}
+
 $prevAria = $null
-try { $prevAria = scoop config aria2-enabled } catch { }
-scoop config aria2-enabled false | Out-Null
+try { $prevAria = scoop config aria2-enabled 6>$null } catch { }
+scoop config aria2-enabled false 6>$null | Out-Null
 
 $ok = 0; $skip = 0; $fail = 0
 try {
@@ -67,7 +75,7 @@ try {
     }
 } finally {
     if ($null -ne $prevAria -and "$prevAria" -ne "" -and "$prevAria" -ne "False") {
-        scoop config aria2-enabled $prevAria | Out-Null
+        scoop config aria2-enabled $prevAria 6>$null | Out-Null
     }
 }
 
