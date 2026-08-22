@@ -8,6 +8,12 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -
 
 Windows: `irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex`
 
+That script also enables WSL and installs Ubuntu (idempotent). Reboot if Windows asks, then inside Ubuntu:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
+```
+
 Or from a clone: `./setup.sh` (full) / `./install.sh` (symlinks only).
 
 ## macOS defaults

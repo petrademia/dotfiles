@@ -248,18 +248,37 @@ echo "==> Installing shared dotfiles"
 "$DOTFILES/install.sh"
 
 echo "==> 12) Injecting WSL shell bridge"
-BLOCK=$(cat << 'EOF'
+WIN_USER="${WSL_WIN_USER:-}"
+if [ -z "$WIN_USER" ] && command -v powershell.exe >/dev/null 2>&1; then
+  WIN_USER="$(powershell.exe -NoProfile -Command '$env:USERNAME' 2>/dev/null | tr -d '\r\n')"
+fi
+if [ -z "$WIN_USER" ] && [ -d /mnt/c/Users ]; then
+  for d in /mnt/c/Users/*/; do
+    base=$(basename "$d")
+    case "$base" in Public|Default|"Default User"|All\ Users) continue ;; esac
+    if [ -e "${d}AppData/Local/Microsoft/WindowsApps/op.exe" ] || [ -d "${d}AppData/Local/Programs/1Password" ]; then
+      WIN_USER="$base"
+      break
+    fi
+  done
+fi
+if [ -z "$WIN_USER" ]; then
+  echo "Warning: could not detect Windows username; set WSL_WIN_USER and re-run setup/wsl.sh" >&2
+  WIN_USER="UNKNOWN"
+fi
+
+BLOCK=$(cat << EOF
 # --- MISSION READY DEV ENV (managed by setup/wsl.sh) ---
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
-[ -f "$HOME/.xmake/profile" ] && . "$HOME/.xmake/profile"
-[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
+[ -f "\$HOME/.cargo/env" ] && . "\$HOME/.cargo/env"
+[ -f "\$HOME/.local/bin/env" ] && . "\$HOME/.local/bin/env"
+[ -f "\$HOME/.xmake/profile" ] && . "\$HOME/.xmake/profile"
+[ -s "\$HOME/.sdkman/bin/sdkman-init.sh" ] && . "\$HOME/.sdkman/bin/sdkman-init.sh"
 
-export PATH="$HOME/.local/share/fnm:$HOME/.local/bin:$HOME/.opencode/bin:$HOME/.llama-app:$PATH"
-export GOPATH="$HOME/go"
-export PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"
+export PATH="\$HOME/.local/share/fnm:\$HOME/.local/bin:\$HOME/.opencode/bin:\$HOME/.llama-app:\$PATH"
+export GOPATH="\$HOME/go"
+export PATH="\$PATH:/usr/local/go/bin:\$GOPATH/bin"
 
-alias op='/mnt/c/Users/petru/AppData/Local/Microsoft/WindowsApps/op.exe'
+alias op='/mnt/c/Users/${WIN_USER}/AppData/Local/Microsoft/WindowsApps/op.exe'
 alias ssh='ssh.exe'
 alias ssh-add='ssh-add.exe'
 
@@ -281,33 +300,33 @@ if command -v podman >/dev/null 2>&1; then
 fi
 
 get-keys() {
-  export OPENROUTER_API_KEY=$(op read "op://Private/OpenRouter/credential")
-  export ZAI_API_KEY=$(op read "op://Private/ZAI/credential")
-  export ANTHROPIC_API_KEY=$(op read "op://Private/Anthropic/credential")
-  export GEMINI_API_KEY=$(op read "op://Private/Gemini/credential")
+  export OPENROUTER_API_KEY=\$(op read "op://Private/OpenRouter/credential")
+  export ZAI_API_KEY=\$(op read "op://Private/ZAI/credential")
+  export ANTHROPIC_API_KEY=\$(op read "op://Private/Anthropic/credential")
+  export GEMINI_API_KEY=\$(op read "op://Private/Gemini/credential")
   echo "🔑 AI keys loaded."
 }
 
 java-use() {
-  local spec="${1:-}" major vendor suffix id
-  case "$spec" in
-    (*-*) major="${spec%%-*}"; vendor="${spec#*-}" ;;
+  local spec="\${1:-}" major vendor suffix id
+  case "\$spec" in
+    (*-*) major="\${spec%%-*}"; vendor="\${spec#*-}" ;;
     (*) echo "Usage: java-use <version>-<temurin|zulu|corretto|liberica|microsoft>"; return 1 ;;
   esac
-  case "$vendor" in
+  case "\$vendor" in
     (temurin) suffix=tem ;;
     (zulu) suffix=zulu ;;
     (corretto) suffix=amzn ;;
     (liberica) suffix=librca ;;
     (microsoft) suffix=ms ;;
-    (*) echo "Unknown vendor: $vendor"; return 1 ;;
+    (*) echo "Unknown vendor: \$vendor"; return 1 ;;
   esac
-  id="$(ls -1 "$HOME/.sdkman/candidates/java" 2>/dev/null | grep -E "^${major}[.-].*-${suffix}$" | sort -V | tail -1)"
-  [ -z "$id" ] && { echo "No installed JDK for $spec (run bootstrap/java-wsl.sh)"; return 1; }
-  sdk use java "$id"
+  id="\$(ls -1 "\$HOME/.sdkman/candidates/java" 2>/dev/null | grep -E "^\${major}[.-].*-\${suffix}\$" | sort -V | tail -1)"
+  [ -z "\$id" ] && { echo "No installed JDK for \$spec (run bootstrap/java-wsl.sh)"; return 1; }
+  sdk use java "\$id"
 }
 
-command -v fnm >/dev/null 2>&1 && eval "$(fnm env --use-on-cd)"
+command -v fnm >/dev/null 2>&1 && eval "\$(fnm env --use-on-cd)"
 # --- END MISSION READY DEV ENV ---
 EOF
 )
