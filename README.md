@@ -85,7 +85,7 @@ Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavl
 
 ## Notes
 
-Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote. Obsidian is already in setup (sync is separate). Windows already had UpNote / Notesnook / Standard Notes / Simplenote; Joplin is added there too.
+Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote, Obsidian. Obsidian sync is separate. Windows gets the same set via Winget (UpNote, Notesnook, Standard Notes, Simplenote, Joplin, Obsidian).
 
 ## Manual
 

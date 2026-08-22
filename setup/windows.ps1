@@ -78,7 +78,7 @@ $wingetApps = @(
     "UpNote.UpNote",
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
-    "Joplin.Joplin"
+    "Joplin.Joplin", "Obsidian.Obsidian"
 )
 
 foreach ($app in $wingetApps) {
