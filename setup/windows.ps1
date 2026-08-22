@@ -123,11 +123,24 @@ function Set-WindowsHostDefaults {
     $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
     Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0
     Set-ItemProperty -Path $adv -Name Hidden -Type DWord -Value 1
-    # Settings > System > Multitasking > Alt+Tab: Open windows only (no Edge tabs).
+    # Settings > Personalization > Taskbar > Taskbar items: hide Search, Task view,
+    # Widgets, Chat, Copilot, Resume. TaskbarDa is ACL-locked on some builds.
     Set-ItemProperty -Path $adv -Name MultiTaskingAltTabFilter -Type DWord -Value 3
-    foreach ($name in @("TaskbarDa", "TaskbarMn", "ShowCopilotButton")) {
-        try { Set-ItemProperty -Path $adv -Name $name -Type DWord -Value 0 } catch {}
+    Set-ItemProperty -Path $adv -Name ShowTaskViewButton -Type DWord -Value 0
+    foreach ($name in @("TaskbarDa", "TaskbarMn", "ShowCopilotButton", "IsEnabled")) {
+        & reg.exe add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v $name /t REG_DWORD /d 0 /f 2>$null | Out-Null
     }
+    $search = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
+    if (!(Test-Path $search)) { New-Item -Path $search -Force | Out-Null }
+    Set-ItemProperty -Path $search -Name SearchboxTaskbarMode -Type DWord -Value 0
+    Set-ItemProperty -Path $search -Name SearchboxTaskbarModeCache -Type DWord -Value 0
+    $feeds = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Feeds"
+    if (!(Test-Path $feeds)) { New-Item -Path $feeds -Force | Out-Null }
+    try { Set-ItemProperty -Path $feeds -Name ShellFeedsTaskbarViewMode -Type DWord -Value 2 } catch {}
+    $resume = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CrossDeviceResume\Configuration"
+    if (!(Test-Path $resume)) { New-Item -Path $resume -Force | Out-Null }
+    Set-ItemProperty -Path $resume -Name IsResumeAllowed -Type DWord -Value 0
+    Set-ItemProperty -Path $resume -Name IsOneDriveResumeAllowed -Type DWord -Value 0
 
     $shots = Join-Path $HOME "Screenshots"
     New-Item -ItemType Directory -Path $shots -Force | Out-Null
@@ -155,6 +168,12 @@ function Set-WindowsHostDefaults {
             Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1
             Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1
             Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1
+            $dsh = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
+            if (!(Test-Path $dsh)) { New-Item -Path $dsh -Force | Out-Null }
+            Set-ItemProperty -Path $dsh -Name AllowNewsAndInterests -Type DWord -Value 0
+            $winFeeds = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
+            if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force | Out-Null }
+            Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0
         } catch {
             Write-Host "[!] Hibernate power-menu / long paths skipped (needs elevation)." -ForegroundColor Yellow
         }
