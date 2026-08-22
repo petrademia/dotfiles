@@ -30,7 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/
 
 ## Windows defaults
 
-`setup/windows.ps1` applies a small host set (same role as `bootstrap/macos.sh`): show file extensions and hidden files, `~/Screenshots`, faster key repeat, tap-to-click, disable Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture, hibernate plus Hibernate in the power menu, NTFS long paths, Alt+Tab as windows only (no Edge tabs), and unpin default taskbar apps (Edge, Store, Copilot, Mail, Teams, Xbox) plus hide Widgets/Chat/Copilot buttons. Hibernate and long paths need elevation and are skipped with a warning if the script is not admin. File Explorer stays pinned. Alt+Tab may need a logoff to take effect.
+`setup/windows.ps1` applies a small host set (same role as `bootstrap/macos.sh`): show file extensions and hidden files, `~/Screenshots`, faster key repeat, tap-to-click, disable Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture, hibernate plus Hibernate in the power menu, NTFS long paths, Alt+Tab as windows only (no Edge tabs), hide taskbar Search / Task view / Widgets / Chat / Copilot / Resume, and unpin default taskbar apps (Edge, Store, Copilot, Mail, Teams, Xbox). Hibernate, long paths, and the Widgets policy need elevation and are skipped with a warning if the script is not admin. File Explorer stays pinned. Alt+Tab and some taskbar buttons may need a logoff (or Explorer restart) to take effect. Widgets (`TaskbarDa`) is ACL-locked on some Windows 11 builds; the Feeds policy is the fallback.
 
 ## Java
 
