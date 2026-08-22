@@ -313,7 +313,7 @@ function Set-StartupApproved {
     if ($item.GetValueNames() -notcontains $Name) { return }
     $flag = if ($Enabled) { [byte]2 } else { [byte]3 }
     $bytes = [byte[]](@($flag) + @(0) * 11)
-    New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force | Out-Null
+    New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force -ErrorAction Stop | Out-Null
 }
 
 function Set-AppXStartupState {
@@ -1005,9 +1005,21 @@ if (Test-WslDistroInstalled $wslDistro) {
         $installCode = $LASTEXITCODE
         $installOut | ForEach-Object { Write-Host $_ }
         $installText = ($installOut | Out-String) -replace "`0", ""
+        $needsElevation = $installText -match "requires elevation"
         if (($installCode -ne 0) -and (Test-WslComBroken $installText)) {
             $script:WslBroken = $true
             $repaired = Invoke-WslMsiRepair $wslDistro
+        } elseif ($needsElevation -and -not (Test-IsAdmin)) {
+            Write-Host "[+] WSL distro install needs elevation (UAC)..." -ForegroundColor Yellow
+            $helper = Join-Path $env:TEMP "dotfiles-wsl-install.ps1"
+            "wsl.exe --install -d '$($wslDistro -replace "'", "''")' --no-launch; exit `$LASTEXITCODE" | Set-Content -Path $helper -Encoding UTF8
+            try {
+                $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
+                if ($null -eq $proc) { throw "elevation returned no process" }
+                $repaired = $true
+            } catch {
+                Write-Host "[!] WSL elevation cancelled. Reboot, then elevated: wsl --install -d $wslDistro" -ForegroundColor Yellow
+            }
         } elseif ($installCode -ne 0) {
             Write-Host "[!] wsl --install failed (exit $installCode). Run elevated PowerShell:" -ForegroundColor Yellow
             Write-Host "    wsl --install -d $wslDistro" -ForegroundColor Cyan
