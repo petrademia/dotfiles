@@ -123,6 +123,11 @@ function Set-WindowsHostDefaults {
     $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
     Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0
     Set-ItemProperty -Path $adv -Name Hidden -Type DWord -Value 1
+    # Settings > System > Multitasking > Alt+Tab: Open windows only (no Edge tabs).
+    Set-ItemProperty -Path $adv -Name MultiTaskingAltTabFilter -Type DWord -Value 3
+    foreach ($name in @("TaskbarDa", "TaskbarMn", "ShowCopilotButton")) {
+        try { Set-ItemProperty -Path $adv -Name $name -Type DWord -Value 0 } catch {}
+    }
 
     $shots = Join-Path $HOME "Screenshots"
     New-Item -ItemType Directory -Path $shots -Force | Out-Null
@@ -154,6 +159,28 @@ function Set-WindowsHostDefaults {
             Write-Host "[!] Hibernate power-menu / long paths skipped (needs elevation)." -ForegroundColor Yellow
         }
     }
+
+    try {
+        $appsFolder = (New-Object -ComObject Shell.Application).NameSpace("shell:::{4234d49b-0245-4df3-b780-3893943456e1}")
+        if ($appsFolder) {
+            foreach ($name in @(
+                "Microsoft Edge",
+                "Microsoft Store",
+                "Store",
+                "Copilot",
+                "Mail",
+                "Outlook",
+                "Microsoft Teams",
+                "Teams",
+                "Chat",
+                "Xbox"
+            )) {
+                $item = $appsFolder.Items() | Where-Object { $_.Name -eq $name }
+                if (-not $item) { continue }
+                $item.Verbs() | Where-Object { ($_.Name -replace "&", "") -match "Unpin from taskbar" } | ForEach-Object { $_.DoIt() }
+            }
+        }
+    } catch {}
 }
 
 function Add-ScoopBucket {
