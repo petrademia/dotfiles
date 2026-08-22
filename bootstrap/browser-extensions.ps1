@@ -22,11 +22,11 @@ $Amo1Pw  = "https://addons.mozilla.org/firefox/addon/1password-x-password-manage
 $AmoFdm  = "https://addons.mozilla.org/firefox/search/?q=Free%20Download%20Manager"
 
 $Catalog = [ordered]@{
-    "Google Chrome"              = @{ Engine = "chromium"; Paths = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") }
+    "Google Chrome"              = @{ Engine = "chromium"; Paths = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LocalAppData\Google\Chrome\Application\chrome.exe") }
     "Microsoft Edge"             = @{ Engine = "chromium"; Paths = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") }
-    "Brave Browser"              = @{ Engine = "brave";     Paths = @("$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe", "${env:ProgramFiles(x86)}\BraveSoftware\Brave-Browser\Application\brave.exe") }
-    "Firefox"                    = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Mozilla Firefox\firefox.exe", "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe") }
-    "Firefox Developer Edition"  = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Firefox Developer Edition\firefox.exe") }
+    "Brave Browser"              = @{ Engine = "brave";     Paths = @("$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe", "${env:ProgramFiles(x86)}\BraveSoftware\Brave-Browser\Application\brave.exe", "$env:LocalAppData\BraveSoftware\Brave-Browser\Application\brave.exe") }
+    "Firefox"                    = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Mozilla Firefox\firefox.exe", "${env:ProgramFiles(x86)}\Mozilla Firefox\firefox.exe", "$env:LocalAppData\Mozilla Firefox\firefox.exe") }
+    "Firefox Developer Edition"  = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Firefox Developer Edition\firefox.exe", "$env:LocalAppData\Firefox Developer Edition\firefox.exe") }
     "Vivaldi"                    = @{ Engine = "chromium"; Paths = @("$env:LocalAppData\Vivaldi\Application\vivaldi.exe") }
     "Opera GX"                   = @{ Engine = "chromium"; Paths = @("$env:LocalAppData\Programs\Opera GX\opera.exe", "$env:AppData\Opera Software\Opera GX\opera.exe") }
     "Floorp"                     = @{ Engine = "firefox";   Paths = @("$env:ProgramFiles\Ablaze Floorp\floorp.exe") }
