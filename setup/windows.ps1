@@ -117,6 +117,37 @@ function Install-Warp {
     }
 }
 
+# GitHub releases ship macOS/Linux only. Compile with MSVC if link.exe exists,
+# otherwise Scoop gcc + the gnu rustc triple.
+function Install-AtlassianCli {
+    $existing = @(
+        (Join-Path $HOME ".cargo\bin\atlassian-cli.exe"),
+        (Join-Path $HOME ".local\bin\atlassian-cli.exe")
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($existing -or (Get-Command atlassian-cli -ErrorAction SilentlyContinue)) {
+        Write-Host "[-] atlassian-cli is already installed." -ForegroundColor Gray
+        return
+    }
+    if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
+        Write-Host "[!] cargo not found. Skipping atlassian-cli." -ForegroundColor Yellow
+        return
+    }
+
+    if (Get-Command link.exe -ErrorAction SilentlyContinue) {
+        Write-Host "[+] Installing atlassian-cli (cargo)..." -ForegroundColor Cyan
+        cargo install atlassian-cli
+        return
+    }
+    if (!(Get-Command gcc -ErrorAction SilentlyContinue)) {
+        Write-Host "[!] gcc not found. Skipping atlassian-cli." -ForegroundColor Yellow
+        return
+    }
+    $triple = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "aarch64-pc-windows-gnu" } else { "x86_64-pc-windows-gnu" }
+    Write-Host "[+] Installing atlassian-cli (cargo + $triple; no Windows GitHub binary)..." -ForegroundColor Cyan
+    rustup toolchain install "stable-$triple"
+    & cargo "+stable-$triple" install atlassian-cli
+}
+
 # Same as right-click Unpin from taskbar. File Explorer has no shell verb; this COM
 # API unpins the pin shortcut without deleting explorer.exe or restarting Explorer.
 function Invoke-TaskbarUnpin {
@@ -497,16 +528,9 @@ $apps = @(
 foreach ($app in $apps) { Smart-Scoop $app }
 
 if (Get-Command rustup -ErrorAction SilentlyContinue) {
-    rustup default stable | Out-Null
+    rustup default stable 2>&1 | Out-Null
     $env:PATH = "$HOME\.cargo\bin;$env:PATH"
-    $atlassianCli = Join-Path $HOME ".cargo\bin\atlassian-cli.exe"
-    if (!(Get-Command atlassian-cli -ErrorAction SilentlyContinue) -and !(Test-Path $atlassianCli)) {
-        if (Get-Command link.exe -ErrorAction SilentlyContinue) {
-            cargo install atlassian-cli
-        } else {
-            Write-Host "[!] Skipping atlassian-cli: MSVC linker (link.exe) not found. Install Visual Studio Build Tools (MSVC + Windows SDK), then re-run." -ForegroundColor Yellow
-        }
-    }
+    Install-AtlassianCli
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
@@ -529,6 +553,9 @@ if ($javaLocal) {
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
 Write-Host "Checking Winget Apps..." -ForegroundColor Cyan
+# Deskflow's MSI requires VC++ 14.50+. Winget can report the ID installed at 14.30.
+Write-Host "[+] Upgrading Microsoft.VCRedist.2015+.x64 if a newer build exists..." -ForegroundColor Cyan
+winget upgrade -e --id Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements --silent --source winget
 
 $wingetApps = @(
     "Microsoft.VCRedist.2015+.x64",
@@ -568,7 +595,11 @@ foreach ($app in $wingetApps) {
         $wingetText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
         $wingetCode = $LASTEXITCODE
         if (Test-WingetExit1603 $wingetText $wingetCode) {
-            Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Skipping retry." -ForegroundColor Yellow
+            if ($app -eq "Deskflow.Deskflow") {
+                Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
+            } else {
+                Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Skipping retry." -ForegroundColor Yellow
+            }
         } elseif (Test-WingetAdminContext $wingetText) {
             Write-Host "[!] $app installer refuses an elevated session. Skipping retry." -ForegroundColor Yellow
         } elseif ($wingetCode -ne 0) {
@@ -937,7 +968,53 @@ function Test-WslDistroInstalled {
         return $false
     }
     if ([string]::IsNullOrWhiteSpace($raw)) { return $false }
+    if ($raw -match "no installed distributions") { return $false }
     return ($raw -match [regex]::Escape($Name))
+}
+
+function Test-CbsRebootPending {
+    $keys = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
+    )
+    foreach ($k in $keys) { if (Test-Path $k) { return $true } }
+    return $false
+}
+
+function Test-WslHypervisorReady {
+    if ((Get-CimInstance Win32_ComputerSystem).HypervisorPresent) { return $true }
+    $st = if (Get-Command wsl.exe -ErrorAction SilentlyContinue) {
+        ((& wsl.exe --status 2>&1 | Out-String) -replace "`0", "")
+    } else { "" }
+    return -not ($st -match "virtualization is not enabled|Virtual Machine Platform")
+}
+
+function Write-WslRebootNeeded {
+    Write-Host "[!] WSL2 is not ready. Virtual Machine Platform is still pending a real Restart." -ForegroundColor Yellow
+    Write-Host "    Ubuntu is not installed yet. Do not install it from the Store." -ForegroundColor Yellow
+    Write-Host "    Start menu > Restart (not Shutdown), then re-run setup. It will install Ubuntu." -ForegroundColor Yellow
+}
+
+# VMP can be Enabled while the hypervisor never starts if this BCD flag is missing.
+function Set-HypervisorLaunchAuto {
+    $enum = (& bcdedit.exe /enum "{current}" 2>&1 | Out-String)
+    if ($enum -match "hypervisorlaunchtype\s+Auto") { return $true }
+    Write-Host "[+] Setting hypervisorlaunchtype Auto (needed for WSL2)..." -ForegroundColor Yellow
+    $helper = Join-Path $env:TEMP "dotfiles-hv-launch.ps1"
+    "bcdedit.exe /set '{current}' hypervisorlaunchtype Auto; exit `$LASTEXITCODE" | Set-Content -Path $helper -Encoding ASCII
+    try {
+        if (Test-IsAdmin) {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
+            return ($LASTEXITCODE -eq 0)
+        }
+        $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
+        if ($null -eq $proc) { throw "elevation returned no process" }
+        return ($proc.ExitCode -eq 0)
+    } catch {
+        Write-Host "[!] Could not set hypervisorlaunchtype Auto: $_" -ForegroundColor Yellow
+        Write-Host "    Elevated: bcdedit /set `{current`} hypervisorlaunchtype Auto" -ForegroundColor Cyan
+        return $false
+    }
 }
 
 function Get-WslMsiUrl {
@@ -1040,20 +1117,27 @@ $script:WslBroken = $false
 if (Test-WslDistroInstalled $wslDistro) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
     Invoke-WslLinuxSetup
+} elseif (-not (Test-WslHypervisorReady)) {
+    [void](Set-HypervisorLaunchAuto)
+    if (Test-CbsRebootPending) {
+        Write-WslRebootNeeded
+    } else {
+        Write-Host "[!] WSL2 hypervisor is not running. Restart, then re-run setup." -ForegroundColor Yellow
+        Write-Host "    Ubuntu is not installed yet. Do not install it from the Store." -ForegroundColor Yellow
+    }
 } else {
     $repaired = $false
     if ($script:WslBroken) {
         $repaired = Invoke-WslMsiRepair $wslDistro
     } else {
         Write-Host "[+] Installing WSL + $wslDistro (elevation may be required)..." -ForegroundColor Yellow
-        Write-Host "    After reboot, re-run this script or open Ubuntu and run:" -ForegroundColor Yellow
-        Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
 
         $installOut = @(wsl.exe --install -d $wslDistro --no-launch 2>&1)
         $installCode = $LASTEXITCODE
         $installOut | ForEach-Object { Write-Host $_ }
         $installText = ($installOut | Out-String) -replace "`0", ""
         $needsElevation = $installText -match "requires elevation"
+        $needsReboot = $installText -match "not be effective until the system is rebooted"
         if (($installCode -ne 0) -and (Test-WslComBroken $installText)) {
             $script:WslBroken = $true
             $repaired = Invoke-WslMsiRepair $wslDistro
@@ -1071,9 +1155,11 @@ if (Test-WslDistroInstalled $wslDistro) {
         } elseif ($installCode -ne 0) {
             Write-Host "[!] wsl --install failed (exit $installCode). Run elevated PowerShell:" -ForegroundColor Yellow
             Write-Host "    wsl --install -d $wslDistro" -ForegroundColor Cyan
+        } elseif ($needsReboot -and -not (Test-WslDistroInstalled $wslDistro)) {
+            Write-WslRebootNeeded
         } else {
             $repaired = $true
-            Write-Host "[+] WSL install initiated. Reboot if prompted, then re-run setup or the curl command above." -ForegroundColor Green
+            Write-Host "[+] WSL install initiated." -ForegroundColor Green
         }
     }
 
@@ -1081,8 +1167,7 @@ if (Test-WslDistroInstalled $wslDistro) {
         if (Test-WslDistroInstalled $wslDistro) {
             Invoke-WslLinuxSetup
         } elseif (-not $script:WslBroken) {
-            Write-Host "[!] $wslDistro not listed yet. Reboot if Windows asked, then re-run setup or:" -ForegroundColor Yellow
-            Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
+            Write-WslRebootNeeded
         }
     }
 }
@@ -1104,11 +1189,12 @@ Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubuserconten
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
-Write-Host "  - DisplayLink / Deskflow / LibreOffice: reboot, then re-run elevated if Winget still reports 1603"
-Write-Host "  - WSL: CLASSNOTREG uses a UAC wsl.msi repair; reboot and re-run if it still fails"
+Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
+Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
+Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
+Write-Host "  - WSL: Start > Restart if Virtual Machine Platform is still pending; then re-run. Do not Store-install Ubuntu"
 Write-Host "  - Hibernate / long paths: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
-Write-Host "  - atlassian-cli: Visual Studio Build Tools (MSVC + Windows SDK), then cargo install atlassian-cli"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
