@@ -292,21 +292,6 @@ function Set-WindowsHostDefaults {
     Set-ItemProperty -Path $resume -Name IsResumeAllowed -Type DWord -Value 0
     Set-ItemProperty -Path $resume -Name IsOneDriveResumeAllowed -Type DWord -Value 0
 
-    # Personalization > Lock screen: Picture, not Windows Spotlight (stops the rotating image).
-    $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
-    if (!(Test-Path $cdm)) { New-Item -Path $cdm -Force | Out-Null }
-    foreach ($name in @(
-        "RotatingLockScreenEnabled",
-        "RotatingLockScreenOverlayEnabled",
-        "SubscribedContent-338387Enabled",
-        "SubscribedContent-338389Enabled"
-    )) {
-        Set-ItemProperty -Path $cdm -Name $name -Type DWord -Value 0
-    }
-    $lock = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Lock Screen"
-    if (!(Test-Path $lock)) { New-Item -Path $lock -Force | Out-Null }
-    Set-ItemProperty -Path $lock -Name SlideshowEnabled -Type DWord -Value 0 -ErrorAction SilentlyContinue
-
     # Windows Security > App & browser control: SmartScreen on, Smart App Control off.
     # SAC is currently Evaluation (2) on this SKU and can promote itself to On.
     $appHost = "HKCU:\Software\Microsoft\Windows\CurrentVersion\AppHost"
