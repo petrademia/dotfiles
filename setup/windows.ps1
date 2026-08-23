@@ -1016,13 +1016,8 @@ function Test-WslDistroInstalled {
     return ($raw -match [regex]::Escape($Name))
 }
 
-function Test-CbsRebootPending {
-    $keys = @(
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
-    )
-    foreach ($k in $keys) { if (Test-Path $k) { return $true } }
-    return $false
+function Test-WslVmPlatformReady {
+    return [bool](Get-Service vmcompute -ErrorAction SilentlyContinue)
 }
 
 function Test-WslHypervisorReady {
@@ -1034,9 +1029,34 @@ function Test-WslHypervisorReady {
 }
 
 function Write-WslRebootNeeded {
-    Write-Host "[!] WSL optional features are pending a real Restart (CBS RebootPending)." -ForegroundColor Yellow
+    Write-Host "[!] Virtual Machine Platform is not running (vmcompute missing)." -ForegroundColor Yellow
     Write-Host "    Ubuntu is not registered yet. Do not install it from the Store." -ForegroundColor Yellow
     Write-Host "    Start menu > Restart (not Shutdown), then re-run setup." -ForegroundColor Yellow
+}
+
+function Enable-WslWindowsFeatures {
+    if (Test-WslVmPlatformReady) { return $true }
+    Write-Host "[+] Enabling Virtual Machine Platform (UAC)..." -ForegroundColor Yellow
+    $helper = Join-Path $env:TEMP "dotfiles-wsl-features.ps1"
+    @"
+`$ErrorActionPreference = 'Continue'
+dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+exit 0
+"@ | Set-Content -Path $helper -Encoding ASCII
+    try {
+        if (Test-IsAdmin) {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
+        } else {
+            $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
+            if ($null -eq $proc) { throw "elevation returned no process" }
+        }
+    } catch {
+        Write-Host "[!] Could not enable WSL Windows features: $_" -ForegroundColor Yellow
+        Write-Host "    Elevated: dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart" -ForegroundColor Cyan
+        return $false
+    }
+    return (Test-WslVmPlatformReady)
 }
 
 function Install-UbuntuViaLauncher {
@@ -1183,16 +1203,18 @@ $script:WslBroken = $false
 if (Test-WslDistroInstalled $wslDistro) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
     Invoke-WslLinuxSetup
-} elseif (Test-CbsRebootPending) {
-    Write-WslRebootNeeded
-} elseif (-not (Test-WslHypervisorReady)) {
-    [void](Set-HypervisorLaunchAuto)
-    Write-Host "[!] WSL2 hypervisor is not running. Restart, then re-run setup." -ForegroundColor Yellow
-    Write-Host "    Ubuntu is not installed yet. Do not install it from the Store." -ForegroundColor Yellow
 } else {
-    $repaired = $false
+    if (-not (Test-WslHypervisorReady)) {
+        [void](Set-HypervisorLaunchAuto)
+    }
     if ($script:WslBroken) {
-        $repaired = Invoke-WslMsiRepair $wslDistro
+        [void](Invoke-WslMsiRepair $wslDistro)
+    } elseif (-not (Test-WslVmPlatformReady)) {
+        [void](Enable-WslWindowsFeatures)
+    }
+
+    if (-not (Test-WslVmPlatformReady)) {
+        Write-WslRebootNeeded
     } else {
         # Canonical.Ubuntu can be "installed" in Winget while wsl -l is still empty.
         # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
@@ -1202,14 +1224,14 @@ if (Test-WslDistroInstalled $wslDistro) {
         if (-not $repaired) {
             $repaired = Install-UbuntuViaLauncher
         }
-        if (-not $repaired) {
+        if ($repaired) {
+            Invoke-WslLinuxSetup
+        } elseif (-not (Test-WslVmPlatformReady)) {
+            Write-WslRebootNeeded
+        } else {
             Write-Host "[!] Ubuntu did not register a WSL distro." -ForegroundColor Yellow
-            Write-Host "    Do not Store-install Ubuntu. After Restart: re-run setup." -ForegroundColor Yellow
+            Write-Host "    Do not Store-install Ubuntu. After vmcompute exists: re-run setup." -ForegroundColor Yellow
         }
-    }
-
-    if ($repaired) {
-        Invoke-WslLinuxSetup
     }
 }
 
@@ -1233,7 +1255,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: if Ubuntu did not register, Restart once (CBS pending), then re-run. Do not Store-install Ubuntu."
+Write-Host "  - WSL: needs Virtual Machine Platform (vmcompute). Accept UAC for DISM, Restart if still missing, then re-run. Do not Store-install Ubuntu."
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
