@@ -423,7 +423,9 @@ function Set-WindowsStartupApps {
         "Opera GX Browser Assistant",
         "Opera GX Stable",
         "Discord",
-        "com.squirrel.slack.slack"
+        "com.squirrel.slack.slack",
+        "Warp",
+        "org.openvpn.client"
     )) { Set-StartupApproved $run $name $false }
 
     Set-StartupApproved $folder "Ollama.lnk" $false
@@ -431,6 +433,7 @@ function Set-WindowsStartupApps {
     foreach ($pair in @(
         @{ Key = $runLm; Name = "Virtual Pet"; On = $false },
         @{ Key = $runLm; Name = "SecurityHealth"; On = $true },
+        @{ Key = $runLm; Name = "DisplayLinkTrayApp"; On = $true },
         @{ Key = $runLmWow; Name = "ASUS Smart Display Control"; On = $false }
     )) {
         try { Set-StartupApproved $pair.Key $pair.Name $pair.On } catch {}
@@ -443,6 +446,7 @@ function Set-WindowsStartupApps {
     Set-AppXStartupState "MicrosoftTeams_" "TeamsStartupTask" 0
     Set-AppXStartupState "MSTeams_" "TeamsTfwStartupTask" 0
     Set-AppXStartupState "OpenAI.ChatGPT-Desktop_" "ChatGPT" 0
+    Set-AppXStartupState "SpotifyAB.SpotifyMusic_" "Spotify" 0
     Set-AppXStartupState "AdvancedMicroDevicesInc-2.AMDRadeonSoftware_" "launcherrsxruntimeTask" 0
     Set-AppXStartupState "Microsoft.CommandPalette_" "CmdPalStartup" 0
     Set-AppXStartupState "Microsoft.YourPhone_" "YourPhone.Start" 0
@@ -451,6 +455,19 @@ function Set-WindowsStartupApps {
     Set-AppXStartupState "Microsoft.PowerAutomateDesktop_" "AutoStartTask" 0
     Set-AppXStartupState "Microsoft.WindowsTerminal_" "StartTerminalOnLoginTask" 0
     Set-AppXStartupState "LGElectronics.LGMonitorApp_" "LGMonitorAutoStart" 0
+    # WhatsApp's AppX startup task is a GUID that can change; disable every task in the family.
+    $root = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData"
+    if (Test-Path $root) {
+        Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | Where-Object {
+            $_.PSIsContainer -and ($_.PSChildName -like "5319275A.WhatsAppDesktop_*")
+        } | ForEach-Object {
+            Get-ChildItem $_.PSPath -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer } | ForEach-Object {
+                if ($null -ne (Get-ItemProperty $_.PSPath -Name State -ErrorAction SilentlyContinue).State) {
+                    Set-ItemProperty -LiteralPath $_.PSPath -Name State -Type DWord -Value 0
+                }
+            }
+        }
+    }
 }
 
 function Add-ScoopBucket {
