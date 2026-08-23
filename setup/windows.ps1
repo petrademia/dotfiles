@@ -1130,45 +1130,32 @@ if (Test-WslDistroInstalled $wslDistro) {
     if ($script:WslBroken) {
         $repaired = Invoke-WslMsiRepair $wslDistro
     } else {
-        Write-Host "[+] Installing WSL + $wslDistro (elevation may be required)..." -ForegroundColor Yellow
-
-        $installOut = @(wsl.exe --install -d $wslDistro --no-launch 2>&1)
-        $installCode = $LASTEXITCODE
-        $installOut | ForEach-Object { Write-Host $_ }
-        $installText = ($installOut | Out-String) -replace "`0", ""
-        $needsElevation = $installText -match "requires elevation"
-        $needsReboot = $installText -match "not be effective until the system is rebooted"
-        if (($installCode -ne 0) -and (Test-WslComBroken $installText)) {
-            $script:WslBroken = $true
-            $repaired = Invoke-WslMsiRepair $wslDistro
-        } elseif ($needsElevation -and -not (Test-IsAdmin)) {
-            Write-Host "[+] WSL distro install needs elevation (UAC)..." -ForegroundColor Yellow
-            $helper = Join-Path $env:TEMP "dotfiles-wsl-install.ps1"
-            "wsl.exe --install -d '$($wslDistro -replace "'", "''")' --no-launch; exit `$LASTEXITCODE" | Set-Content -Path $helper -Encoding UTF8
-            try {
-                $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
-                if ($null -eq $proc) { throw "elevation returned no process" }
-                $repaired = $true
-            } catch {
-                Write-Host "[!] WSL elevation cancelled. Reboot, then elevated: wsl --install -d $wslDistro" -ForegroundColor Yellow
-            }
-        } elseif ($installCode -ne 0) {
-            Write-Host "[!] wsl --install failed (exit $installCode). Run elevated PowerShell:" -ForegroundColor Yellow
-            Write-Host "    wsl --install -d $wslDistro" -ForegroundColor Cyan
-        } elseif ($needsReboot -and -not (Test-WslDistroInstalled $wslDistro)) {
-            Write-WslRebootNeeded
-        } else {
+        # wsl --install -d Ubuntu re-runs DISM for VMP even when the hypervisor
+        # is already running, which queues a fake reboot and never fetches Ubuntu.
+        Write-Host "[+] Installing $wslDistro via Winget (skips optional-feature DISM)..." -ForegroundColor Yellow
+        $wingetLines = @()
+        winget install -e --id Canonical.Ubuntu --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
+        $installText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
+        if (Test-WslDistroInstalled $wslDistro) {
             $repaired = $true
-            Write-Host "[+] WSL install initiated." -ForegroundColor Green
+        } else {
+            Write-Host "[+] Winget Ubuntu missed. Trying wsl --web-download..." -ForegroundColor Yellow
+            $installOut = @(wsl.exe --install -d $wslDistro --web-download --no-launch 2>&1)
+            $installOut | ForEach-Object { Write-Host $_ }
+            $installText = ($installOut | Out-String) -replace "`0", ""
+            $repaired = (Test-WslDistroInstalled $wslDistro)
+            if (-not $repaired) {
+                Write-Host "[!] Ubuntu install did not register a distro." -ForegroundColor Yellow
+                Write-Host "    Elevated: wsl --install -d $wslDistro --web-download --no-launch" -ForegroundColor Cyan
+                if ($installText -match "requires elevation") {
+                    Write-Host "    That command needs an elevated PowerShell." -ForegroundColor Yellow
+                }
+            }
         }
     }
 
     if ($repaired) {
-        if (Test-WslDistroInstalled $wslDistro) {
-            Invoke-WslLinuxSetup
-        } elseif (-not $script:WslBroken) {
-            Write-WslRebootNeeded
-        }
+        Invoke-WslLinuxSetup
     }
 }
 
@@ -1192,7 +1179,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: Start > Restart if Virtual Machine Platform is still pending; then re-run. Do not Store-install Ubuntu"
+Write-Host "  - WSL: hypervisor is on; setup installs Canonical.Ubuntu via Winget. Do not Store-install Ubuntu. Do not Restart just because wsl --install printed VMP."
 Write-Host "  - Hibernate / long paths: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
