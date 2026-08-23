@@ -440,6 +440,9 @@ function Set-WindowsStartupApps {
         "BraveSoftware Update",
         "Opera GX Browser Assistant",
         "Opera GX Stable",
+        "Opera Air Browser Assistant",
+        "Opera Browser Assistant",
+        "Opera Stable",
         "Discord",
         "com.squirrel.slack.slack",
         "Warp",
@@ -558,7 +561,8 @@ $apps = @(
     "syncthing",
     "xmake", "cmake", "ripgrep", "neovim", "zellij", "helix", "zed", "lapce", "neovide", "trae", "graphviz", "zstd", "ngrok",
     "gradle", "maven", "plantuml", "z3", "sqlite",
-    "kubectl", "kind", "k3d"
+    "kubectl", "kind", "k3d",
+    "potplayer", "firefox-nightly", "thorium", "min", "chromium"
 )
 foreach ($app in $apps) { Smart-Scoop $app }
 
@@ -597,14 +601,15 @@ $wingetApps = @(
     "Microsoft.DotNet.DesktopRuntime.10",
     "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
     "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
+    "voidtools.Everything",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
     "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
     "Google.GoogleDrive", "Microsoft.OneDrive",
     "Google.Antigravity", "Google.AntigravityCLI",
-    "Microsoft.VisualStudioCode", "Microsoft.WindowsTerminal", "Postman.Postman",
+    "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman",
     "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper",
-    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition",
-    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Ablaze.Floorp",
+    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR",
+    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Opera.OperaAir", "Ablaze.Floorp",
     "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser",
     "eloston.ungoogled-chromium",
     "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
@@ -612,10 +617,13 @@ $wingetApps = @(
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
-    "TheDocumentFoundation.LibreOffice",
+    "TheDocumentFoundation.LibreOffice", "ONLYOFFICE.DesktopEditors",
+    "FilesCommunity.Files",
     "VideoLAN.VLC", "Stremio.Stremio",
+    "CodecGuide.K-LiteCodecPack.Full",
     "qBittorrent.qBittorrent", "Transmission.Transmission",
     "SoftDeluxe.FreeDownloadManager",
+    "Valve.Steam",
     "DisplayLink.GraphicsDriver",
     "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
