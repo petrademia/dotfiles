@@ -601,6 +601,7 @@ $wingetApps = @(
     "Microsoft.DotNet.DesktopRuntime.10",
     "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
     "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
+    "Devolutions.UniGetUI", "PatchMyPC.PatchMyPC",
     "voidtools.Everything",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
     "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",

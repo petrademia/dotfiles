@@ -128,7 +128,7 @@ macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libk
 
 Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote, Obsidian. Obsidian sync is separate. Windows gets the same notes set via Winget, plus LibreOffice and ONLYOFFICE.
 
-Windows also installs the macOS GUI set where Winget has a package: extra browsers (LibreWolf, Waterfox, Mullvad, ungoogled Chromium, Chromium, Thorium, Min, Chrome Beta/Canary, Firefox ESR/Nightly, Opera / GX / Air), terminals (Alacritty, WezTerm, Tabby, Warp, Hyper, Windows Terminal), editors (Notepad++, VS Code), Everything, Files, VLC, PotPlayer, K-Lite, Steam, Spotify, Stremio, qBittorrent, Transmission, FDM, Postman, OpenVPN Connect, OpenCode desktop, and WhatsApp. Mac-only (no Windows package or no equivalent): iTerm, Ghostty, Orion, SigmaOS, Helium, Wispr Flow, CotEditor, IINA, Rectangle / DockDoor.
+Windows also installs the macOS GUI set where Winget has a package: extra browsers (LibreWolf, Waterfox, Mullvad, ungoogled Chromium, Chromium, Thorium, Min, Chrome Beta/Canary, Firefox ESR/Nightly, Opera / GX / Air), terminals (Alacritty, WezTerm, Tabby, Warp, Hyper, Windows Terminal), editors (Notepad++, VS Code), Everything, Files, UniGetUI, Patch My PC Home Updater, VLC, PotPlayer, K-Lite, Steam, Spotify, Stremio, qBittorrent, Transmission, FDM, Postman, OpenVPN Connect, OpenCode desktop, and WhatsApp. Mac-only (no Windows package or no equivalent): iTerm, Ghostty, Orion, SigmaOS, Helium, Wispr Flow, CotEditor, IINA, Rectangle / DockDoor.
 
 ## Layout
 
