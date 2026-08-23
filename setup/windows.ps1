@@ -1025,9 +1025,31 @@ function Test-WslHypervisorReady {
 }
 
 function Write-WslRebootNeeded {
-    Write-Host "[!] WSL2 is not ready. Virtual Machine Platform is still pending a real Restart." -ForegroundColor Yellow
-    Write-Host "    Ubuntu is not installed yet. Do not install it from the Store." -ForegroundColor Yellow
-    Write-Host "    Start menu > Restart (not Shutdown), then re-run setup. It will install Ubuntu." -ForegroundColor Yellow
+    Write-Host "[!] WSL optional features are pending a real Restart (CBS RebootPending)." -ForegroundColor Yellow
+    Write-Host "    Ubuntu is not registered yet. Do not install it from the Store." -ForegroundColor Yellow
+    Write-Host "    Start menu > Restart (not Shutdown), then re-run setup." -ForegroundColor Yellow
+}
+
+function Install-UbuntuViaLauncher {
+    $candidates = @(
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu.exe"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu2404.exe"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu2204.exe")
+    )
+    $ubuntu = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $ubuntu) { return $false }
+
+    Write-Host "[+] Registering Ubuntu with WSL ($ubuntu install --root)..." -ForegroundColor Yellow
+    $out = @(& $ubuntu install --root 2>&1 | ForEach-Object { "$_" })
+    $out | ForEach-Object { Write-Host $_ }
+    if (Test-WslDistroInstalled $wslDistro) { return $true }
+
+    $text = $out -join "`n"
+    if ($text -match "0x80370114|required feature is not installed") {
+        Write-Host "[!] ubuntu.exe hit 0x80370114 (required Windows feature not active yet)." -ForegroundColor Yellow
+        Write-WslRebootNeeded
+    }
+    return $false
 }
 
 # VMP can be Enabled while the hypervisor never starts if this BCD flag is missing.
@@ -1152,40 +1174,28 @@ $script:WslBroken = $false
 if (Test-WslDistroInstalled $wslDistro) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
     Invoke-WslLinuxSetup
+} elseif (Test-CbsRebootPending) {
+    Write-WslRebootNeeded
 } elseif (-not (Test-WslHypervisorReady)) {
     [void](Set-HypervisorLaunchAuto)
-    if (Test-CbsRebootPending) {
-        Write-WslRebootNeeded
-    } else {
-        Write-Host "[!] WSL2 hypervisor is not running. Restart, then re-run setup." -ForegroundColor Yellow
-        Write-Host "    Ubuntu is not installed yet. Do not install it from the Store." -ForegroundColor Yellow
-    }
+    Write-Host "[!] WSL2 hypervisor is not running. Restart, then re-run setup." -ForegroundColor Yellow
+    Write-Host "    Ubuntu is not installed yet. Do not install it from the Store." -ForegroundColor Yellow
 } else {
     $repaired = $false
     if ($script:WslBroken) {
         $repaired = Invoke-WslMsiRepair $wslDistro
     } else {
-        # wsl --install -d Ubuntu re-runs DISM for VMP even when the hypervisor
-        # is already running, which queues a fake reboot and never fetches Ubuntu.
-        Write-Host "[+] Installing $wslDistro via Winget (skips optional-feature DISM)..." -ForegroundColor Yellow
-        $wingetLines = @()
-        winget install -e --id Canonical.Ubuntu --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
-        $installText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
-        if (Test-WslDistroInstalled $wslDistro) {
-            $repaired = $true
-        } else {
-            Write-Host "[+] Winget Ubuntu missed. Trying wsl --web-download..." -ForegroundColor Yellow
-            $installOut = @(wsl.exe --install -d $wslDistro --web-download --no-launch 2>&1)
-            $installOut | ForEach-Object { Write-Host $_ }
-            $installText = ($installOut | Out-String) -replace "`0", ""
-            $repaired = (Test-WslDistroInstalled $wslDistro)
-            if (-not $repaired) {
-                Write-Host "[!] Ubuntu install did not register a distro." -ForegroundColor Yellow
-                Write-Host "    Elevated: wsl --install -d $wslDistro --web-download --no-launch" -ForegroundColor Cyan
-                if ($installText -match "requires elevation") {
-                    Write-Host "    That command needs an elevated PowerShell." -ForegroundColor Yellow
-                }
-            }
+        # Canonical.Ubuntu can be "installed" in Winget while wsl -l is still empty.
+        # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
+        Write-Host "[+] Installing $wslDistro via Winget..." -ForegroundColor Yellow
+        winget install -e --id Canonical.Ubuntu --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
+        $repaired = (Test-WslDistroInstalled $wslDistro)
+        if (-not $repaired) {
+            $repaired = Install-UbuntuViaLauncher
+        }
+        if (-not $repaired) {
+            Write-Host "[!] Ubuntu did not register a WSL distro." -ForegroundColor Yellow
+            Write-Host "    Do not Store-install Ubuntu. After Restart: re-run setup." -ForegroundColor Yellow
         }
     }
 
@@ -1214,7 +1224,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: hypervisor is on; setup installs Canonical.Ubuntu via Winget. Do not Store-install Ubuntu. Do not Restart just because wsl --install printed VMP."
+Write-Host "  - WSL: if Ubuntu did not register, Restart once (CBS pending), then re-run. Do not Store-install Ubuntu."
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"

@@ -14,7 +14,7 @@ irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1
 
 The script sets CurrentUser `RemoteSigned` (Windows defaults to Restricted, which prints `running scripts is disabled` when the profile loads). If `irm | iex` itself is blocked, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force` first.
 
-It tries to enable WSL and install Ubuntu. If `wsl` reports `REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi` from GitHub and prompts for UAC, then `wsl --install -d Ubuntu`. Reboot if Windows asks. Then inside Ubuntu:
+It installs Ubuntu with Winget `Canonical.Ubuntu`, then `ubuntu.exe install --root`. If Windows has a pending feature reboot (`0x80370114`), Restart once and re-run. Do not install Ubuntu from the Store. If `wsl` reports `REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi` from GitHub and prompts for UAC. Then inside Ubuntu:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
