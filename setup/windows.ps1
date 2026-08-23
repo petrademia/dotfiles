@@ -1017,7 +1017,7 @@ function Test-WslDistroInstalled {
 }
 
 function Test-WslVmPlatformReady {
-    return [bool](Get-Service vmcompute -ErrorAction SilentlyContinue)
+    return (Test-Path "$env:SystemRoot\System32\vmcompute.exe") -or [bool](Get-Service vmcompute -ErrorAction SilentlyContinue)
 }
 
 function Test-WslHypervisorReady {
@@ -1029,19 +1029,29 @@ function Test-WslHypervisorReady {
 }
 
 function Write-WslRebootNeeded {
-    Write-Host "[!] Virtual Machine Platform is not running (vmcompute missing)." -ForegroundColor Yellow
+    Write-Host "[!] Hyper-V Host Compute (vmcompute) is still missing." -ForegroundColor Yellow
     Write-Host "    Ubuntu is not registered yet. Do not install it from the Store." -ForegroundColor Yellow
     Write-Host "    Start menu > Restart (not Shutdown), then re-run setup." -ForegroundColor Yellow
 }
 
 function Enable-WslWindowsFeatures {
     if (Test-WslVmPlatformReady) { return $true }
-    Write-Host "[+] Enabling Virtual Machine Platform (UAC)..." -ForegroundColor Yellow
+    Write-Host "[+] Reinstalling Virtual Machine Platform (UAC). DISM enable-only is a no-op here." -ForegroundColor Yellow
     $helper = Join-Path $env:TEMP "dotfiles-wsl-features.ps1"
+    $log = Join-Path $env:TEMP "dotfiles-wsl-features.log"
     @"
 `$ErrorActionPreference = 'Continue'
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+`$log = '$($log -replace "'", "''")'
+Start-Transcript -Path `$log -Force | Out-Null
+foreach (`$f in @('VirtualMachinePlatform','HypervisorPlatform','Microsoft-Windows-Subsystem-Linux')) {
+    Write-Host ("disable " + `$f)
+    dism.exe /online /disable-feature /featurename:`$f /norestart
+}
+foreach (`$f in @('VirtualMachinePlatform','HypervisorPlatform','Microsoft-Windows-Subsystem-Linux')) {
+    Write-Host ("enable " + `$f)
+    dism.exe /online /enable-feature /featurename:`$f /all /norestart
+}
+Stop-Transcript | Out-Null
 exit 0
 "@ | Set-Content -Path $helper -Encoding ASCII
     try {
@@ -1052,11 +1062,13 @@ exit 0
             if ($null -eq $proc) { throw "elevation returned no process" }
         }
     } catch {
-        Write-Host "[!] Could not enable WSL Windows features: $_" -ForegroundColor Yellow
-        Write-Host "    Elevated: dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart" -ForegroundColor Cyan
+        Write-Host "[!] Could not repair WSL Windows features: $_" -ForegroundColor Yellow
+        Write-Host "    Elevated DISM disable+enable VirtualMachinePlatform, HypervisorPlatform, Microsoft-Windows-Subsystem-Linux" -ForegroundColor Cyan
         return $false
     }
-    return (Test-WslVmPlatformReady)
+    if (Test-WslVmPlatformReady) { return $true }
+    Write-Host "    DISM log: $log" -ForegroundColor DarkGray
+    return $false
 }
 
 function Install-UbuntuViaLauncher {
@@ -1255,7 +1267,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: needs Virtual Machine Platform (vmcompute). Accept UAC for DISM, Restart if still missing, then re-run. Do not Store-install Ubuntu."
+Write-Host "  - WSL: vmcompute is missing until VMP is reinstalled. Accept UAC (disable+enable), Restart, re-run. Do not Store-install Ubuntu."
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
