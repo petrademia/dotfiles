@@ -292,6 +292,39 @@ function Set-WindowsHostDefaults {
     Set-ItemProperty -Path $resume -Name IsResumeAllowed -Type DWord -Value 0
     Set-ItemProperty -Path $resume -Name IsOneDriveResumeAllowed -Type DWord -Value 0
 
+    # Personalization > Lock screen: Picture, not Windows Spotlight (stops the rotating image).
+    $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+    if (!(Test-Path $cdm)) { New-Item -Path $cdm -Force | Out-Null }
+    foreach ($name in @(
+        "RotatingLockScreenEnabled",
+        "RotatingLockScreenOverlayEnabled",
+        "SubscribedContent-338387Enabled",
+        "SubscribedContent-338389Enabled"
+    )) {
+        Set-ItemProperty -Path $cdm -Name $name -Type DWord -Value 0
+    }
+    $lock = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Lock Screen"
+    if (!(Test-Path $lock)) { New-Item -Path $lock -Force | Out-Null }
+    Set-ItemProperty -Path $lock -Name SlideshowEnabled -Type DWord -Value 0 -ErrorAction SilentlyContinue
+
+    # Windows Security > App & browser control: SmartScreen on, Smart App Control off.
+    # SAC is currently Evaluation (2) on this SKU and can promote itself to On.
+    $appHost = "HKCU:\Software\Microsoft\Windows\CurrentVersion\AppHost"
+    if (!(Test-Path $appHost)) { New-Item -Path $appHost -Force | Out-Null }
+    Set-ItemProperty -Path $appHost -Name EnableWebContentEvaluation -Type DWord -Value 1
+    try {
+        $sac = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy"
+        if (Test-Path $sac) {
+            Set-ItemProperty -Path $sac -Name VerifiedAndReputablePolicyState -Type DWord -Value 0 -ErrorAction Stop
+        }
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Type String -Value "Warn" -ErrorAction Stop
+        if (Get-Command Set-MpPreference -ErrorAction SilentlyContinue) {
+            Set-MpPreference -PUAProtection 1 -ErrorAction Stop
+        }
+    } catch {
+        Write-Host "[!] Smart App Control Off / SmartScreen HKLM skipped (needs elevation)." -ForegroundColor Yellow
+    }
+
     $shots = Join-Path $HOME "Screenshots"
     New-Item -ItemType Directory -Path $shots -Force | Out-Null
     $shellFolders = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
@@ -1197,7 +1230,7 @@ Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still report
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
 Write-Host "  - WSL: hypervisor is on; setup installs Canonical.Ubuntu via Winget. Do not Store-install Ubuntu. Do not Restart just because wsl --install printed VMP."
-Write-Host "  - Hibernate / long paths: re-run an elevated PowerShell if those were skipped"
+Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
