@@ -117,6 +117,29 @@ function Install-Warp {
     }
 }
 
+# rustup-msvc / UniGetUI cargo installs need link.exe + a Windows SDK.
+# Plain winget without --override only drops the VS installer, not the C++ workload.
+function Test-VsCToolsInstalled {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (!(Test-Path $vswhere)) { return $false }
+    $p = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+    return -not [string]::IsNullOrWhiteSpace("$p")
+}
+
+function Install-VsBuildTools {
+    if (Test-VsCToolsInstalled) {
+        Write-Host "[-] Visual Studio C++ Build Tools already installed." -ForegroundColor Gray
+        return
+    }
+    Write-Host "[+] Installing Visual Studio 2022 Build Tools (MSVC + Windows SDK)..." -ForegroundColor Cyan
+    $override = "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+    winget install -e --id Microsoft.VisualStudio.2022.BuildTools --accept-package-agreements --accept-source-agreements --disable-interactivity --override $override --source winget
+    if (($LASTEXITCODE -ne 0) -or -not (Test-VsCToolsInstalled)) {
+        Write-Host "[!] VS Build Tools missing or failed. Elevated:" -ForegroundColor Yellow
+        Write-Host "    winget install -e --id Microsoft.VisualStudio.2022.BuildTools --override `"$override`"" -ForegroundColor Cyan
+    }
+}
+
 # GitHub releases ship macOS/Linux only. Compile with MSVC if link.exe exists,
 # otherwise Scoop gcc + the gnu rustc triple.
 function Install-AtlassianCli {
@@ -661,6 +684,7 @@ foreach ($app in $wingetApps) {
 }
 
 Install-Warp
+Install-VsBuildTools
 
 Initialize-TrafficMonitor
 

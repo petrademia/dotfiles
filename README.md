@@ -56,7 +56,7 @@ Switch: `java-use 21-temurin` (macOS/WSL) · `jv temurin21-jdk` (Windows).
 
 ## CLIs
 
-`gh`, `atlassian-cli`, and `wrangler` (Cloudflare Pages/Workers) come with setup. Windows has no GitHub binary for `atlassian-cli`; setup compiles it with MSVC `link.exe` when present, otherwise Scoop `gcc` and the gnu rustc triple.
+`gh`, `atlassian-cli`, and `wrangler` (Cloudflare Pages/Workers) come with setup. Windows has no GitHub binary for `atlassian-cli`; setup compiles it with MSVC `link.exe` when present, otherwise Scoop `gcc` and the gnu rustc triple. Visual Studio 2022 Build Tools (C++ workload) are installed so `rustup-msvc` and UniGetUI rust packages can link.
 
 ```bash
 gh auth login
