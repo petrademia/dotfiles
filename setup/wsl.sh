@@ -4,6 +4,28 @@ set -euo pipefail
 
 BASHRC="${HOME}/.bashrc"
 ZSHRC="${HOME}/.zshrc"
+INSTALLED_COUNT=0
+UPDATED_COUNT=0
+SKIPPED_COUNT=0
+FAILED_COUNT=0
+
+record_result() {
+    case "$1" in
+        installed) INSTALLED_COUNT=$((INSTALLED_COUNT + 1)) ;;
+        updated) UPDATED_COUNT=$((UPDATED_COUNT + 1)) ;;
+        skipped) SKIPPED_COUNT=$((SKIPPED_COUNT + 1)) ;;
+        failed) FAILED_COUNT=$((FAILED_COUNT + 1)) ;;
+    esac
+}
+
+version_matches() {
+    [ -n "$1" ] && [ "${1#v}" = "${2#v}" ]
+}
+
+latest_github_tag() {
+    curl -fsSL "https://api.github.com/repos/$1/releases/latest" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])'
+}
 
 # Direct installers use this guard when they do not expose a safe version check.
 smart_check() {
@@ -22,12 +44,15 @@ sudo apt install -y \
     build-essential curl wget git zip unzip cmake pkg-config gdb ninja-build \
     jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 \
     llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev
-sudo apt install -y fastfetch 2>/dev/null || echo "[-] fastfetch not in apt; skipping"
+record_result updated
+if sudo apt install -y fastfetch 2>/dev/null; then record_result updated
+else record_result skipped; echo "[-] fastfetch not in apt; skipping"; fi
 
 echo "==> 1b) Zellij (terminal multiplexer)"
-if ! smart_check "zellij"; then
-    ZELLIJ_VER=$(curl -fsSL https://api.github.com/repos/zellij-org/zellij/releases/latest \
-        | python3 -c 'import sys,json; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo "v0.44.3")
+ZELLIJ_VER=$(latest_github_tag zellij-org/zellij 2>/dev/null || true)
+ZELLIJ_CURRENT=$(zellij --version 2>/dev/null | awk '{print $2}' || true)
+if [ -z "$ZELLIJ_CURRENT" ] || { [ -n "$ZELLIJ_VER" ] && ! version_matches "$ZELLIJ_CURRENT" "$ZELLIJ_VER"; }; then
+    [ -n "$ZELLIJ_VER" ] || ZELLIJ_VER="v0.44.3"
     case "$(uname -m)" in
         aarch64|arm64) ZELLIJ_ARCH="aarch64" ;;
         *) ZELLIJ_ARCH="x86_64" ;;
@@ -36,17 +61,26 @@ if ! smart_check "zellij"; then
     if curl -fL "$ZELLIJ_URL" -o /tmp/zellij.tar.gz \
         && tar xzf /tmp/zellij.tar.gz -C /tmp \
         && sudo install -m 0755 /tmp/zellij /usr/local/bin/zellij; then
-        echo "Zellij ${ZELLIJ_VER} installed"
+        if [ -n "$ZELLIJ_CURRENT" ]; then record_result updated; echo "Zellij ${ZELLIJ_VER} updated"
+        else record_result installed; echo "Zellij ${ZELLIJ_VER} installed"; fi
     else
-        echo "[-] Zellij install skipped"
+        record_result failed
+        echo "[-] Zellij install/update failed"
     fi
     rm -f /tmp/zellij.tar.gz /tmp/zellij
+else
+    record_result skipped
+    echo "[-] Zellij ${ZELLIJ_CURRENT} is current"
 fi
 
 echo "==> 1c) Helix (modal editor)"
-if ! smart_check "hx" && ! smart_check "helix"; then
-    HELIX_VER=$(curl -fsSL https://api.github.com/repos/helix-editor/helix/releases/latest \
-        | python3 -c 'import sys,json; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo "25.07.1")
+HELIX_VER=$(latest_github_tag helix-editor/helix 2>/dev/null || true)
+HELIX_CMD=""
+command -v hx >/dev/null 2>&1 && HELIX_CMD=hx
+if [ -z "$HELIX_CMD" ] && command -v helix >/dev/null 2>&1; then HELIX_CMD=helix; fi
+HELIX_CURRENT=$([ -n "$HELIX_CMD" ] && "$HELIX_CMD" --version 2>/dev/null | awk '{print $2}' || true)
+if [ -z "$HELIX_CURRENT" ] || { [ -n "$HELIX_VER" ] && ! version_matches "$HELIX_CURRENT" "$HELIX_VER"; }; then
+    [ -n "$HELIX_VER" ] || HELIX_VER="25.07.1"
     case "$(uname -m)" in
         aarch64|arm64) HELIX_ARCH="aarch64-linux" ;;
         *) HELIX_ARCH="x86_64-linux" ;;
@@ -55,11 +89,16 @@ if ! smart_check "hx" && ! smart_check "helix"; then
     if curl -fL "$HELIX_URL" -o /tmp/helix.tar.xz \
         && tar xJf /tmp/helix.tar.xz -C /tmp \
         && sudo install -m 0755 "/tmp/helix-${HELIX_VER}-${HELIX_ARCH}/hx" /usr/local/bin/hx; then
-        echo "Helix ${HELIX_VER} installed"
+        if [ -n "$HELIX_CURRENT" ]; then record_result updated; echo "Helix ${HELIX_VER} updated"
+        else record_result installed; echo "Helix ${HELIX_VER} installed"; fi
     else
-        echo "[-] Helix install skipped"
+        record_result failed
+        echo "[-] Helix install/update failed"
     fi
     rm -rf /tmp/helix.tar.xz "/tmp/helix-${HELIX_VER}-${HELIX_ARCH}"
+else
+    record_result skipped
+    echo "[-] Helix ${HELIX_CURRENT} is current"
 fi
 
 echo "==> 2) GitHub CLI (gh)"
@@ -68,10 +107,38 @@ curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
     | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-sudo apt update && sudo apt install -y gh || echo "[-] gh install/update skipped"
+if sudo apt update && sudo apt install -y gh; then record_result updated
+else record_result failed; echo "[-] gh install/update failed"; fi
 
 echo "==> 3) Git & directory setup"
-git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
+WINDOWS_USER_PROFILE=""
+if command -v powershell.exe >/dev/null 2>&1; then
+    WINDOWS_USER_PROFILE=$(powershell.exe -NoProfile -Command '$env:USERPROFILE' 2>/dev/null | tr -d '\r\n')
+fi
+GCM_ROOT=""
+if [ -n "$WINDOWS_USER_PROFILE" ] && command -v wslpath >/dev/null 2>&1; then
+    GCM_ROOT=$(wslpath -u "$WINDOWS_USER_PROFILE" 2>/dev/null || true)
+fi
+GCM_PATH=""
+for candidate in \
+    "$GCM_ROOT/scoop/apps/git/current/mingw64/bin/git-credential-manager.exe" \
+    "$GCM_ROOT/scoop/apps/git/current/mingw64/libexec/git-core/git-credential-manager.exe" \
+    "$GCM_ROOT/scoop/apps/git/current/usr/bin/git-credential-manager.exe" \
+    "/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe" \
+    "/mnt/c/Program Files/Git/mingw64/libexec/git-core/git-credential-manager.exe"; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+        GCM_PATH="$candidate"
+        break
+    fi
+done
+if [ -n "$GCM_PATH" ]; then
+    GCM_CONFIG_PATH=${GCM_PATH//\\/\\\\}
+    GCM_CONFIG_PATH=${GCM_CONFIG_PATH// /\\ }
+    git config --global credential.helper "$GCM_CONFIG_PATH"
+    echo "Using Git Credential Manager: $GCM_PATH"
+else
+    echo "Warning: Git Credential Manager not found; leaving credential.helper unchanged" >&2
+fi
 mkdir -p "$HOME/code"
 
 echo "==> 4) Rust & Go"
@@ -79,7 +146,8 @@ if ! smart_check "rustup" "$HOME/.cargo/bin/rustup"; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 fi
 . "$HOME/.cargo/env" 2>/dev/null || true
-rustup update stable || echo "Warning: rustup update stable failed"
+if rustup update stable; then record_result updated
+else record_result failed; echo "Warning: rustup update stable failed"; fi
 rustup default stable || echo "Warning: rustup default stable failed"
 if ! smart_check "atlassian-cli"; then
     cargo install atlassian-cli || echo "[-] atlassian-cli install skipped"
@@ -88,7 +156,8 @@ fi
 if ! smart_check "go" "/usr/bin/go"; then
     sudo add-apt-repository ppa:longsleep/golang-backports -y && sudo apt update
 fi
-sudo apt install -y golang-go || echo "[-] Go install/update skipped"
+if sudo apt install -y golang-go; then record_result updated
+else record_result failed; echo "[-] Go install/update failed"; fi
 
 echo "==> 5) fnm & uv"
 if ! smart_check "fnm" "$HOME/.local/share/fnm/fnm"; then
@@ -113,11 +182,14 @@ fi
 set +u
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
 set -u
-sdk update >/dev/null 2>&1 || echo "[-] SDKMAN! metadata update skipped"
+if sdk update >/dev/null 2>&1; then record_result updated
+else record_result skipped; echo "[-] SDKMAN! metadata update skipped"; fi
 if sdk current gradle >/dev/null 2>&1; then
-    sdk upgrade gradle </dev/null 2>/dev/null || echo "[-] gradle via sdkman update skipped"
+    if sdk upgrade gradle </dev/null 2>/dev/null; then record_result updated
+    else record_result failed; echo "[-] gradle via sdkman update failed"; fi
 else
-    sdk install gradle </dev/null 2>/dev/null || echo "[-] gradle via sdkman install skipped"
+    if sdk install gradle </dev/null 2>/dev/null; then record_result installed
+    else record_result failed; echo "[-] gradle via sdkman install failed"; fi
 fi
 echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
 
@@ -133,7 +205,8 @@ curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
     | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
 echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
     | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
-sudo apt update && sudo apt install -y ngrok || echo "[-] ngrok install/update skipped"
+if sudo apt update && sudo apt install -y ngrok; then record_result updated
+else record_result failed; echo "[-] ngrok install/update failed"; fi
 
 if ! smart_check "llama" "$HOME/.llama-app/llama"; then
     curl -fsSL https://llama.app/install.sh | sh || echo "[-] llama.cpp install skipped"
@@ -147,26 +220,47 @@ case "$ARCH" in
     *) K8S_ARCH="$ARCH" ;;
 esac
 
-if ! smart_check "kubectl"; then
-    KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+KVER=$(curl -fsSL https://dl.k8s.io/release/stable.txt 2>/dev/null || true)
+KUBECTL_CURRENT=$(kubectl version --client --output=json 2>/dev/null \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["clientVersion"]["gitVersion"])' 2>/dev/null || true)
+if [ -z "$KUBECTL_CURRENT" ] || { [ -n "$KVER" ] && ! version_matches "$KUBECTL_CURRENT" "$KVER"; }; then
+    [ -n "$KVER" ] || KVER="v1.34.1"
     curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/${K8S_ARCH}/kubectl" \
         && sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl \
-        || echo "[-] kubectl install skipped"
+        && { [ -n "$KUBECTL_CURRENT" ] && record_result updated || record_result installed; } \
+        || { record_result failed; echo "[-] kubectl install/update failed"; }
     rm -f /tmp/kubectl
+else
+    record_result skipped
+    echo "[-] kubectl ${KUBECTL_CURRENT} is current"
 fi
 
-if ! smart_check "kind"; then
-    KIND_VER=$(curl -fsSL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest \
-        | python3 -c 'import sys,json; print(json.load(sys.stdin)["tag_name"])' 2>/dev/null || echo "v0.32.0")
+KIND_VER=$(latest_github_tag kubernetes-sigs/kind 2>/dev/null || true)
+KIND_CURRENT=$(kind version 2>/dev/null | sed -n 's/.*kind //p' | awk '{print $1}' || true)
+if [ -z "$KIND_CURRENT" ] || { [ -n "$KIND_VER" ] && ! version_matches "$KIND_CURRENT" "$KIND_VER"; }; then
+    [ -n "$KIND_VER" ] || KIND_VER="v0.32.0"
     curl -fsSLo /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-${K8S_ARCH}" \
         && sudo install -m 0755 /tmp/kind /usr/local/bin/kind \
-        || echo "[-] kind install skipped"
+        && { [ -n "$KIND_CURRENT" ] && record_result updated || record_result installed; } \
+        || { record_result failed; echo "[-] kind install/update failed"; }
     rm -f /tmp/kind
+else
+    record_result skipped
+    echo "[-] kind ${KIND_CURRENT} is current"
 fi
 
-if ! smart_check "k3d"; then
-    curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash \
-        || echo "[-] k3d install skipped"
+K3D_VER=$(latest_github_tag k3d-io/k3d 2>/dev/null || true)
+K3D_CURRENT=$(k3d version 2>/dev/null | sed -n 's/.*k3d version //p' | awk '{print $1}' || true)
+if [ -z "$K3D_CURRENT" ] || { [ -n "$K3D_VER" ] && ! version_matches "$K3D_CURRENT" "$K3D_VER"; }; then
+    if curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash; then
+        [ -n "$K3D_CURRENT" ] && record_result updated || record_result installed
+    else
+        record_result failed
+        echo "[-] k3d install/update failed"
+    fi
+else
+    record_result skipped
+    echo "[-] k3d ${K3D_CURRENT} is current"
 fi
 
 echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot, Z.ai"
@@ -181,22 +275,29 @@ sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
 echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
     | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
-sudo apt update && sudo apt install -y crush || echo "[-] crush install/update skipped"
+if sudo apt update && sudo apt install -y crush; then record_result updated
+else record_result failed; echo "[-] crush install/update failed"; fi
 
-npm install -g @z_ai/coding-helper || true
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
-npm install -g reasonix || true
-npm install -g @deepseek-ai/dsh || true
-npm install -g wrangler || true
-npm install -g openclaw@latest || true
-npm install -g impeccable || true
+run_npm_global() {
+    if npm install -g "$@" --silent; then record_result updated
+    else record_result failed; echo "[-] npm install/update failed: $1"; fi
+}
+
+run_npm_global @z_ai/coding-helper
+if npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent; then record_result updated
+else record_result failed; echo "[-] npm install/update failed: @earendil-works/pi-coding-agent"; fi
+run_npm_global reasonix
+run_npm_global @deepseek-ai/dsh
+run_npm_global wrangler
+run_npm_global openclaw@latest
+run_npm_global impeccable
 uv tool install --upgrade zai-cli --python 3 || true
 uv tool install --upgrade graphifyy --python 3 || true
 
-npm install -g playwright || true
+run_npm_global playwright
 npx playwright install chromium || true
 
-npm install -g @github/copilot || true
+run_npm_global @github/copilot
 if command -v gh >/dev/null 2>&1; then
     gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
 fi
@@ -269,7 +370,7 @@ if [ -z "$WIN_USER" ]; then
 fi
 
 BLOCK=$(cat << EOF
-# --- MISSION READY DEV ENV (managed by setup/wsl.sh) ---
+# --- DOTFILES DEV ENV (managed by setup/wsl.sh) ---
 [ -f "\$HOME/.cargo/env" ] && . "\$HOME/.cargo/env"
 [ -f "\$HOME/.local/bin/env" ] && . "\$HOME/.local/bin/env"
 [ -f "\$HOME/.xmake/profile" ] && . "\$HOME/.xmake/profile"
@@ -328,12 +429,13 @@ java-use() {
 }
 
 command -v fnm >/dev/null 2>&1 && eval "\$(fnm env --use-on-cd)"
-# --- END MISSION READY DEV ENV ---
+# --- END DOTFILES DEV ENV ---
 EOF
 )
 
 for RC in "$BASHRC" "$ZSHRC"; do
     [ -f "$RC" ] || touch "$RC"
+    sed -i '/# --- DOTFILES DEV ENV/,/# --- END DOTFILES DEV ENV ---/d' "$RC" 2>/dev/null || true
     sed -i '/# --- MISSION READY DEV ENV/,/# --- END MISSION READY DEV ENV ---/d' "$RC" 2>/dev/null || true
     echo "$BLOCK" >> "$RC"
 done
@@ -352,5 +454,11 @@ crush --version 2>/dev/null || true
 claude --version 2>/dev/null || true
 
 echo
-echo "MISSION COMPLETE: WSL stack deployed (macOS parity)"
+echo "SETUP COMPLETE: WSL stack deployed (macOS parity)"
+echo
+echo "Setup summary"
+echo "  Installed: $INSTALLED_COUNT"
+echo "  Updated:   $UPDATED_COUNT"
+echo "  Skipped:   $SKIPPED_COUNT"
+echo "  Failed:    $FAILED_COUNT"
 echo "Reload your shell: source ~/.zshrc  (or ~/.bashrc)"
