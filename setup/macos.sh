@@ -39,8 +39,13 @@ FORMULAS=(
 )
 
 for formula in "${FORMULAS[@]}"; do
-  echo "==> Installing formula: $formula"
-  brew install "$formula"
+  if brew list --formula --versions "$formula" >/dev/null 2>&1; then
+    echo "==> Updating formula: $formula"
+    brew upgrade "$formula" || echo "Warning: formula upgrade failed: $formula"
+  else
+    echo "==> Installing formula: $formula"
+    brew install "$formula"
+  fi
 done
 
 CASKS=(
@@ -134,8 +139,13 @@ CASKS=(
 )
 
 for cask in "${CASKS[@]}"; do
-  echo "==> Installing cask: $cask"
-  brew install --cask "$cask" || echo "Warning: cask install failed: $cask"
+  if brew list --cask --versions "$cask" >/dev/null 2>&1; then
+    echo "==> Updating cask: $cask"
+    brew upgrade --cask "$cask" || echo "Warning: cask upgrade failed: $cask"
+  else
+    echo "==> Installing cask: $cask"
+    brew install --cask "$cask" || echo "Warning: cask install failed: $cask"
+  fi
 done
 
 # CotEditor cot CLI - https://coteditor.com/cot
@@ -174,6 +184,7 @@ export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export JAVA_HOME="/opt/homebrew/opt/openjdk"
 
+rustup update stable || echo "Warning: rustup update stable failed"
 rustup default stable || echo "Warning: rustup default stable failed"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
@@ -201,8 +212,8 @@ if ! command -v omp >/dev/null 2>&1; then
   curl -fsSL https://omp.sh/install | sh || echo "Note: Oh My Pi (omp) install failed"
 fi
 npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force || echo "Note: impeccable skills install failed"
-uv tool install zai-cli --python 3 || true
-uv tool install graphifyy --python 3 || true
+uv tool install --upgrade zai-cli --python 3 || true
+uv tool install --upgrade graphifyy --python 3 || true
 
 if command -v gh >/dev/null 2>&1; then
   gh extension install github/gh-copilot --force >/dev/null 2>&1 || true

@@ -5,6 +5,7 @@ set -euo pipefail
 BASHRC="${HOME}/.bashrc"
 ZSHRC="${HOME}/.zshrc"
 
+# Direct installers use this guard when they do not expose a safe version check.
 smart_check() {
     local cmd=$1
     local install_path=${2:-}
@@ -62,14 +63,12 @@ if ! smart_check "hx" && ! smart_check "helix"; then
 fi
 
 echo "==> 2) GitHub CLI (gh)"
-if ! smart_check "gh"; then
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-    sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-    sudo apt update && sudo apt install -y gh
-fi
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+sudo apt update && sudo apt install -y gh || echo "[-] gh install/update skipped"
 
 echo "==> 3) Git & directory setup"
 git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
@@ -80,6 +79,7 @@ if ! smart_check "rustup" "$HOME/.cargo/bin/rustup"; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 fi
 . "$HOME/.cargo/env" 2>/dev/null || true
+rustup update stable || echo "Warning: rustup update stable failed"
 rustup default stable || echo "Warning: rustup default stable failed"
 if ! smart_check "atlassian-cli"; then
     cargo install atlassian-cli || echo "[-] atlassian-cli install skipped"
@@ -87,8 +87,8 @@ fi
 
 if ! smart_check "go" "/usr/bin/go"; then
     sudo add-apt-repository ppa:longsleep/golang-backports -y && sudo apt update
-    sudo apt install -y golang-go
 fi
+sudo apt install -y golang-go || echo "[-] Go install/update skipped"
 
 echo "==> 5) fnm & uv"
 if ! smart_check "fnm" "$HOME/.local/share/fnm/fnm"; then
@@ -113,7 +113,12 @@ fi
 set +u
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
 set -u
-sdk install gradle </dev/null 2>/dev/null || echo "[-] gradle via sdkman skipped"
+sdk update >/dev/null 2>&1 || echo "[-] SDKMAN! metadata update skipped"
+if sdk current gradle >/dev/null 2>&1; then
+    sdk upgrade gradle </dev/null 2>/dev/null || echo "[-] gradle via sdkman update skipped"
+else
+    sdk install gradle </dev/null 2>/dev/null || echo "[-] gradle via sdkman install skipped"
+fi
 echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
 
 if ! smart_check "xmake" "$HOME/.xmake/bin/xmake"; then
@@ -124,13 +129,11 @@ echo "==> 7) Extra CLI tools (dust, ngrok)"
 if ! smart_check "dust"; then
     cargo install du-dust || echo "[-] dust install skipped"
 fi
-if ! smart_check "ngrok"; then
-    curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-        | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
-        | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
-    sudo apt update && sudo apt install -y ngrok || echo "[-] ngrok install skipped"
-fi
+curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+    | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+    | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
+sudo apt update && sudo apt install -y ngrok || echo "[-] ngrok install/update skipped"
 
 if ! smart_check "llama" "$HOME/.llama-app/llama"; then
     curl -fsSL https://llama.app/install.sh | sh || echo "[-] llama.cpp install skipped"
@@ -174,13 +177,11 @@ if ! smart_check "opencode" "$HOME/.opencode/bin/opencode"; then
     curl -fsSL https://opencode.ai/install | bash
 fi
 
-if ! smart_check "crush"; then
-    sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
-        | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
-    sudo apt update && sudo apt install -y crush || echo "[-] crush install skipped"
-fi
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
+echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
+    | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
+sudo apt update && sudo apt install -y crush || echo "[-] crush install/update skipped"
 
 npm install -g @z_ai/coding-helper || true
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
@@ -189,8 +190,8 @@ npm install -g @deepseek-ai/dsh || true
 npm install -g wrangler || true
 npm install -g openclaw@latest || true
 npm install -g impeccable || true
-uv tool install zai-cli --python 3 || true
-uv tool install graphifyy --python 3 || true
+uv tool install --upgrade zai-cli --python 3 || true
+uv tool install --upgrade graphifyy --python 3 || true
 
 npm install -g playwright || true
 npx playwright install chromium || true

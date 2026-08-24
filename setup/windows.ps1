@@ -570,12 +570,13 @@ Write-Host "Updating Scoop Manifests..." -ForegroundColor Cyan
 Protect-ScoopGit { scoop update | Out-Host }
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
-# Scoop check - skip packages already in scoop export.
+# Repo-managed Scoop apps: install missing entries and upgrade existing entries.
 function Smart-Scoop {
     param([string]$app)
     $installedList = scoop export
     if ($installedList -like "*$app*") {
-        Write-Host "[-] $app is already installed. Skipping..." -ForegroundColor Gray
+        Write-Host "[*] Updating $app..." -ForegroundColor Cyan
+        Protect-ScoopGit { param($name) scoop update $name | Out-Host } -Arg $app
     } else {
         Write-Host "[+] $app not found. Installing now..." -ForegroundColor Cyan
         scoop install $app
@@ -688,7 +689,8 @@ foreach ($app in $wingetApps) {
             winget install $app --accept-package-agreements --accept-source-agreements --silent
         }
     } else {
-        Write-Host "[-] $app is already installed." -ForegroundColor Gray
+        Write-Host "[*] Updating $app..." -ForegroundColor Cyan
+        winget upgrade -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget
     }
 }
 
@@ -710,7 +712,8 @@ $msStoreApps = @(
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
-        Write-Host "[-] $($app.Label) is already installed." -ForegroundColor Gray
+        Write-Host "[*] Updating $($app.Label)..." -ForegroundColor Cyan
+        winget upgrade --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent
         continue
     }
     Write-Host "[+] Installing $($app.Label)..." -ForegroundColor Cyan
@@ -878,8 +881,9 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     function Smart-NpmGlobal {
         param([string]$Package, [string]$Command, [switch]$IgnoreScripts)
-        if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) { return $false }
-        Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
+        $installed = $Command -and (Get-Command $Command -ErrorAction SilentlyContinue)
+        if ($installed) { Write-Host "[*] Updating $Package..." -ForegroundColor Cyan }
+        else { Write-Host "[+] Installing $Package..." -ForegroundColor Cyan }
         if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent | Out-Null }
         else { npm install -g $Package --silent | Out-Null }
         return $true
@@ -989,8 +993,8 @@ if (!(Test-Path $gooseDesktopExe)) {
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
-    uv tool install zai-cli --python 3
-    uv tool install graphifyy --python 3
+    uv tool install --upgrade zai-cli --python 3
+    uv tool install --upgrade graphifyy --python 3
 }
 
 if (Get-Command go -ErrorAction SilentlyContinue) {
@@ -1054,8 +1058,18 @@ function Test-WslDistroInstalled {
     return ($raw -match [regex]::Escape($Name))
 }
 
+function Get-WslFeatureState {
+    param([string]$FeatureName)
+    try {
+        return (Get-WindowsOptionalFeature -Online -FeatureName $FeatureName -ErrorAction Stop).State
+    } catch {
+        return $null
+    }
+}
+
 function Test-WslVmPlatformReady {
-    return (Test-Path "$env:SystemRoot\System32\vmcompute.exe") -or [bool](Get-Service vmcompute -ErrorAction SilentlyContinue)
+    $state = Get-WslFeatureState "VirtualMachinePlatform"
+    return ($state -eq "Enabled") -and (Test-Path "$env:SystemRoot\System32\vmcompute.exe")
 }
 
 function Test-WslHypervisorReady {
@@ -1067,20 +1081,79 @@ function Test-WslHypervisorReady {
 }
 
 function Write-WslRebootNeeded {
-    Write-Host "[!] Hyper-V Host Compute (vmcompute) is still missing." -ForegroundColor Yellow
-    Write-Host "    Ubuntu is not registered yet. Do not install it from the Store." -ForegroundColor Yellow
+    Write-Host "[!] Virtual Machine Platform needs a reboot before WSL2 can start." -ForegroundColor Yellow
+    Write-Host "    Ubuntu is not registered or configured yet. Do not install it from the Store." -ForegroundColor Yellow
     Write-Host "    Start menu > Restart (not Shutdown), then re-run setup." -ForegroundColor Yellow
 }
 
 function Write-WslManualVmPlatform {
-    Write-Host "[!] vmcompute.exe is missing. Setup will not run DISM (Windows Update stalls on the VMP payload)." -ForegroundColor Yellow
+    Write-Host "[!] Virtual Machine Platform could not be enabled automatically." -ForegroundColor Yellow
     Write-Host "    Do not install Ubuntu from the Store." -ForegroundColor Yellow
-    Write-Host "    Close any stuck DISM window, then use Turn Windows features on or off:" -ForegroundColor Yellow
+    Write-Host "    Use Turn Windows features on or off after checking the DISM log:" -ForegroundColor Yellow
     Write-Host "      Virtual Machine Platform (and Windows Subsystem for Linux if it is off)" -ForegroundColor Cyan
     Write-Host "    Or elevated, after a clean boot (enable only, no disable):" -ForegroundColor Yellow
     Write-Host "      dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart" -ForegroundColor Cyan
     Write-Host "    Restart, then:  ubuntu.exe install --root" -ForegroundColor Cyan
     Write-Host "    Then Linux: $wslSetupCmd" -ForegroundColor DarkGray
+}
+
+function Enable-WslOptionalFeature {
+    param([string]$FeatureName)
+    $safeName = $FeatureName -replace '[^A-Za-z0-9-]', '-'
+    $helper = Join-Path $env:TEMP "dotfiles-enable-$safeName.ps1"
+    @"
+`$ErrorActionPreference = 'Stop'
+try {
+    `$feature = Get-WindowsOptionalFeature -Online -FeatureName '$FeatureName'
+    if (`$feature.State -eq 'Enabled') { exit 0 }
+    `$result = Enable-WindowsOptionalFeature -Online -FeatureName '$FeatureName' -All -NoRestart
+    if (`$result.RestartNeeded) { exit 3010 }
+    if ((Get-WindowsOptionalFeature -Online -FeatureName '$FeatureName').State -eq 'Enabled') { exit 0 }
+    exit 1
+} catch {
+    Write-Error `$_
+    exit 1
+}
+"@ | Set-Content -Path $helper -Encoding UTF8
+
+    try {
+        if (Test-IsAdmin) {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
+            return $LASTEXITCODE
+        }
+        $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper
+        ) -Wait -PassThru
+        if ($null -eq $proc) { throw "elevation returned no process" }
+        return $proc.ExitCode
+    } catch {
+        Write-Host "[!] Could not enable ${FeatureName}: $_" -ForegroundColor Yellow
+        return 1
+    } finally {
+        Remove-Item -LiteralPath $helper -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Ensure-WslVmPlatform {
+    $state = Get-WslFeatureState "VirtualMachinePlatform"
+    if ($state -eq "Enabled") { return $true }
+    if ($state -eq "EnablePending") {
+        Write-WslRebootNeeded
+        return $false
+    }
+
+    Write-Host "[+] Enabling Virtual Machine Platform (UAC prompt may appear)..." -ForegroundColor Yellow
+    $code = Enable-WslOptionalFeature "VirtualMachinePlatform"
+    if ($code -eq 3010 -or (Get-WslFeatureState "VirtualMachinePlatform") -eq "EnablePending") {
+        Write-WslRebootNeeded
+        return $false
+    }
+    if ($code -ne 0 -or -not (Test-WslVmPlatformReady)) {
+        Write-WslManualVmPlatform
+        return $false
+    }
+    Write-Host "[+] Virtual Machine Platform enabled." -ForegroundColor Green
+    return $true
 }
 
 function Install-UbuntuViaLauncher {
@@ -1224,38 +1297,40 @@ function Invoke-WslLinuxSetup {
 }
 
 $script:WslBroken = $false
-if (Test-WslDistroInstalled $wslDistro) {
-    Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
-    Invoke-WslLinuxSetup
-} else {
-    if (-not (Test-WslHypervisorReady)) {
-        [void](Set-HypervisorLaunchAuto)
-    }
-    if ($script:WslBroken) {
-        [void](Invoke-WslMsiRepair $wslDistro)
-    } elseif (-not (Test-WslVmPlatformReady)) {
-        Write-WslManualVmPlatform
-    }
+$wslInstalled = Test-WslDistroInstalled $wslDistro
+if (-not (Test-WslHypervisorReady)) {
+    [void](Set-HypervisorLaunchAuto)
+}
 
-    if (-not (Test-WslVmPlatformReady)) {
-        # Manual VMP steps already printed.
+$wslVmReady = Test-WslVmPlatformReady
+if (-not $wslVmReady) {
+    $wslVmReady = Ensure-WslVmPlatform
+}
+
+if ($wslVmReady -and $script:WslBroken) {
+    [void](Invoke-WslMsiRepair $wslDistro)
+    $wslInstalled = Test-WslDistroInstalled $wslDistro
+}
+
+if ($wslInstalled) {
+    Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
+    if ($wslVmReady) { Invoke-WslLinuxSetup } else { Write-WslRebootNeeded }
+} elseif ($wslVmReady) {
+    # Canonical.Ubuntu can be "installed" in Winget while wsl -l is still empty.
+    # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
+    Write-Host "[+] Installing $wslDistro via Winget..." -ForegroundColor Yellow
+    winget install -e --id Canonical.Ubuntu --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
+    $repaired = (Test-WslDistroInstalled $wslDistro)
+    if (-not $repaired) {
+        $repaired = Install-UbuntuViaLauncher
+    }
+    if ($repaired) {
+        Invoke-WslLinuxSetup
+    } elseif (-not (Test-WslVmPlatformReady)) {
+        Write-WslRebootNeeded
     } else {
-        # Canonical.Ubuntu can be "installed" in Winget while wsl -l is still empty.
-        # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
-        Write-Host "[+] Installing $wslDistro via Winget..." -ForegroundColor Yellow
-        winget install -e --id Canonical.Ubuntu --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
-        $repaired = (Test-WslDistroInstalled $wslDistro)
-        if (-not $repaired) {
-            $repaired = Install-UbuntuViaLauncher
-        }
-        if ($repaired) {
-            Invoke-WslLinuxSetup
-        } elseif (-not (Test-WslVmPlatformReady)) {
-            Write-WslRebootNeeded
-        } else {
-            Write-Host "[!] Ubuntu did not register a WSL distro." -ForegroundColor Yellow
-            Write-Host "    Do not Store-install Ubuntu. After vmcompute exists: re-run setup." -ForegroundColor Yellow
-        }
+        Write-Host "[!] Ubuntu did not register a WSL distro." -ForegroundColor Yellow
+        Write-Host "    Do not Store-install Ubuntu. After the WSL host is ready: re-run setup." -ForegroundColor Yellow
     }
 }
 
@@ -1279,7 +1354,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: if vmcompute is missing, enable Virtual Machine Platform in Windows Features. Do not Store-install Ubuntu. Then ubuntu.exe install --root"
+Write-Host "  - WSL: setup enables Virtual Machine Platform automatically; reboot and re-run if Windows reports a pending feature change"
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
