@@ -449,6 +449,7 @@ function Set-WindowsStartupApps {
     $runLm = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
     $runLmWow = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32"
 
+    # Default deny: optional tools, sync clients, launchers, and helpers start on demand.
     foreach ($name in @(
         "TrafficMonitor",
         "WindowSwitcher",
@@ -456,10 +457,6 @@ function Set-WindowsStartupApps {
         "GoogleDriveFS",
         "OneDrive",
         "Everything",
-        "Free Download Manager"
-    )) { Set-StartupApproved $run $name $true }
-
-    foreach ($name in @(
         "BraveSoftware Update",
         "Opera GX Browser Assistant",
         "Opera GX Stable",
@@ -472,15 +469,27 @@ function Set-WindowsStartupApps {
         "Warp",
         "org.openvpn.client",
         "Steam",
-        "WingetUI"
+        "WingetUI",
+        "Riot Vanguard",
+        "Riot Client",
+        "RiotClient",
+        "EADesktop",
+        "EALauncher",
+        "EA app",
+        "EA Desktop",
+        "Free Download Manager"
     )) { Set-StartupApproved $run $name $false }
 
     Set-StartupApproved $folder "Ollama.lnk" $false
 
     foreach ($pair in @(
         @{ Key = $runLm; Name = "Virtual Pet"; On = $false },
+        # Vanguard's Run entry is only its tray UI; the anti-cheat service is separate.
+        @{ Key = $runLm; Name = "Riot Vanguard"; On = $false },
+        @{ Key = $runLm; Name = "Riot Client"; On = $false },
+        @{ Key = $runLm; Name = "EADesktop"; On = $false },
         @{ Key = $runLm; Name = "SecurityHealth"; On = $true },
-        @{ Key = $runLm; Name = "DisplayLinkTrayApp"; On = $true },
+        @{ Key = $runLm; Name = "DisplayLinkTrayApp"; On = $false },
         @{ Key = $runLmWow; Name = "ASUS Smart Display Control"; On = $false }
     )) {
         try { Set-StartupApproved $pair.Key $pair.Name $pair.On } catch {}
