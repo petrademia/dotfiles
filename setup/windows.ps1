@@ -1063,41 +1063,15 @@ function Write-WslRebootNeeded {
     Write-Host "    Start menu > Restart (not Shutdown), then re-run setup." -ForegroundColor Yellow
 }
 
-function Enable-WslWindowsFeatures {
-    if (Test-WslVmPlatformReady) { return $true }
-    Write-Host "[+] Reinstalling Virtual Machine Platform (UAC). DISM enable-only is a no-op here." -ForegroundColor Yellow
-    $helper = Join-Path $env:TEMP "dotfiles-wsl-features.ps1"
-    $log = Join-Path $env:TEMP "dotfiles-wsl-features.log"
-    @"
-`$ErrorActionPreference = 'Continue'
-`$log = '$($log -replace "'", "''")'
-Start-Transcript -Path `$log -Force | Out-Null
-foreach (`$f in @('VirtualMachinePlatform','HypervisorPlatform','Microsoft-Windows-Subsystem-Linux')) {
-    Write-Host ("disable " + `$f)
-    dism.exe /online /disable-feature /featurename:`$f /norestart
-}
-foreach (`$f in @('VirtualMachinePlatform','HypervisorPlatform','Microsoft-Windows-Subsystem-Linux')) {
-    Write-Host ("enable " + `$f)
-    dism.exe /online /enable-feature /featurename:`$f /all /norestart
-}
-Stop-Transcript | Out-Null
-exit 0
-"@ | Set-Content -Path $helper -Encoding ASCII
-    try {
-        if (Test-IsAdmin) {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
-        } else {
-            $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
-            if ($null -eq $proc) { throw "elevation returned no process" }
-        }
-    } catch {
-        Write-Host "[!] Could not repair WSL Windows features: $_" -ForegroundColor Yellow
-        Write-Host "    Elevated DISM disable+enable VirtualMachinePlatform, HypervisorPlatform, Microsoft-Windows-Subsystem-Linux" -ForegroundColor Cyan
-        return $false
-    }
-    if (Test-WslVmPlatformReady) { return $true }
-    Write-Host "    DISM log: $log" -ForegroundColor DarkGray
-    return $false
+function Write-WslManualVmPlatform {
+    Write-Host "[!] vmcompute.exe is missing. Setup will not run DISM (Windows Update stalls on the VMP payload)." -ForegroundColor Yellow
+    Write-Host "    Do not install Ubuntu from the Store." -ForegroundColor Yellow
+    Write-Host "    Close any stuck DISM window, then use Turn Windows features on or off:" -ForegroundColor Yellow
+    Write-Host "      Virtual Machine Platform (and Windows Subsystem for Linux if it is off)" -ForegroundColor Cyan
+    Write-Host "    Or elevated, after a clean boot (enable only, no disable):" -ForegroundColor Yellow
+    Write-Host "      dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart" -ForegroundColor Cyan
+    Write-Host "    Restart, then:  ubuntu.exe install --root" -ForegroundColor Cyan
+    Write-Host "    Then Linux: $wslSetupCmd" -ForegroundColor DarkGray
 }
 
 function Install-UbuntuViaLauncher {
@@ -1251,11 +1225,11 @@ if (Test-WslDistroInstalled $wslDistro) {
     if ($script:WslBroken) {
         [void](Invoke-WslMsiRepair $wslDistro)
     } elseif (-not (Test-WslVmPlatformReady)) {
-        [void](Enable-WslWindowsFeatures)
+        Write-WslManualVmPlatform
     }
 
     if (-not (Test-WslVmPlatformReady)) {
-        Write-WslRebootNeeded
+        # Manual VMP steps already printed.
     } else {
         # Canonical.Ubuntu can be "installed" in Winget while wsl -l is still empty.
         # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
@@ -1296,7 +1270,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: vmcompute is missing until VMP is reinstalled. Accept UAC (disable+enable), Restart, re-run. Do not Store-install Ubuntu."
+Write-Host "  - WSL: if vmcompute is missing, enable Virtual Machine Platform in Windows Features. Do not Store-install Ubuntu. Then ubuntu.exe install --root"
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
