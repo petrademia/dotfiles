@@ -399,12 +399,10 @@ function Set-WindowsHostDefaults {
 
 function Set-StartupApproved {
     param([string]$Key, [string]$Name, [bool]$Enabled)
-    if (!(Test-Path $Key)) { return }
-    $item = Get-Item -LiteralPath $Key
-    if ($item.GetValueNames() -notcontains $Name) { return }
+    if (!(Test-Path $Key)) { New-Item -Path $Key -Force | Out-Null }
     $flag = if ($Enabled) { [byte]2 } else { [byte]3 }
     $bytes = [byte[]](@($flag) + @(0) * 11)
-    New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force -ErrorAction Stop | Out-Null
+    New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force -ErrorAction SilentlyContinue | Out-Null
 }
 
 function Set-AppXStartupState {
@@ -433,7 +431,9 @@ function Set-WindowsStartupApps {
         "WindowSwitcher",
         "Surfshark",
         "GoogleDriveFS",
-        "OneDrive"
+        "OneDrive",
+        "Everything",
+        "Free Download Manager"
     )) { Set-StartupApproved $run $name $true }
 
     foreach ($name in @(
@@ -441,12 +441,15 @@ function Set-WindowsStartupApps {
         "Opera GX Browser Assistant",
         "Opera GX Stable",
         "Opera Air Browser Assistant",
+        "Opera Air Stable",
         "Opera Browser Assistant",
         "Opera Stable",
         "Discord",
         "com.squirrel.slack.slack",
         "Warp",
-        "org.openvpn.client"
+        "org.openvpn.client",
+        "Steam",
+        "WingetUI"
     )) { Set-StartupApproved $run $name $false }
 
     Set-StartupApproved $folder "Ollama.lnk" $false
@@ -625,6 +628,8 @@ $wingetApps = @(
     "qBittorrent.qBittorrent", "Transmission.Transmission",
     "SoftDeluxe.FreeDownloadManager",
     "Valve.Steam",
+    "ElectronicArts.EADesktop",
+    "RiotGames.Valorant.AP",
     "DisplayLink.GraphicsDriver",
     "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
