@@ -1,6 +1,19 @@
 #!/bin/zsh
 
 set -e
+INSTALLED_COUNT=0
+UPDATED_COUNT=0
+SKIPPED_COUNT=0
+FAILED_COUNT=0
+
+record_result() {
+  case "$1" in
+    installed) INSTALLED_COUNT=$((INSTALLED_COUNT + 1)) ;;
+    updated) UPDATED_COUNT=$((UPDATED_COUNT + 1)) ;;
+    skipped) SKIPPED_COUNT=$((SKIPPED_COUNT + 1)) ;;
+    failed) FAILED_COUNT=$((FAILED_COUNT + 1)) ;;
+  esac
+}
 
 xcode-select -p >/dev/null 2>&1 || xcode-select --install
 
@@ -41,10 +54,12 @@ FORMULAS=(
 for formula in "${FORMULAS[@]}"; do
   if brew list --formula --versions "$formula" >/dev/null 2>&1; then
     echo "==> Updating formula: $formula"
-    brew upgrade "$formula" || echo "Warning: formula upgrade failed: $formula"
+    if brew upgrade "$formula"; then record_result updated
+    else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
   else
     echo "==> Installing formula: $formula"
-    brew install "$formula"
+    if brew install "$formula"; then record_result installed
+    else record_result failed; exit 1; fi
   fi
 done
 
@@ -141,10 +156,12 @@ CASKS=(
 for cask in "${CASKS[@]}"; do
   if brew list --cask --versions "$cask" >/dev/null 2>&1; then
     echo "==> Updating cask: $cask"
-    brew upgrade --cask "$cask" || echo "Warning: cask upgrade failed: $cask"
+    if brew upgrade --cask "$cask"; then record_result updated
+    else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
   else
     echo "==> Installing cask: $cask"
-    brew install --cask "$cask" || echo "Warning: cask install failed: $cask"
+    if brew install --cask "$cask"; then record_result installed
+    else record_result failed; echo "Warning: cask install failed: $cask"; fi
   fi
 done
 
@@ -287,7 +304,13 @@ hx --version || true
 zed --version || true
 
 echo
-echo "Setup complete!"
+echo "SETUP COMPLETE"
+echo
+echo "Setup summary"
+echo "  Installed: $INSTALLED_COUNT"
+echo "  Updated:   $UPDATED_COUNT"
+echo "  Skipped:   $SKIPPED_COUNT"
+echo "  Failed:    $FAILED_COUNT"
 echo
 echo "Restart your terminal or run:"
 echo "source ~/.zshrc"

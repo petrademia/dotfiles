@@ -9,6 +9,35 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 # irm | iex often starts in System32; keep installers from writing into that tree.
 Set-Location $HOME
 
+$script:SetupResults = [ordered]@{
+    Installed = 0
+    Updated = 0
+    Skipped = 0
+    Failed = 0
+}
+$script:SetupFailures = [System.Collections.Generic.List[string]]::new()
+
+function Add-SetupResult {
+    param(
+        [ValidateSet("Installed", "Updated", "Skipped", "Failed")]
+        [string]$Status,
+        [string]$Item
+    )
+    $script:SetupResults[$Status] = [int]$script:SetupResults[$Status] + 1
+    if ($Status -eq "Failed" -and $Item) { $script:SetupFailures.Add($Item) }
+}
+
+function Write-SetupSummary {
+    Write-Host ""
+    Write-Host "Setup summary" -ForegroundColor Green
+    foreach ($status in @("Installed", "Updated", "Skipped", "Failed")) {
+        Write-Host ("  {0}: {1}" -f $status, $script:SetupResults[$status])
+    }
+    if ($script:SetupFailures.Count -gt 0) {
+        Write-Host ("  Failed items: {0}" -f ($script:SetupFailures -join ", ")) -ForegroundColor Yellow
+    }
+}
+
 function Update-SessionPath {
     $machine = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     $user = [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -87,18 +116,24 @@ function Install-Warp {
         (Join-Path $env:LOCALAPPDATA "Programs\Warp\Warp.exe"),
         (Join-Path $env:LOCALAPPDATA "Warp\Warp.exe")
     ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($existing) {
-        Write-Host "[-] Warp is already installed." -ForegroundColor Gray
-        return
-    }
-
-    Write-Host "[+] Installing Warp..." -ForegroundColor Cyan
     $show = winget show -e --id Warp.Warp --source winget 2>$null | Out-String
     if ($show -notmatch '(?m)^\s*Version:\s+(\S+)') {
         Write-Host "[!] Could not read Warp version from Winget. Skipping." -ForegroundColor Yellow
+        Add-SetupResult Skipped "Warp.Warp"
         return
     }
     $ver = $Matches[1]
+    if ($existing) {
+        $current = (Get-Item $existing).VersionInfo.ProductVersion
+        if ($current -and $current -eq $ver) {
+            Write-Host "[-] Warp $current is current." -ForegroundColor Gray
+            Add-SetupResult Skipped "Warp.Warp"
+            return
+        }
+        Write-Host "[*] Updating Warp $current -> $ver..." -ForegroundColor Cyan
+    } else {
+        Write-Host "[+] Installing Warp $ver..." -ForegroundColor Cyan
+    }
     $setup = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "WarpSetup-arm64.exe" } else { "WarpSetup.exe" }
     $url = "https://releases.warp.dev/stable/$ver/$setup"
     $out = Join-Path $env:TEMP $setup
@@ -106,14 +141,18 @@ function Install-Warp {
     & curl.exe -fL --retry 3 $url -o $out
     if (($LASTEXITCODE -ne 0) -or !(Test-Path $out) -or ((Get-Item $out).Length -lt 1MB)) {
         Write-Host "[!] Warp download failed. Skipping." -ForegroundColor Yellow
+        Add-SetupResult Failed "Warp.Warp"
         return
     }
     $proc = Start-Process -FilePath $out -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES" -Wait -PassThru
     Remove-Item $out -ErrorAction SilentlyContinue
     if ($proc.ExitCode -ne 0) {
         Write-Host "[!] Warp installer exit $($proc.ExitCode)." -ForegroundColor Yellow
+        Add-SetupResult Failed "Warp.Warp"
     } else {
-        Write-Host "[+] Warp installed." -ForegroundColor Green
+        if ($existing) { Add-SetupResult Updated "Warp.Warp" }
+        else { Add-SetupResult Installed "Warp.Warp" }
+        Write-Host "[+] Warp installed or updated." -ForegroundColor Green
     }
 }
 
@@ -577,9 +616,13 @@ function Smart-Scoop {
     if ($installedList -like "*$app*") {
         Write-Host "[*] Updating $app..." -ForegroundColor Cyan
         Protect-ScoopGit { param($name) scoop update $name | Out-Host } -Arg $app
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app }
+        else { Add-SetupResult Failed $app }
     } else {
         Write-Host "[+] $app not found. Installing now..." -ForegroundColor Cyan
         scoop install $app
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed $app }
+        else { Add-SetupResult Failed $app }
     }
 }
 
@@ -676,6 +719,7 @@ foreach ($app in $wingetApps) {
         winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
         $wingetText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
         $wingetCode = $LASTEXITCODE
+        $installSucceeded = $wingetCode -eq 0
         if (Test-WingetExit1603 $wingetText $wingetCode) {
             if ($app -eq "Deskflow.Deskflow") {
                 Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
@@ -687,10 +731,15 @@ foreach ($app in $wingetApps) {
         } elseif ($wingetCode -ne 0) {
             Write-Host "[!] Exact ID failed for $app. Attempting search-install..." -ForegroundColor Yellow
             winget install $app --accept-package-agreements --accept-source-agreements --silent
+            $installSucceeded = $LASTEXITCODE -eq 0
         }
+        if ($installSucceeded) { Add-SetupResult Installed $app }
+        else { Add-SetupResult Failed $app }
     } else {
         Write-Host "[*] Updating $app..." -ForegroundColor Cyan
         winget upgrade -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app }
+        else { Add-SetupResult Failed $app }
     }
 }
 
@@ -714,10 +763,14 @@ foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
         Write-Host "[*] Updating $($app.Label)..." -ForegroundColor Cyan
         winget upgrade --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app.Label }
+        else { Add-SetupResult Failed $app.Label }
         continue
     }
     Write-Host "[+] Installing $($app.Label)..." -ForegroundColor Cyan
     winget install --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent
+    if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed $app.Label }
+    else { Add-SetupResult Failed $app.Label }
 }
 
 # --- 6. Go Environment (GoLand GOROOT Fix) ---
@@ -739,11 +792,45 @@ function Sync-Dotfile {
     if ($parent) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
 
     if (Test-Path $Source -PathType Container) {
-        if (Test-Path $Destination) { Remove-Item $Destination -Recurse -Force }
+        if (Test-Path $Destination -PathType Leaf) {
+            Write-Host "[!] Cannot sync directory over file: $Destination" -ForegroundColor Yellow
+            Add-SetupResult Failed $Destination
+            return
+        }
+        $destinationExisted = Test-Path $Destination
         New-Item -ItemType Directory -Path $Destination -Force | Out-Null
-        Copy-Item (Join-Path $Source "*") $Destination -Recurse -Force
+        & robocopy.exe $Source $Destination /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+        $code = $LASTEXITCODE
+        if ($code -le 7) {
+            if ($code -eq 0) {
+                Add-SetupResult Skipped $Destination
+            } elseif ($destinationExisted) {
+                Add-SetupResult Updated $Destination
+            } else {
+                Add-SetupResult Installed $Destination
+            }
+        } else {
+            Write-Host "[!] Directory sync failed: $Destination (robocopy $code)" -ForegroundColor Yellow
+            Add-SetupResult Failed $Destination
+        }
     } else {
-        Copy-Item $Source $Destination -Force
+        if (!(Test-Path $Source -PathType Leaf)) {
+            Write-Host "[!] Dotfile source missing: $Source" -ForegroundColor Yellow
+            Add-SetupResult Failed $Source
+            return
+        }
+        $destinationExists = Test-Path $Destination -PathType Leaf
+        if ($destinationExists -and (Get-FileHash $Source).Hash -eq (Get-FileHash $Destination).Hash) {
+            Add-SetupResult Skipped $Destination
+            return
+        }
+        try {
+            Copy-Item $Source $Destination -Force -ErrorAction Stop
+            Add-SetupResult $(if ($destinationExists) { "Updated" } else { "Installed" }) $Destination
+        } catch {
+            Write-Host "[!] File sync failed: $Destination - $_" -ForegroundColor Yellow
+            Add-SetupResult Failed $Destination
+        }
     }
 }
 
@@ -886,7 +973,12 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
         else { Write-Host "[+] Installing $Package..." -ForegroundColor Cyan }
         if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent | Out-Null }
         else { npm install -g $Package --silent | Out-Null }
-        return $true
+        if ($LASTEXITCODE -eq 0) {
+            Add-SetupResult $(if ($installed) { "Updated" } else { "Installed" }) $Package
+            return $true
+        }
+        Add-SetupResult Failed $Package
+        return $false
     }
     # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
     # OpenCode is Scoop; Copilot is built into gh; Z.ai is uv zai-cli.
@@ -1280,7 +1372,7 @@ function Invoke-WslLinuxSetup {
         return
     }
 
-    $needsSetup = wsl.exe -d $wslDistro -- bash -lc 'grep -q "MISSION READY DEV ENV" ~/.bashrc 2>/dev/null || grep -q "MISSION READY DEV ENV" ~/.zshrc 2>/dev/null; echo $?'
+    $needsSetup = wsl.exe -d $wslDistro -- bash -lc 'grep -q "DOTFILES DEV ENV" ~/.bashrc 2>/dev/null || grep -q "DOTFILES DEV ENV" ~/.zshrc 2>/dev/null; echo $?'
     if ($needsSetup -match "0") {
         Write-Host "[-] WSL Linux stack already configured." -ForegroundColor Gray
         return
@@ -1341,7 +1433,8 @@ if ($wslInstalled) {
 # --- 13. Final Polish ---
 Set-WindowsHostDefaults
 scoop cleanup *
-Write-Host "SYSTEM IS MISSION READY." -ForegroundColor Green
+Write-Host "SETUP COMPLETE." -ForegroundColor Green
+Write-SetupSummary
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Sign into 1Password, then:" -ForegroundColor Yellow
