@@ -177,7 +177,9 @@ uv python install 3 --default
 echo "==> 6) SDKMAN!, gradle & xmake"
 if [ ! -d "$HOME/.sdkman" ]; then
     export sdkman_auto_answer=true
-    curl -s "https://get.sdkman.io?rcupdate=false" | bash
+    if ! curl -s "https://get.sdkman.io?rcupdate=false" | bash; then
+        echo "[-] SDKMAN! installer returned a failure; continuing with the remaining WSL setup" >&2
+    fi
 fi
 set +u
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
