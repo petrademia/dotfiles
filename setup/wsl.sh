@@ -113,7 +113,7 @@ else record_result failed; echo "[-] gh install/update failed"; fi
 echo "==> 3) Git & directory setup"
 WINDOWS_USER_PROFILE=""
 if command -v powershell.exe >/dev/null 2>&1; then
-    WINDOWS_USER_PROFILE=$(powershell.exe -NoProfile -Command '$env:USERPROFILE' 2>/dev/null | tr -d '\r\n')
+    WINDOWS_USER_PROFILE=$(powershell.exe -NoProfile -Command '$env:USERPROFILE' 2>/dev/null | tr -d '\r\n' || true)
 fi
 GCM_ROOT=""
 if [ -n "$WINDOWS_USER_PROFILE" ] && command -v wslpath >/dev/null 2>&1; then
