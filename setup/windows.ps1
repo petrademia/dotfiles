@@ -1352,6 +1352,19 @@ function Ensure-WslNormalUser {
     $linuxUser = ($env:USERNAME.ToLower() -replace "[^a-z0-9_-]", "")
     if ([string]::IsNullOrWhiteSpace($linuxUser)) { $linuxUser = "dev" }
 
+    $defaultUser = (& wsl.exe -d $wslDistro -- whoami 2>$null | Out-String).Trim()
+    $readyCheck = @"
+set -eu
+id -u '$linuxUser' >/dev/null
+id -nG '$linuxUser' | tr ' ' '\n' | grep -qx sudo
+grep -Fxq '$linuxUser ALL=(ALL) NOPASSWD:ALL' '/etc/sudoers.d/dotfiles-$linuxUser'
+"@
+    & wsl.exe -d $wslDistro -u root -- bash -lc $readyCheck 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0 -and $defaultUser -eq $linuxUser) {
+        Write-Host "[-] WSL user $linuxUser is already configured." -ForegroundColor Gray
+        return $true
+    }
+
     $userSetup = @'
 set -eu
 if ! id -u '__DOTFILES_USER__' >/dev/null 2>&1; then
