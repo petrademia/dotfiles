@@ -185,13 +185,13 @@ fi
 set +u
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
 set -u
-if sdk update >/dev/null 2>&1; then record_result updated
+if (sdk update >/dev/null 2>&1); then record_result updated
 else record_result skipped; echo "[-] SDKMAN! metadata update skipped"; fi
-if sdk current gradle >/dev/null 2>&1; then
-    if sdk upgrade gradle </dev/null 2>/dev/null; then record_result updated
+if (sdk current gradle >/dev/null 2>&1); then
+    if (sdk upgrade gradle </dev/null 2>/dev/null); then record_result updated
     else record_result failed; echo "[-] gradle via sdkman update failed"; fi
 else
-    if sdk install gradle </dev/null 2>/dev/null; then record_result installed
+    if (sdk install gradle </dev/null 2>/dev/null); then record_result installed
     else record_result failed; echo "[-] gradle via sdkman install failed"; fi
 fi
 echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
@@ -355,7 +355,7 @@ echo "==> Installing shared dotfiles"
 echo "==> 12) Injecting WSL shell bridge"
 WIN_USER="${WSL_WIN_USER:-}"
 if [ -z "$WIN_USER" ] && command -v powershell.exe >/dev/null 2>&1; then
-  WIN_USER="$(powershell.exe -NoProfile -Command '$env:USERNAME' 2>/dev/null | tr -d '\r\n')"
+  WIN_USER="$(powershell.exe -NoProfile -Command '$env:USERNAME' 2>/dev/null | tr -d '\r\n' || true)"
 fi
 if [ -z "$WIN_USER" ] && [ -d /mnt/c/Users ]; then
   for d in /mnt/c/Users/*/; do
@@ -366,6 +366,9 @@ if [ -z "$WIN_USER" ] && [ -d /mnt/c/Users ]; then
       break
     fi
   done
+fi
+if [ -z "$WIN_USER" ] && [ -n "${USER:-}" ] && [ -d "/mnt/c/Users/${USER}" ]; then
+  WIN_USER="$USER"
 fi
 if [ -z "$WIN_USER" ]; then
   echo "Warning: could not detect Windows username; set WSL_WIN_USER and re-run setup/wsl.sh" >&2
