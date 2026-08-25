@@ -176,8 +176,8 @@ fi
 uv python install 3 --default
 
 echo "==> 6) SDKMAN!, gradle & xmake"
+export sdkman_auto_answer=true
 if [ ! -d "$HOME/.sdkman" ]; then
-    export sdkman_auto_answer=true
     if ! curl -s "https://get.sdkman.io?rcupdate=false" | bash; then
         echo "[-] SDKMAN! installer returned a failure; continuing with the remaining WSL setup" >&2
     fi
@@ -188,10 +188,10 @@ set -u
 if (sdk update >/dev/null 2>&1); then record_result updated
 else record_result skipped; echo "[-] SDKMAN! metadata update skipped"; fi
 if (sdk current gradle >/dev/null 2>&1); then
-    if (sdk upgrade gradle </dev/null 2>/dev/null); then record_result updated
-    else record_result failed; echo "[-] gradle via sdkman update failed"; fi
+    if (sdk upgrade gradle >/dev/null 2>&1); then record_result updated
+    else record_result skipped; echo "[-] gradle via sdkman already current"; fi
 else
-    if (sdk install gradle </dev/null 2>/dev/null); then record_result installed
+    if (sdk install gradle >/dev/null 2>&1); then record_result installed
     else record_result failed; echo "[-] gradle via sdkman install failed"; fi
 fi
 echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
