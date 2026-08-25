@@ -109,6 +109,11 @@ function Test-WingetAdminContext {
     return $Text -match "cannot be run from an administrator context"
 }
 
+function Test-WingetNoChange {
+    param([string]$Text)
+    return $Text -match "No available upgrade found|No newer package versions are available|No applicable upgrade|No installed package found|No package found matching|version number cannot be determined"
+}
+
 # Winget's Warp.Warp installer URL is an HTML landing page, so `winget install`
 # sits on "Downloading https://app.warp.dev/download/windows?..." forever.
 function Install-Warp {
@@ -153,6 +158,58 @@ function Install-Warp {
         if ($existing) { Add-SetupResult Updated "Warp.Warp" }
         else { Add-SetupResult Installed "Warp.Warp" }
         Write-Host "[+] Warp installed or updated." -ForegroundColor Green
+    }
+}
+
+function Install-EjectLens {
+    $root = Join-Path $env:LOCALAPPDATA "Programs\EjectLens"
+    $exe = Join-Path $root "EjectLens.exe"
+    $versionFile = Join-Path $root ".version"
+    $api = "https://api.github.com/repos/weinianxue/EjectLens/releases/latest"
+
+    try {
+        $release = Invoke-RestMethod -Uri $api -UseBasicParsing -ErrorAction Stop
+        $asset = $release.assets | Where-Object { $_.name -like "EjectLens-*-win-x64-portable.zip" } | Select-Object -First 1
+        if (!$asset -or $asset.name -notmatch "EjectLens-v(?<version>[^-]+)-win-x64-portable\.zip") {
+            throw "No Windows portable release asset found"
+        }
+        $version = $Matches.version
+    } catch {
+        Write-Host "[!] Could not resolve EjectLens release: $_" -ForegroundColor Yellow
+        Add-SetupResult Failed "EjectLens"
+        return
+    }
+
+    $current = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { $null }
+    if ((Test-Path $exe) -and $current -eq $version) {
+        Write-Host "[-] EjectLens $version is current." -ForegroundColor Gray
+        New-StartMenuShortcut -Name "EjectLens" -Target $exe
+        Add-SetupResult Skipped "EjectLens"
+        return
+    }
+
+    $zip = Join-Path $env:TEMP "EjectLens-$version.zip"
+    $extract = Join-Path $env:TEMP "EjectLens-$version"
+    try {
+        Write-Host "[*] Installing or updating EjectLens $version..." -ForegroundColor Cyan
+        if (!(Save-RemoteFile $asset.browser_download_url $zip)) { throw "Download failed" }
+        if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+        Expand-Archive -Path $zip -DestinationPath $extract -Force
+        $payload = Get-ChildItem -Path $extract -Filter "EjectLens.exe" -File -Recurse | Select-Object -First 1
+        if (!$payload) { throw "EjectLens.exe was not found in the release archive" }
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+        Copy-Item -Path (Join-Path $payload.DirectoryName "*") -Destination $root -Recurse -Force
+        Set-Content -Path $versionFile -Value $version -Encoding ASCII
+        New-StartMenuShortcut -Name "EjectLens" -Target $exe
+        if ($current) { Add-SetupResult Updated "EjectLens" }
+        else { Add-SetupResult Installed "EjectLens" }
+        Write-Host "[+] EjectLens $version installed at $root" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] EjectLens install/update failed: $_" -ForegroundColor Yellow
+        Add-SetupResult Failed "EjectLens"
+    } finally {
+        Remove-Item $zip -Force -ErrorAction SilentlyContinue
+        Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -713,7 +770,8 @@ $wingetApps = @(
 
 foreach ($app in $wingetApps) {
     $check = winget list --id $app --source winget 2>$null
-    if ($null -eq $check -or $check -match "No installed package found") {
+    $checkText = @($check | ForEach-Object { "$_" }) -join "`n"
+    if ([string]::IsNullOrWhiteSpace($checkText) -or (Test-WingetNoChange $checkText)) {
         Write-Host "[+] Installing $app..." -ForegroundColor Cyan
         $wingetLines = @()
         winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
@@ -737,13 +795,18 @@ foreach ($app in $wingetApps) {
         else { Add-SetupResult Failed $app }
     } else {
         Write-Host "[*] Updating $app..." -ForegroundColor Cyan
-        winget upgrade -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app }
+        $upgradeLines = @()
+        winget upgrade -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable upgradeLines
+        $upgradeText = @($upgradeLines | ForEach-Object { "$_" }) -join "`n"
+        $upgradeCode = $LASTEXITCODE
+        if (Test-WingetNoChange $upgradeText) { Add-SetupResult Skipped $app }
+        elseif ($upgradeCode -eq 0) { Add-SetupResult Updated $app }
         else { Add-SetupResult Failed $app }
     }
 }
 
 Install-Warp
+Install-EjectLens
 Install-VsBuildTools
 
 Initialize-TrafficMonitor
@@ -762,8 +825,12 @@ $msStoreApps = @(
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
         Write-Host "[*] Updating $($app.Label)..." -ForegroundColor Cyan
-        winget upgrade --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app.Label }
+        $storeLines = @()
+        winget upgrade --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent 2>&1 | Tee-Object -Variable storeLines
+        $storeText = @($storeLines | ForEach-Object { "$_" }) -join "`n"
+        $storeCode = $LASTEXITCODE
+        if (Test-WingetNoChange $storeText) { Add-SetupResult Skipped $app.Label }
+        elseif ($storeCode -eq 0) { Add-SetupResult Updated $app.Label }
         else { Add-SetupResult Failed $app.Label }
         continue
     }
