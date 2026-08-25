@@ -132,10 +132,11 @@ for candidate in \
     fi
 done
 if [ -n "$GCM_PATH" ]; then
-    GCM_CONFIG_PATH=${GCM_PATH//\\/\\\\}
-    GCM_CONFIG_PATH=${GCM_CONFIG_PATH// /\\ }
-    git config --global credential.helper "$GCM_CONFIG_PATH"
-    echo "Using Git Credential Manager: $GCM_PATH"
+    if git config --global credential.helper "$GCM_PATH"; then
+        echo "Using Git Credential Manager: $GCM_PATH"
+    else
+        echo "Warning: could not configure Git Credential Manager; leaving credential.helper unchanged" >&2
+    fi
 else
     echo "Warning: Git Credential Manager not found; leaving credential.helper unchanged" >&2
 fi

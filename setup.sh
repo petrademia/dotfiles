@@ -2,7 +2,13 @@
 # Dispatcher - detects OS and runs the matching setup script in setup/.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_SOURCE="${BASH_SOURCE[0]-}"
+if [ -n "$SCRIPT_SOURCE" ] && [ -f "$SCRIPT_SOURCE" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
+else
+  # A script piped into bash has no useful source path. Fall back to the clone.
+  SCRIPT_DIR=""
+fi
 
 if [ ! -d "$SCRIPT_DIR/setup" ]; then
   DOTFILES="$HOME/dotfiles"
