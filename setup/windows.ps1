@@ -813,6 +813,9 @@ foreach ($app in $wingetApps) {
     }
 }
 
+$uniGetUiExe = Join-Path $env:LOCALAPPDATA "Programs\UniGetUI\UniGetUI.exe"
+New-StartMenuShortcut -Name "UniGetUI" -Target $uniGetUiExe
+
 Install-Warp
 Install-EjectLens
 Install-VsBuildTools
@@ -1193,7 +1196,8 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
 # --- 11. WSL host provisioning ---
 Write-Host "Checking WSL..." -ForegroundColor Cyan
 
-$wslDistro = "Ubuntu"
+$wslDistro = "Ubuntu-24.04"
+$wslPackageId = "Canonical.Ubuntu.2404"
 $wslSetupCmd = "curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash"
 
 function Test-IsAdmin {
@@ -1260,7 +1264,7 @@ function Write-WslManualVmPlatform {
     Write-Host "      Virtual Machine Platform (and Windows Subsystem for Linux if it is off)" -ForegroundColor Cyan
     Write-Host "    Or elevated, after a clean boot (enable only, no disable):" -ForegroundColor Yellow
     Write-Host "      dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart" -ForegroundColor Cyan
-    Write-Host "    Restart, then:  ubuntu.exe install --root" -ForegroundColor Cyan
+    Write-Host "    Restart, then:  ubuntu2404.exe install --root" -ForegroundColor Cyan
     Write-Host "    Then Linux: $wslSetupCmd" -ForegroundColor DarkGray
 }
 
@@ -1325,9 +1329,8 @@ function Ensure-WslVmPlatform {
 
 function Install-UbuntuViaLauncher {
     $candidates = @(
-        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu.exe"),
         (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu2404.exe"),
-        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu2204.exe")
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu.exe")
     )
     $ubuntu = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     if (-not $ubuntu) { return $false }
@@ -1343,6 +1346,61 @@ function Install-UbuntuViaLauncher {
         Write-WslRebootNeeded
     }
     return $false
+}
+
+function Ensure-WslNormalUser {
+    $linuxUser = ($env:USERNAME.ToLower() -replace "[^a-z0-9_-]", "")
+    if ([string]::IsNullOrWhiteSpace($linuxUser)) { $linuxUser = "dev" }
+
+    $userSetup = @'
+set -eu
+user='__DOTFILES_USER__'
+if ! id -u "$user" >/dev/null 2>&1; then
+    useradd --create-home --shell /bin/bash --groups sudo "$user"
+else
+    usermod --append --groups sudo "$user"
+fi
+install -d -m 0755 /etc/sudoers.d
+printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$user" > "/etc/sudoers.d/dotfiles-$user"
+chmod 0440 "/etc/sudoers.d/dotfiles-$user"
+'@ -replace "__DOTFILES_USER__", $linuxUser
+
+    Write-Host "[+] Configuring WSL user $linuxUser in $wslDistro..." -ForegroundColor Cyan
+    & wsl.exe -d $wslDistro -u root -- bash -lc $userSetup 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Could not create the normal WSL user $linuxUser." -ForegroundColor Yellow
+        return $false
+    }
+
+    $launcher = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\ubuntu2404.exe"
+    if (Test-Path -LiteralPath $launcher) {
+        & $launcher config --default-user $linuxUser 2>&1 | ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -eq 0) {
+            & wsl.exe --terminate $wslDistro 2>$null
+            return $true
+        }
+    }
+
+    $defaultSetup = @'
+set -eu
+user='__DOTFILES_USER__'
+if [ -f /etc/wsl.conf ] && grep -q '^\[user\]' /etc/wsl.conf; then
+    if grep -q '^default=' /etc/wsl.conf; then
+        sed -i "/^\[user\]/,/^\[/ s/^default=.*/default=$user/" /etc/wsl.conf
+    else
+        sed -i "/^\[user\]/a default=$user" /etc/wsl.conf
+    fi
+else
+    printf '\n[user]\ndefault=%s\n' "$user" >> /etc/wsl.conf
+fi
+'@ -replace "__DOTFILES_USER__", $linuxUser
+    & wsl.exe -d $wslDistro -u root -- bash -lc $defaultSetup 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Could not set $linuxUser as the WSL default user." -ForegroundColor Yellow
+        return $false
+    }
+    & wsl.exe --terminate $wslDistro 2>$null
+    return $true
 }
 
 # VMP can be Enabled while the hypervisor never starts if this BCD flag is missing.
@@ -1440,6 +1498,11 @@ exit `$LASTEXITCODE
 function Invoke-WslLinuxSetup {
     if (!(Test-WslDistroInstalled $wslDistro)) { return }
 
+    if (-not (Ensure-WslNormalUser)) {
+        Add-SetupResult Failed "WSL normal user"
+        return
+    }
+
     wsl.exe -d $wslDistro -- bash -lc "echo ok" 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[!] $wslDistro not ready yet (reboot or open Ubuntu once)." -ForegroundColor Yellow
@@ -1458,7 +1521,9 @@ function Invoke-WslLinuxSetup {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[+] WSL Linux stack deployed." -ForegroundColor Green
     } else {
-        Write-Host "[!] WSL setup failed (exit $LASTEXITCODE). Run manually in Ubuntu:" -ForegroundColor Yellow
+        $exitCode = $LASTEXITCODE
+        Add-SetupResult Failed "WSL Linux setup"
+        Write-Host "[!] WSL setup failed (exit $exitCode). Run manually in Ubuntu:" -ForegroundColor Yellow
         Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
     }
 }
@@ -1483,10 +1548,11 @@ if ($wslInstalled) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
     if ($wslVmReady) { Invoke-WslLinuxSetup } else { Write-WslRebootNeeded }
 } elseif ($wslVmReady) {
-    # Canonical.Ubuntu can be "installed" in Winget while wsl -l is still empty.
+    # The generic Canonical.Ubuntu package still resolves to 22.04. Pin 24.04.
+    # The package can be "installed" in Winget while wsl -l is still empty.
     # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
     Write-Host "[+] Installing $wslDistro via Winget..." -ForegroundColor Yellow
-    winget install -e --id Canonical.Ubuntu --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
+    winget install -e --id $wslPackageId --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
     $repaired = (Test-WslDistroInstalled $wslDistro)
     if (-not $repaired) {
         $repaired = Install-UbuntuViaLauncher
@@ -1508,7 +1574,11 @@ if ($wslInstalled) {
 # --- 13. Final Polish ---
 Set-WindowsHostDefaults
 scoop cleanup *
-Write-Host "SETUP COMPLETE." -ForegroundColor Green
+if ($script:SetupResults.Failed -eq 0) {
+    Write-Host "SETUP COMPLETE." -ForegroundColor Green
+} else {
+    Write-Host "SETUP FINISHED WITH FAILURES." -ForegroundColor Yellow
+}
 Write-SetupSummary
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
