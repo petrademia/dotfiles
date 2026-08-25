@@ -569,6 +569,7 @@ function Set-WindowsStartupApps {
         "Riot Vanguard",
         "Riot Client",
         "RiotClient",
+        "EADM",
         "EADesktop",
         "EALauncher",
         "EA app",
@@ -607,6 +608,13 @@ function Set-WindowsStartupApps {
     Set-AppXStartupState "Microsoft.PowerAutomateDesktop_" "AutoStartTask" 0
     Set-AppXStartupState "Microsoft.WindowsTerminal_" "StartTerminalOnLoginTask" 0
     Set-AppXStartupState "LGElectronics.LGMonitorApp_" "LGMonitorAutoStart" 0
+
+    # Everything remains available on demand without a resident indexing service.
+    $everything = Get-Service -Name "Everything" -ErrorAction SilentlyContinue
+    if ($everything -and $everything.StartType -eq "Automatic") {
+        try { Set-Service -Name "Everything" -StartupType Manual } catch {}
+    }
+
     # WhatsApp's AppX startup task is a GUID that can change; disable every task in the family.
     $root = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData"
     if (Test-Path $root) {
