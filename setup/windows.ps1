@@ -1354,15 +1354,14 @@ function Ensure-WslNormalUser {
 
     $userSetup = @'
 set -eu
-user='__DOTFILES_USER__'
-if ! id -u "$user" >/dev/null 2>&1; then
-    useradd --create-home --shell /bin/bash --groups sudo "$user"
+if ! id -u '__DOTFILES_USER__' >/dev/null 2>&1; then
+    useradd -m -s /bin/bash -G sudo '__DOTFILES_USER__'
 else
-    usermod --append --groups sudo "$user"
+    usermod -a -G sudo '__DOTFILES_USER__'
 fi
 install -d -m 0755 /etc/sudoers.d
-printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$user" > "/etc/sudoers.d/dotfiles-$user"
-chmod 0440 "/etc/sudoers.d/dotfiles-$user"
+printf '%s ALL=(ALL) NOPASSWD:ALL\n' '__DOTFILES_USER__' > '/etc/sudoers.d/dotfiles-__DOTFILES_USER__'
+chmod 0440 '/etc/sudoers.d/dotfiles-__DOTFILES_USER__'
 '@ -replace "__DOTFILES_USER__", $linuxUser
 
     Write-Host "[+] Configuring WSL user $linuxUser in $wslDistro..." -ForegroundColor Cyan
@@ -1383,15 +1382,14 @@ chmod 0440 "/etc/sudoers.d/dotfiles-$user"
 
     $defaultSetup = @'
 set -eu
-user='__DOTFILES_USER__'
 if [ -f /etc/wsl.conf ] && grep -q '^\[user\]' /etc/wsl.conf; then
     if grep -q '^default=' /etc/wsl.conf; then
-        sed -i "/^\[user\]/,/^\[/ s/^default=.*/default=$user/" /etc/wsl.conf
+        sed -i "/^\[user\]/,/^\[/ s/^default=.*/default=__DOTFILES_USER__/" /etc/wsl.conf
     else
-        sed -i "/^\[user\]/a default=$user" /etc/wsl.conf
+        sed -i "/^\[user\]/a default=__DOTFILES_USER__" /etc/wsl.conf
     fi
 else
-    printf '\n[user]\ndefault=%s\n' "$user" >> /etc/wsl.conf
+    printf '\n[user]\ndefault=__DOTFILES_USER__\n' >> /etc/wsl.conf
 fi
 '@ -replace "__DOTFILES_USER__", $linuxUser
     & wsl.exe -d $wslDistro -u root -- bash -lc $defaultSetup 2>&1 | ForEach-Object { Write-Host $_ }
