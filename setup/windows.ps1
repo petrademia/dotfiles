@@ -99,6 +99,23 @@ function Sync-DotfilesClone {
     return $dest
 }
 
+function Get-DotfilesRoot {
+    # Prefer the script being run so local unpushed fixes apply before git push.
+    if ($PSScriptRoot) {
+        $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+        if (Test-Path (Join-Path $root "setup\windows.ps1")) { return $root }
+    }
+    return Sync-DotfilesClone
+}
+
+function Get-DotfilesSetupRevision {
+    $revFile = Join-Path (Get-DotfilesRoot) "setup\REVISION"
+    if (Test-Path -LiteralPath $revFile) {
+        return (Get-Content -LiteralPath $revFile -Raw).Trim()
+    }
+    return "0"
+}
+
 function Test-WingetExit1603 {
     param([string]$Text, [int]$Code)
     return ($Code -eq 1603) -or ($Text -match "exit code:\s*1603")
@@ -1262,7 +1279,62 @@ Write-Host "Checking WSL..." -ForegroundColor Cyan
 
 $wslDistro = "Ubuntu-24.04"
 $wslPackageId = "Canonical.Ubuntu.2404"
-$wslSetupCmd = "curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash"
+
+function Get-WslLinuxSetupCommand {
+    $root = Get-DotfilesRoot
+    $wslRoot = ((& wsl.exe -d $wslDistro -- wslpath -a $root 2>$null | Out-String) -replace "`0", "").Trim()
+    if ($wslRoot) {
+        # Local clone / checkout: picks up unpushed setup fixes.
+        return "bash `"$wslRoot/setup.sh`""
+    }
+    return "curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash"
+}
+
+function Test-WslLinuxStackConfigured {
+    $expected = Get-DotfilesSetupRevision
+    # Compare stamped revision (quote-free; survives wsl.exe). Mismatch or missing → re-run.
+    $raw = wsl.exe -d $wslDistro -- bash -lc 'cat $HOME/.config/dotfiles/wsl-setup.done 2>/dev/null' 2>$null
+    $got = (($raw | Out-String) -replace "`0", "").Trim()
+    if ($got -and $expected -and $got -eq $expected) { return $true }
+    return $false
+}
+
+function Invoke-WslLinuxSetup {
+    if (!(Test-WslDistroInstalled $wslDistro)) { return }
+
+    if (-not (Ensure-WslNormalUser)) {
+        Add-SetupResult Failed "WSL normal user"
+        return
+    }
+
+    wsl.exe -d $wslDistro -- bash -lc "echo ok" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] $wslDistro not ready yet (reboot or open Ubuntu once)." -ForegroundColor Yellow
+        Write-Host "    Then re-run setup or: $(Get-WslLinuxSetupCommand)" -ForegroundColor DarkGray
+        return
+    }
+
+    $expected = Get-DotfilesSetupRevision
+    if (Test-WslLinuxStackConfigured) {
+        Write-Host "[-] WSL Linux stack at revision $expected. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "WSL Linux setup"
+        return
+    }
+
+    $wslSetupCmd = Get-WslLinuxSetupCommand
+    Write-Host "[+] Running Linux setup inside $wslDistro (revision $expected)..." -ForegroundColor Cyan
+    Write-Host "    $wslSetupCmd" -ForegroundColor DarkGray
+    wsl.exe -d $wslDistro -- bash -lc $wslSetupCmd
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[+] WSL Linux stack deployed." -ForegroundColor Green
+        Add-SetupResult Installed "WSL Linux setup"
+    } else {
+        $exitCode = $LASTEXITCODE
+        Add-SetupResult Failed "WSL Linux setup"
+        Write-Host "[!] WSL setup failed (exit $exitCode). Run manually in Ubuntu:" -ForegroundColor Yellow
+        Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
+    }
+}
 
 function Test-IsAdmin {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -1329,7 +1401,7 @@ function Write-WslManualVmPlatform {
     Write-Host "    Or elevated, after a clean boot (enable only, no disable):" -ForegroundColor Yellow
     Write-Host "      dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart" -ForegroundColor Cyan
     Write-Host "    Restart, then:  ubuntu2404.exe install --root" -ForegroundColor Cyan
-    Write-Host "    Then Linux: $wslSetupCmd" -ForegroundColor DarkGray
+    Write-Host "    Then Linux: $(Get-WslLinuxSetupCommand)" -ForegroundColor DarkGray
 }
 
 function Enable-WslOptionalFeature {
@@ -1568,51 +1640,6 @@ exit `$LASTEXITCODE
         return $false
     }
     return $true
-}
-
-function Test-WslLinuxStackConfigured {
-    # Sentinel written at the end of setup/wsl.sh (no quoting pitfalls).
-    wsl.exe -d $wslDistro -- bash -lc 'test -f $HOME/.config/dotfiles/wsl-setup.done' 2>$null
-    if ($LASTEXITCODE -eq 0) { return $true }
-    # Older installs: regex (not a quoted spaced string) survives wsl.exe arg parsing.
-    # The previous 'grep -q "DOTFILES DEV ENV"' check always failed, so every Windows
-    # setup re-ran the full Linux stack and looked hung until Ctrl+C.
-    wsl.exe -d $wslDistro -- bash -lc 'grep -qE DOTFILES.DEV.ENV ~/.bashrc ~/.zshrc' 2>$null
-    return ($LASTEXITCODE -eq 0)
-}
-
-function Invoke-WslLinuxSetup {
-    if (!(Test-WslDistroInstalled $wslDistro)) { return }
-
-    if (-not (Ensure-WslNormalUser)) {
-        Add-SetupResult Failed "WSL normal user"
-        return
-    }
-
-    wsl.exe -d $wslDistro -- bash -lc "echo ok" 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[!] $wslDistro not ready yet (reboot or open Ubuntu once)." -ForegroundColor Yellow
-        Write-Host "    Then re-run setup or: $wslSetupCmd" -ForegroundColor DarkGray
-        return
-    }
-
-    if (Test-WslLinuxStackConfigured) {
-        Write-Host "[-] WSL Linux stack already configured." -ForegroundColor Gray
-        Add-SetupResult Skipped "WSL Linux setup"
-        return
-    }
-
-    Write-Host "[+] Running Linux setup inside $wslDistro (may take a while)..." -ForegroundColor Cyan
-    wsl.exe -d $wslDistro -- bash -lc $wslSetupCmd
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "[+] WSL Linux stack deployed." -ForegroundColor Green
-        Add-SetupResult Installed "WSL Linux setup"
-    } else {
-        $exitCode = $LASTEXITCODE
-        Add-SetupResult Failed "WSL Linux setup"
-        Write-Host "[!] WSL setup failed (exit $exitCode). Run manually in Ubuntu:" -ForegroundColor Yellow
-        Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
-    }
 }
 
 $script:WslBroken = $false
