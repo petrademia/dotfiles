@@ -131,9 +131,6 @@ function Show-ManualChecklist {
     Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
     Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
     Write-Host "  - Java: jv temurin21-jdk  (windows.ps1 installs the full matrix)"
-    if ($Dotfiles) {
-        Write-Host "  - Browser extensions: $($Dotfiles)\bootstrap\browser-extensions.ps1"
-    }
 }
 
 Write-Host "==> Post-setup" -ForegroundColor Cyan

@@ -190,8 +190,19 @@ Switch versions with:
 
 ## CLIs
 
-Setup includes `gh`, `atlassian-cli`, and `wrangler` (Cloudflare
-Pages/Workers).
+Setup includes:
+
+- `gh`
+- `atlassian-cli`
+- `wrangler` (Cloudflare Pages/Workers)
+
+Authenticate GitHub with:
+
+```bash
+gh auth login
+```
+
+### Amartha and Atlassian
 
 On Windows, no GitHub binary is available for `atlassian-cli`. Setup compiles
 it with MSVC `link.exe` when present, or with Scoop `gcc` and the GNU Rust
@@ -199,7 +210,6 @@ target otherwise. Visual Studio 2022 Build Tools (C++ workload) are installed
 so `rustup-msvc` and UniGetUI Rust packages can link.
 
 ```bash
-gh auth login
 atlassian-cli auth login --profile amartha --bitbucket --bearer --workspace Amartha
 ```
 
@@ -215,29 +225,12 @@ Atlassian API tokens are per-app and scoped. Keep separate 1Password items:
 
 - `Amartha Jira API`: Jira REST
 - `Amartha Bitbucket PR Review`: Bitbucket PR and API
+
+## Git and SSH
+
+SSH credentials for Git operations are separate from the Amartha API tokens.
+
 - `petruswiyadi-Bitbucket`: SSH for Git push
-
-## Browser extensions
-
-The browser-extension scripts open store pages and are not run by the main
-setup scripts.
-
-macOS:
-
-```bash
-~/dotfiles/bootstrap/browser-extensions.sh       # defaults
-~/dotfiles/bootstrap/browser-extensions.sh all
-```
-
-Windows (browsers cannot silently install extensions):
-
-```powershell
-~\dotfiles\bootstrap\browser-extensions.ps1
-~\dotfiles\bootstrap\browser-extensions.ps1 -All
-```
-
-They open store pages for uBlock, 1Password, and FDM. Chromium uses FDM Lite;
-Firefox and Brave use full uBlock Origin.
 
 ## AI
 
@@ -297,7 +290,7 @@ ollama run llama3.2
 Use `llama --help` for the WSL installer or `llama-cli --help` for
 package-manager builds.
 
-## Manual setup and notes
+## Troubleshooting and manual steps
 
 ### Apps and drivers
 
@@ -345,41 +338,11 @@ k3d cluster create
 
 Podman or Docker must be running first.
 
-### Notes apps
-
-Mac and Android, with iOS as a bonus:
-
-- UpNote (App Store)
-- Notesnook
-- Standard Notes
-- Joplin
-- Simplenote
-- Obsidian
-
-Obsidian Sync is separate. Windows gets the same notes set through Winget,
-plus LibreOffice and ONLYOFFICE.
-
-### Windows app coverage
-
-Windows also installs the macOS GUI set where Winget has a package.
-
-- Browsers: LibreWolf, Waterfox, Mullvad, ungoogled Chromium, Chromium,
-  Thorium, Min, Chrome Beta/Canary, Firefox ESR/Nightly, Opera / GX / Air
-- Terminals: Alacritty, WezTerm, Tabby, Warp, Hyper, Windows Terminal
-- Editors: Notepad++, VS Code
-- Utilities and apps: Everything, Files, UniGetUI, Patch My PC Home Updater,
-  VLC, PotPlayer, K-Lite, Steam, EA App, VALORANT (AP), Spotify, Stremio,
-  qBittorrent, Transmission, FDM, Postman, OpenVPN Connect, OpenCode desktop,
-  and WhatsApp
-
-Mac-only apps (no Windows package or equivalent) include iTerm, Ghostty,
-Orion, SigmaOS, Helium, Wispr Flow, CotEditor, IINA, Rectangle, and DockDoor.
-
 ## Layout
 
 ```
 setup.sh setup/   installers (macos.sh, windows.ps1, wsl.sh)
 install.sh        symlinks (macOS/WSL; Windows copies via windows.ps1)
-bootstrap/        java-*, macos.sh, browser-extensions.{sh,ps1}, post-setup.ps1
+bootstrap/        java-*, macos.sh, post-setup.ps1
 ai/ git/ go/ cursor/ shell/ config/ (nvim, zellij, zsh, containers) scripts/
 ```

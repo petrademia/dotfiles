@@ -1578,11 +1578,7 @@ if ($wslInstalled) {
     }
 }
 
-# --- 12. Browser extensions (manual: browsers block silent installs) ---
-# ~\dotfiles\bootstrap\browser-extensions.ps1        # Chrome, Brave, Firefox, Edge
-# ~\dotfiles\bootstrap\browser-extensions.ps1 -All   # every installed catalog browser
-
-# --- 13. Final Polish ---
+# --- 12. Final Polish ---
 Set-WindowsHostDefaults
 scoop cleanup *
 if ($script:SetupResults.Failed -eq 0) {
@@ -1611,4 +1607,3 @@ Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop a
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
 Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
 Write-Host "  - Java: jv temurin21-jdk"
-Write-Host "  - Browser extensions (uBlock, 1Password, FDM): ~\dotfiles\bootstrap\browser-extensions.ps1"
