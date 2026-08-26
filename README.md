@@ -54,7 +54,8 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 `setup/windows.ps1` applies the Windows equivalent of
 `bootstrap/macos.sh`:
 
-- **Files and input:** show file extensions and hidden files, create
+- **Files and input:** show file extensions and hidden files, open File
+  Explorer to This PC (not Home), enable End Task on the taskbar, create
   `~/Screenshots`, enable faster key repeat and tap-to-click, and disable
   Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture.
 - **Power and navigation:** enable hibernation and add Hibernate to the power
@@ -316,6 +317,12 @@ package-manager builds.
   for ROG Flow X13 as a lightweight Armoury Crate alternative. Setup installs
   .NET 10 Desktop Runtime first. Do not run G-Helper and Armoury Crate at the
   same time.
+- Logitech C920 on this machine: disable **HD Pro Webcam C920** under Device
+  Manager → Sound, video and game controllers, and leave **Cameras → HD Pro
+  Webcam C920** enabled. The C920 USB mic crashes `Audiosrv` (`0xc0000005`);
+  Settings then shows no input or output devices even though Realtek is still
+  in Device Manager. Use the dedicated USB microphone instead. WAVLINK
+  `TB4 USB Audio` is optional to disable if unused; it is not the crash.
 
 ### macOS containers
 

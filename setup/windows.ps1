@@ -392,6 +392,12 @@ function Set-WindowsHostDefaults {
     $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
     Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $adv -Name Hidden -Type DWord -Value 1 -ErrorAction SilentlyContinue
+    # Folder Options > Open File Explorer to: This PC (1), not Home (2).
+    Set-ItemProperty -Path $adv -Name LaunchTo -Type DWord -Value 1 -ErrorAction SilentlyContinue
+    # Settings > System > For developers > End Task on the taskbar.
+    $endTask = Join-Path $adv "TaskbarDeveloperSettings"
+    if (!(Test-Path $endTask)) { New-Item -Path $endTask -Force | Out-Null }
+    Set-ItemProperty -Path $endTask -Name TaskbarEndTask -Type DWord -Value 1 -ErrorAction SilentlyContinue
     # Settings > Personalization > Taskbar > Taskbar items: hide Search, Task view,
     # Widgets, Chat, Copilot, Resume. TaskbarDa is ACL-locked on some builds.
     Set-ItemProperty -Path $adv -Name MultiTaskingAltTabFilter -Type DWord -Value 3 -ErrorAction SilentlyContinue
@@ -1603,6 +1609,7 @@ Write-Host "  - WSL: setup enables Virtual Machine Platform automatically; reboo
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
+Write-Host "  - C920: disable HD Pro Webcam C920 under Sound, video and game controllers if Windows Audio dies (leave the Cameras entry on)"
 Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop app"
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
 Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
