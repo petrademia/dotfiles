@@ -168,6 +168,8 @@ export PATH="$HOME/.local/share/fnm:$PATH"
 eval "$(fnm env --use-on-cd)"
 fnm use --install-if-missing lts-latest
 fnm default lts-latest
+# Stable path for node/npm globals (copilot, codex, ...) without needing a fresh fnm multishell.
+export PATH="$HOME/.local/share/fnm/aliases/default/bin:$PATH"
 
 if ! smart_check "uv" "$HOME/.local/bin/uv"; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -268,7 +270,6 @@ fi
 
 echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot, Z.ai"
 curl -fsSL https://claude.ai/install.sh | bash || echo "[-] claude install skipped"
-[ ! -f "$(npm config get prefix)/bin/codex" ] && npm install -g @openai/codex --silent || true
 
 if ! smart_check "opencode" "$HOME/.opencode/bin/opencode"; then
     curl -fsSL https://opencode.ai/install | bash
@@ -278,29 +279,72 @@ sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
 echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
     | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
-if sudo apt update && sudo apt install -y crush; then record_result updated
-else record_result failed; echo "[-] crush install/update failed"; fi
+if command -v crush >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] crush already present. Skipping..."
+elif sudo apt update && sudo apt install -y crush; then
+    record_result installed
+else
+    record_result failed
+    echo "[-] crush install failed"
+fi
 
+# Skip when the CLI is already on PATH so re-runs stay mostly skipped / Failed: 0.
 run_npm_global() {
-    if npm install -g "$@" --silent; then record_result updated
-    else record_result failed; echo "[-] npm install/update failed: $1"; fi
+    local package=$1
+    local cmd=$2
+    local ignore_scripts=${3:-}
+    if [ -n "$cmd" ] && command -v "$cmd" >/dev/null 2>&1; then
+        record_result skipped
+        echo "[-] $cmd already present. Skipping..."
+        return 0
+    fi
+    if [ "$ignore_scripts" = "--ignore-scripts" ]; then
+        if npm install -g --ignore-scripts "$package" --silent; then
+            record_result installed
+        else
+            record_result failed
+            echo "[-] npm install failed: $package"
+        fi
+    else
+        if npm install -g "$package" --silent; then
+            record_result installed
+        else
+            record_result failed
+            echo "[-] npm install failed: $package"
+        fi
+    fi
 }
 
-run_npm_global @z_ai/coding-helper
-if npm install -g --ignore-scripts @earendil-works/pi-coding-agent --silent; then record_result updated
-else record_result failed; echo "[-] npm install/update failed: @earendil-works/pi-coding-agent"; fi
-run_npm_global reasonix
-run_npm_global @deepseek-ai/dsh
-run_npm_global wrangler
-run_npm_global openclaw@latest
-run_npm_global impeccable
-uv tool install --upgrade zai-cli --python 3 || true
-uv tool install --upgrade graphifyy --python 3 || true
+run_npm_global @z_ai/coding-helper coding-helper
+run_npm_global @earendil-works/pi-coding-agent pi --ignore-scripts
+run_npm_global reasonix reasonix
+run_npm_global @deepseek-ai/dsh dsh
+run_npm_global wrangler wrangler
+run_npm_global openclaw@latest openclaw
+run_npm_global impeccable impeccable
+if command -v zai >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] zai already present. Skipping..."
+else
+    uv tool install --upgrade zai-cli --python 3 || true
+fi
+if command -v graphify >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] graphify already present. Skipping..."
+else
+    uv tool install --upgrade graphifyy --python 3 || true
+fi
 
-run_npm_global playwright
-npx playwright install chromium || true
+run_npm_global playwright playwright
+if [ -d "$HOME/.cache/ms-playwright" ] && compgen -G "$HOME/.cache/ms-playwright/chromium*" >/dev/null; then
+    echo "[-] Playwright Chromium already installed. Skipping..."
+else
+    npx playwright install chromium || true
+fi
 
-run_npm_global @github/copilot
+run_npm_global @github/copilot copilot
+run_npm_global @openai/codex codex
 if command -v gh >/dev/null 2>&1; then
     gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
 fi
@@ -310,7 +354,7 @@ if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
         bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"
 fi
 
-if ! smart_check "kimi"; then
+if ! smart_check "kimi" "$HOME/.kimi-code/bin/kimi"; then
     curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash || echo "[-] Kimi Code CLI install skipped"
 fi
 
@@ -382,7 +426,7 @@ BLOCK=$(cat << EOF
 [ -f "\$HOME/.xmake/profile" ] && . "\$HOME/.xmake/profile"
 [ -s "\$HOME/.sdkman/bin/sdkman-init.sh" ] && . "\$HOME/.sdkman/bin/sdkman-init.sh"
 
-export PATH="\$HOME/.local/share/fnm:\$HOME/.local/bin:\$HOME/.opencode/bin:\$HOME/.llama-app:\$PATH"
+export PATH="\$HOME/.local/share/fnm/aliases/default/bin:\$HOME/.local/share/fnm:\$HOME/.local/bin:\$HOME/.kimi-code/bin:\$HOME/.opencode/bin:\$HOME/.llama-app:\$PATH"
 export GOPATH="\$HOME/go"
 export PATH="\$PATH:/usr/local/go/bin:\$GOPATH/bin"
 
