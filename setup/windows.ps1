@@ -109,6 +109,11 @@ function Test-WingetAdminContext {
     return $Text -match "cannot be run from an administrator context"
 }
 
+function Test-WingetHashMismatch {
+    param([string]$Text)
+    return $Text -match "Installer hash does not match"
+}
+
 function Test-WingetNoChange {
     param([string]$Text)
     return $Text -match "No available upgrade found|No newer package versions are available|No applicable upgrade|No installed package found|No package found matching|version number cannot be determined"
@@ -831,10 +836,10 @@ foreach ($app in $wingetApps) {
             }
         } elseif (Test-WingetAdminContext $wingetText) {
             Write-Host "[!] $app installer refuses an elevated session. Skipping retry." -ForegroundColor Yellow
+        } elseif (Test-WingetHashMismatch $wingetText) {
+            Write-Host "[!] $app Winget manifest/installer hash mismatch. Skipping; retry later." -ForegroundColor Yellow
         } elseif ($wingetCode -ne 0) {
-            Write-Host "[!] Exact ID failed for $app. Attempting search-install..." -ForegroundColor Yellow
-            winget install $app --accept-package-agreements --accept-source-agreements --silent
-            $installSucceeded = $LASTEXITCODE -eq 0
+            Write-Host "[!] Exact Winget install failed for $app. Skipping." -ForegroundColor Yellow
         }
         if ($installSucceeded) { Add-SetupResult Installed $app }
         else { Add-SetupResult Failed $app }
