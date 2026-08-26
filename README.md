@@ -2,37 +2,42 @@
 
 ## Installation
 
+Each platform prints an install/update/skip/failure summary.
+
 ### macOS
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -o setup.sh && bash setup.sh
 ```
 
-### Windows
-
-```powershell
-irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
-```
-
-### WSL
-
-The script sets CurrentUser `RemoteSigned` (Windows defaults to Restricted, which prints `running scripts is disabled` when the profile loads). If `irm | iex` itself is blocked, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force` first.
-
-It installs or reconciles Ubuntu 24.04 with Winget `Canonical.Ubuntu.2404` and `ubuntu2404.exe install --root`, then creates a normal WSL user matching the Windows username. On repeat runs, Homebrew, Scoop, Winget, npm, apt, Rustup, SDKMAN!, and uv update repo-managed items when they are already installed and install them when missing. Version-aware checks update direct-download tools such as WSL Zellij, Helix, kubectl, kind, k3d, Windows Warp, and EjectLens; other vendor installers remain guarded when they do not expose a safe version check. Windows directory-backed dotfiles are merged without deleting extra user files. Each platform prints an install/update/skip/failure summary. WSL automatically enables Virtual Machine Platform with UAC when needed; reboot and re-run setup if Windows reports a pending feature change. If `wsl` reports `REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi` from GitHub and prompts for UAC. Then inside Ubuntu:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
-```
-
-Or from a clone: `./setup.sh` (full) / `./install.sh` (symlinks only; Windows copies files instead).
-
-On macOS, run the defaults and login-item bootstrap separately after the full
-setup:
+From an existing clone:
 
 ```bash
 ./setup.sh
 zsh bootstrap/macos.sh
 ```
+
+The macOS bootstrap ensures a small login-item allowlist:
+
+- 1Password
+- Rectangle
+- MonitorControl
+- Scroll Reverser
+- Google Drive
+- OneDrive
+- Deskflow
+- Alfred
+- Raycast
+
+Apps that are not installed are skipped.
+
+To make Raycast replace Spotlight for `⌘Space`:
+
+1. Open Raycast settings with `⌘,`.
+2. Select **General**.
+3. Set **Raycast Hotkey** to `⌘Space`.
+4. If macOS reports a conflict, disable **Show Spotlight search** under
+   **System Settings → Keyboard → Keyboard Shortcuts → Spotlight**.
 
 To update an existing clone later:
 
@@ -43,43 +48,123 @@ git pull
 zsh bootstrap/macos.sh
 ```
 
-## macOS configuration
+### Windows
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
+```powershell
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
 ```
 
-The macOS bootstrap also ensures a small login-item allowlist: 1Password,
-Rectangle, MonitorControl, Scroll Reverser, Google Drive, OneDrive, Deskflow,
-Alfred, and Raycast. Apps that are not installed are skipped.
+The script sets the CurrentUser execution policy to `RemoteSigned`. If
+`irm | iex` is blocked, run:
 
-To make Raycast replace Spotlight for `⌘Space`, open Raycast settings with
-`⌘,`, choose **General**, and set **Raycast Hotkey** to `⌘Space`. If macOS
-reports a conflict, disable **Show Spotlight search** under **System Settings
-→ Keyboard → Keyboard Shortcuts → Spotlight** first.
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+```
 
-## Windows configuration
+`setup/windows.ps1` applies the Windows equivalent of
+`bootstrap/macos.sh`:
 
-`setup/windows.ps1` applies the Windows equivalent of `bootstrap/macos.sh`:
+- **Files and input:** show file extensions and hidden files, create
+  `~/Screenshots`, enable faster key repeat and tap-to-click, and disable
+  Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture.
+- **Power and navigation:** enable hibernation and add Hibernate to the power
+  menu, enable NTFS long paths, and configure Alt+Tab to show windows only
+  (not Edge tabs).
+- **Taskbar:** hide Search, Task View, Widgets, Chat, Copilot, and Resume;
+  unpin default apps such as Edge, Store, File Explorer, Copilot, Mail, Teams,
+  and Xbox.
+- **Security:** enable Windows Security SmartScreen and PUA protection, and
+  disable Smart App Control.
+- **Startup:** use a default-deny policy. Only 1Password, ThreeFingerDrag,
+  and Windows Security are enabled because they provide resident security or
+  input behavior.
+  - Start on demand: TrafficMonitor, window-switcher, Surfshark, Google
+    Drive, OneDrive, Everything, and FDM.
+  - Disabled at startup: DisplayLink's tray UI, browser helpers (Opera / GX /
+    Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI,
+    Discord, Slack, WhatsApp, Warp, OpenVPN Connect, Ollama, Spotify, Virtual
+    Pet, ASUS Smart Display, Radeon overlay, Mobile devices/Phone Link,
+    Copilot, Teams, ChatGPT, Xbox, To Do, and similar launchers or helpers.
+- **Drivers and WSL:** keep the DisplayLink driver installed for dock support
+  and leave the Riot Vanguard service enabled.
 
-- **Files and input:** show file extensions and hidden files, create `~/Screenshots`, enable faster key repeat and tap-to-click, and disable Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture.
-- **Power and navigation:** enable hibernation and add Hibernate to the power menu, enable NTFS long paths, and configure Alt+Tab to show windows only (not Edge tabs).
-- **Taskbar:** hide Search, Task View, Widgets, Chat, Copilot, and Resume; unpin default apps such as Edge, Store, File Explorer, Copilot, Mail, Teams, and Xbox.
-- **Security:** enable Windows Security SmartScreen and PUA protection, and disable Smart App Control.
-- **Startup:** use a default-deny policy. Only 1Password, ThreeFingerDrag, and Windows Security are enabled because they provide resident security or input behavior.
-  - Start on demand: TrafficMonitor, window-switcher, Surfshark, Google Drive, OneDrive, Everything, and FDM.
-  - Disabled at startup: DisplayLink's tray UI, browser helpers (Opera / GX / Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI, Discord, Slack, WhatsApp, Warp, OpenVPN Connect, Ollama, Spotify, Virtual Pet, ASUS Smart Display, Radeon overlay, Mobile devices/Phone Link, Copilot, Teams, ChatGPT, Xbox, To Do, and similar launchers or helpers.
-- **Drivers and WSL:** keep the DisplayLink driver installed for dock support and leave the Riot Vanguard service enabled. WSL automatically enables Virtual Machine Platform with UAC when needed; reboot and re-run setup if Windows reports a pending feature change.
+Some settings need elevation:
 
-Some settings need elevation: hibernation, long paths, HKLM startup, Smart App Control, and the Widgets policy. Alt+Tab and some taskbar changes may need a logoff or Explorer restart. On some Windows 11 builds, Widgets (`TaskbarDa`) is ACL-locked; the Feeds policy is the fallback.
+- Hibernation
+- NTFS long paths
+- HKLM startup
+- Smart App Control
+- The Widgets policy
+
+Alt+Tab and some taskbar changes may need a logoff or Explorer restart. On
+some Windows 11 builds, Widgets (`TaskbarDa`) is ACL-locked; the Feeds policy
+is the fallback.
+
+After `windows.ps1`, sign into 1Password and run:
+
+```powershell
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex
+```
+
+This configures `gh` and `atlassian-cli` from 1Password when tokens exist.
+
+For optional Bitbucket clone/sync, ensure an SSH agent is running:
+
+```powershell
+$s = $env:TEMP\post-setup.ps1
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile $s
+& $s -SyncBitbucket
+```
+
+Windows directory-backed dotfiles are merged without deleting extra user files.
+
+### WSL
+
+The Windows setup installs or reconciles Ubuntu 24.04 with Winget
+`Canonical.Ubuntu.2404` and `ubuntu2404.exe install --root`, then creates a
+normal WSL user matching the Windows username.
+
+It also enables Virtual Machine Platform with UAC when needed. Reboot and
+re-run setup if Windows reports a pending feature change. If `wsl` reports
+`REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi` and prompts
+for UAC.
+
+Inside Ubuntu, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
+```
+
+From a clone, use `./setup.sh` for the full setup or `./install.sh` for
+symlinks only.
+
+On repeat runs, repo-managed items are updated when already installed:
+
+- Homebrew
+- Scoop
+- Winget
+- npm
+- apt
+- Rustup
+- SDKMAN!
+- uv
+
+Version-aware checks also update direct-download tools such as WSL Zellij,
+Helix, kubectl, kind, k3d, Windows Warp, and EjectLens. Other vendor
+installers remain guarded when they do not expose a safe version check.
 
 ## Java
 
-~24 JDKs (Temurin, Zulu, Corretto, Liberica 8–25; Microsoft 11–25).
+Supported JDK vendors and versions:
 
-Windows `setup/windows.ps1` installs this matrix via `bootstrap/java-windows.ps1` (idempotent). macOS and WSL still use the standalone scripts (not part of `setup.sh`).
+- Temurin, Zulu, Corretto, and Liberica: versions 8–25
+- Microsoft: versions 11–25
 
-macOS (download then run - needs a TTY for sudo `.pkg` passwords; `curl | bash` looks stuck):
+Windows installs this matrix through `bootstrap/java-windows.ps1`.
+The script is idempotent. macOS and WSL use standalone scripts that are not
+part of `setup.sh`.
+
+macOS (download then run; a TTY is needed for sudo `.pkg` passwords):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-macos.sh -o /tmp/java-macos.sh
@@ -89,87 +174,202 @@ bash /tmp/java-macos.sh
 ```bash
 # WSL
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-wsl.sh | bash
+
 # Windows (already run by windows.ps1; safe to re-run)
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1 | iex
 ```
 
-Switch: `java-use 21-temurin` (macOS/WSL) · `jv temurin21-jdk` (Windows).
+Switch versions with:
+
+- macOS/WSL: `java-use 21-temurin`
+- Windows: `jv temurin21-jdk`
 
 ## CLIs
 
-`gh`, `atlassian-cli`, and `wrangler` (Cloudflare Pages/Workers) come with setup. Windows has no GitHub binary for `atlassian-cli`; setup compiles it with MSVC `link.exe` when present, otherwise Scoop `gcc` and the gnu rustc triple. Visual Studio 2022 Build Tools (C++ workload) are installed so `rustup-msvc` and UniGetUI rust packages can link.
+Setup includes `gh`, `atlassian-cli`, and `wrangler` (Cloudflare
+Pages/Workers).
+
+On Windows, no GitHub binary is available for `atlassian-cli`. Setup compiles
+it with MSVC `link.exe` when present, or with Scoop `gcc` and the GNU Rust
+target otherwise. Visual Studio 2022 Build Tools (C++ workload) are installed
+so `rustup-msvc` and UniGetUI Rust packages can link.
 
 ```bash
 gh auth login
 atlassian-cli auth login --profile amartha --bitbucket --bearer --workspace Amartha
 ```
 
-Amartha repos: `curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sync-bitbucket-repos.sh | zsh` (1Password item `Amartha Bitbucket PR Review`).
+Amartha repository sync:
 
-Atlassian API tokens are per-app (scoped). Keep separate 1Password items:
-- `Amartha Jira API` - Jira REST
-- `Amartha Bitbucket PR Review` - Bitbucket PR / API
-- `petruswiyadi-Bitbucket` - SSH for git push
+```bash
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sync-bitbucket-repos.sh | zsh
+```
+
+It uses the 1Password item `Amartha Bitbucket PR Review`.
+
+Atlassian API tokens are per-app and scoped. Keep separate 1Password items:
+
+- `Amartha Jira API`: Jira REST
+- `Amartha Bitbucket PR Review`: Bitbucket PR and API
+- `petruswiyadi-Bitbucket`: SSH for Git push
 
 ## Browser extensions
 
-macOS (opens store pages in installed browsers; not run by `setup.sh`):
+The browser-extension scripts open store pages and are not run by the main
+setup scripts.
+
+macOS:
 
 ```bash
 ~/dotfiles/bootstrap/browser-extensions.sh       # defaults
 ~/dotfiles/bootstrap/browser-extensions.sh all
 ```
 
-Windows (not run by `windows.ps1`; browsers cannot silently install extensions):
+Windows (browsers cannot silently install extensions):
 
 ```powershell
 ~\dotfiles\bootstrap\browser-extensions.ps1
 ~\dotfiles\bootstrap\browser-extensions.ps1 -All
 ```
 
-Opens store pages for uBlock, 1Password, FDM (Lite on Chromium; full uBO on Firefox/Brave).
-
-## Post-setup (Windows)
-
-After `windows.ps1`, sign into 1Password, then:
-
-```powershell
-irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex
-```
-
-Configures `gh` and `atlassian-cli` from 1Password when tokens exist. Optional Bitbucket clone/sync (needs SSH agent):
-
-```powershell
-$s = $env:TEMP\post-setup.ps1
-irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile $s
-& $s -SyncBitbucket
-```
+They open store pages for uBlock, 1Password, and FDM. Chromium uses FDM Lite;
+Firefox and Brave use full uBlock Origin.
 
 ## AI
 
-`/grammar` · `/leetcode` · `/handoff` (Cursor, Claude, Copilot, Zai, Gemini/Antigravity, Codex). Caveman + ponytail via setup. [Impeccable](https://github.com/pbakaus/impeccable) design skills (`/impeccable`) install globally for Claude, Codex, Cursor, Gemini, OpenCode, and Pi. Hermes Agent, Pi Coding Agent, Oh My Pi (`omp`), [Reasonix](https://github.com/esengine/DeepSeek-Reasonix) (`reasonix`), [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`; needs Node 22.19+ or 24+), OpenClaw, Kimi Code CLI, Antigravity CLI (`agy`), and [Goose](https://github.com/aaif-goose/goose) are installed as agent clients. Antigravity desktop (2.0) and Goose desktop are installed on macOS and Windows; WSL uses CLI agents (`agy`, `goose`) and reuses the Windows desktop apps.
+Available commands:
 
-Antigravity skills are linked into `~/.gemini/config/skills/` (works in Desktop + CLI + IDE). Product-specific roots (`antigravity/`, `antigravity-cli/`) are also filled. Skills with `disable-model-invocation` must be run as slash commands (e.g. `/grammar`), not auto-picked.
+- `/grammar`
+- `/leetcode`
+- `/handoff`
+
+These are available in Cursor, Claude, Copilot, Zai, Gemini/Antigravity, and
+Codex.
+
+Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbakaus/impeccable).
+The Impeccable design skills are available globally for Claude, Codex, Cursor,
+Gemini, OpenCode, and Pi.
+
+Installed agent clients include:
+
+- Hermes Agent
+- Pi Coding Agent
+- Oh My Pi (`omp`)
+- [Reasonix](https://github.com/esengine/DeepSeek-Reasonix) (`reasonix`)
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`; needs Node 22.19+ or 24+)
+- OpenClaw
+- Kimi Code CLI
+- Antigravity CLI (`agy`)
+- [Goose](https://github.com/aaif-goose/goose)
+
+Antigravity desktop (2.0) and Goose desktop are installed on macOS and
+Windows. WSL uses the CLI agents (`agy`, `goose`) and reuses the Windows
+desktop apps.
+
+Antigravity skills are linked into `~/.gemini/config/skills/`, which works in
+Desktop, CLI, and IDE. Product-specific roots (`antigravity/`,
+`antigravity-cli/`) are also populated.
+
+Skills with `disable-model-invocation` must be run as slash commands, such as
+`/grammar`, rather than auto-selected.
 
 ## Local AI
 
-Ollama, LM Studio, and llama.cpp are installed on macOS and Windows. WSL installs the llama.cpp CLI, maps `ollama` to the Windows CLI when available, and reuses the Windows Ollama / LM Studio servers.
+Installed on macOS and Windows:
 
-Models are not downloaded automatically. Start with `ollama run llama3.2`; use `llama --help` (WSL installer) or `llama-cli --help` (package-manager builds).
+- Ollama
+- LM Studio
+- llama.cpp
 
-## Manual
+WSL installs the llama.cpp CLI, maps `ollama` to the Windows CLI when
+available, and reuses the Windows Ollama and LM Studio servers.
 
-Velja (App Store) · JetBrains via Toolbox · [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html) (DisplayLink is in setup on macOS and Windows; reboot after install). On Windows, DisplayLink may exit Winget 1603 until you reboot and re-run that ID elevated. Deskflow 1603 is usually an old VC++ runtime (needs 14.50+); setup upgrades `Microsoft.VCRedist.2015+.x64` before installing it. Windows also installs NetSpeedTray and TrafficMonitor Lite for taskbar network speed. Setup adds a Start Menu shortcut and autostart for TrafficMonitor, and turns on its taskbar window. Three-finger drag (macOS parity) is [ThreeFingerDragOnWindows](https://github.com/ClementGre/ThreeFingerDragOnWindows) (`9MSX91WQCM2V`); Windows three-finger Task View swipes are turned off so it can work. ROG Flow X13 gets [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) as a lightweight Armoury Crate alternative; setup installs .NET 10 Desktop Runtime first. Do not run G-Helper and Armoury Crate at once.
+Models are not downloaded automatically. Start with:
 
-macOS Podman uses `applehv` via `config/containers/containers.conf` (avoids libkrun/`krunkit --timesync` skew with Podman Desktop). New machines inherit that provider; stop or remove any leftover libkrun default machine if Desktop keeps trying to start it.
+```bash
+ollama run llama3.2
+```
 
-`kubectl`, `kind`, and `k3d` are installed by setup on macOS, Windows, and WSL. Clusters are not created automatically - run `kind create cluster` or `k3d cluster create` when you need one (Podman/Docker must be running).
+Use `llama --help` for the WSL installer or `llama-cli --help` for
+package-manager builds.
 
-## Notes
+## Manual setup and notes
 
-Mac + Android (iOS as a bonus): UpNote (App Store), Notesnook, Standard Notes, Joplin, Simplenote, Obsidian. Obsidian sync is separate. Windows gets the same notes set via Winget, plus LibreOffice and ONLYOFFICE.
+### Apps and drivers
 
-Windows also installs the macOS GUI set where Winget has a package: extra browsers (LibreWolf, Waterfox, Mullvad, ungoogled Chromium, Chromium, Thorium, Min, Chrome Beta/Canary, Firefox ESR/Nightly, Opera / GX / Air), terminals (Alacritty, WezTerm, Tabby, Warp, Hyper, Windows Terminal), editors (Notepad++, VS Code), Everything, Files, UniGetUI, Patch My PC Home Updater, VLC, PotPlayer, K-Lite, Steam, EA App, VALORANT (AP), Spotify, Stremio, qBittorrent, Transmission, FDM, Postman, OpenVPN Connect, OpenCode desktop, and WhatsApp. Mac-only (no Windows package or no equivalent): iTerm, Ghostty, Orion, SigmaOS, Helium, Wispr Flow, CotEditor, IINA, Rectangle / DockDoor.
+- Velja: install from the App Store.
+- JetBrains: install through Toolbox.
+- [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html): install manually.
+- DisplayLink is included in setup on macOS and Windows; reboot after
+  installation.
+- If DisplayLink returns Winget error 1603 on Windows, reboot and re-run that
+  package ID with elevation.
+- Deskflow error 1603 usually means an old VC++ runtime. Setup upgrades
+  `Microsoft.VCRedist.2015+.x64` before installing it.
+
+### Windows utilities
+
+- NetSpeedTray and TrafficMonitor Lite provide taskbar network speed.
+- Setup adds a Start Menu shortcut and autostart for TrafficMonitor, and turns
+  on its taskbar window.
+- [ThreeFingerDragOnWindows](https://github.com/ClementGre/ThreeFingerDragOnWindows)
+  (`9MSX91WQCM2V`) provides macOS-style three-finger drag. Windows three-finger
+  Task View swipes are disabled so it can work.
+- [G-Helper](https://github.com/seerge/g-helper) (`seerge.g-helper`) is installed
+  for ROG Flow X13 as a lightweight Armoury Crate alternative. Setup installs
+  .NET 10 Desktop Runtime first. Do not run G-Helper and Armoury Crate at the
+  same time.
+
+### macOS containers
+
+Podman uses the `applehv` provider through
+`config/containers/containers.conf`. This avoids libkrun/
+`krunkit --timesync` skew with Podman Desktop.
+
+New machines inherit that provider. If Podman Desktop keeps trying to start a
+leftover libkrun machine, stop or remove that machine.
+
+### Kubernetes
+
+`kubectl`, `kind`, and `k3d` are installed by setup on macOS, Windows, and WSL.
+Clusters are not created automatically. When needed, run either:
+
+```bash
+kind create cluster
+k3d cluster create
+```
+
+Podman or Docker must be running first.
+
+### Notes apps
+
+Mac and Android, with iOS as a bonus:
+
+- UpNote (App Store)
+- Notesnook
+- Standard Notes
+- Joplin
+- Simplenote
+- Obsidian
+
+Obsidian Sync is separate. Windows gets the same notes set through Winget,
+plus LibreOffice and ONLYOFFICE.
+
+### Windows app coverage
+
+Windows also installs the macOS GUI set where Winget has a package.
+
+- Browsers: LibreWolf, Waterfox, Mullvad, ungoogled Chromium, Chromium,
+  Thorium, Min, Chrome Beta/Canary, Firefox ESR/Nightly, Opera / GX / Air
+- Terminals: Alacritty, WezTerm, Tabby, Warp, Hyper, Windows Terminal
+- Editors: Notepad++, VS Code
+- Utilities and apps: Everything, Files, UniGetUI, Patch My PC Home Updater,
+  VLC, PotPlayer, K-Lite, Steam, EA App, VALORANT (AP), Spotify, Stremio,
+  qBittorrent, Transmission, FDM, Postman, OpenVPN Connect, OpenCode desktop,
+  and WhatsApp
+
+Mac-only apps (no Windows package or equivalent) include iTerm, Ghostty,
+Orion, SigmaOS, Helium, Wispr Flow, CotEditor, IINA, Rectangle, and DockDoor.
 
 ## Layout
 
