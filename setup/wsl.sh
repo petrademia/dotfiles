@@ -33,20 +33,74 @@ smart_check() {
     local install_path=${2:-}
     if command -v "$cmd" >/dev/null 2>&1 || { [ -n "$install_path" ] && { [ -d "$install_path" ] || [ -f "$install_path" ]; }; }; then
         echo "[-] $cmd already present. Skipping..."
+        record_result skipped
         return 0
     fi
     return 1
 }
 
+# Prefer the Windows checkout when present so WSL shares one clone with Windows setup.
+detect_win_user() {
+    local win_user="${WSL_WIN_USER:-}" base d
+    if [ -z "$win_user" ] && command -v powershell.exe >/dev/null 2>&1; then
+        win_user="$(powershell.exe -NoProfile -Command '$env:USERNAME' 2>/dev/null | tr -d '\r\n' || true)"
+    fi
+    if [ -z "$win_user" ] && [ -d /mnt/c/Users ]; then
+        for d in /mnt/c/Users/*/; do
+            base=$(basename "$d")
+            case "$base" in Public|Default|"Default User"|All\ Users) continue ;; esac
+            if [ -e "${d}AppData/Local/Microsoft/WindowsApps/op.exe" ] || [ -d "${d}AppData/Local/Programs/1Password" ]; then
+                win_user="$base"
+                break
+            fi
+        done
+    fi
+    if [ -z "$win_user" ] && [ -n "${USER:-}" ] && [ -d "/mnt/c/Users/${USER}" ]; then
+        win_user="$USER"
+    fi
+    printf '%s' "$win_user"
+}
+
+ensure_dotfiles_repo() {
+    local win_user win_dotfiles
+    win_user="$(detect_win_user)"
+    win_dotfiles=""
+    if [ -n "$win_user" ] && [ -d "/mnt/c/Users/${win_user}/dotfiles/.git" ]; then
+        win_dotfiles="/mnt/c/Users/${win_user}/dotfiles"
+    fi
+    if [ -n "$win_dotfiles" ]; then
+        DOTFILES="$win_dotfiles"
+        echo "[-] Using Windows dotfiles checkout: $DOTFILES"
+        return 0
+    fi
+    DOTFILES="${DOTFILES:-$HOME/dotfiles}"
+    if [ ! -d "$DOTFILES/.git" ]; then
+        git clone https://github.com/petrademia/dotfiles.git "$DOTFILES"
+    else
+        git -C "$DOTFILES" pull --ff-only 2>/dev/null || true
+    fi
+}
+
 echo "==> 1) System packages"
 sudo apt update
+APT_BASE_LOG="$(mktemp)"
 sudo apt install -y \
     build-essential curl wget git zip unzip cmake pkg-config gdb ninja-build \
     jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 \
-    llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev
-record_result updated
-if sudo apt install -y fastfetch 2>/dev/null; then record_result updated
-else record_result skipped; echo "[-] fastfetch not in apt; skipping"; fi
+    llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev \
+    | tee "$APT_BASE_LOG"
+if grep -q "0 newly installed" "$APT_BASE_LOG"; then record_result skipped
+else record_result updated; fi
+rm -f "$APT_BASE_LOG"
+if dpkg -s fastfetch >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] fastfetch already present. Skipping..."
+elif sudo apt install -y fastfetch 2>/dev/null; then
+    record_result installed
+else
+    record_result skipped
+    echo "[-] fastfetch not in apt; skipping"
+fi
 
 echo "==> 1b) Zellij (terminal multiplexer)"
 ZELLIJ_VER=$(latest_github_tag zellij-org/zellij 2>/dev/null || true)
@@ -102,13 +156,18 @@ else
 fi
 
 echo "==> 2) GitHub CLI (gh)"
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-if sudo apt update && sudo apt install -y gh; then record_result updated
-else record_result failed; echo "[-] gh install/update failed"; fi
+if command -v gh >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] gh already present. Skipping..."
+else
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+    sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+    if sudo apt update && sudo apt install -y gh; then record_result installed
+    else record_result failed; echo "[-] gh install failed"; fi
+fi
 
 echo "==> 3) Git & directory setup"
 WINDOWS_USER_PROFILE=""
@@ -147,8 +206,15 @@ if ! smart_check "rustup" "$HOME/.cargo/bin/rustup"; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 fi
 . "$HOME/.cargo/env" 2>/dev/null || true
-if rustup update stable; then record_result updated
-else record_result failed; echo "Warning: rustup update stable failed"; fi
+RUSTUP_LOG="$(mktemp)"
+if rustup update stable 2>&1 | tee "$RUSTUP_LOG"; then
+    if grep -q "unchanged" "$RUSTUP_LOG"; then record_result skipped
+    else record_result updated; fi
+else
+    record_result failed
+    echo "Warning: rustup update stable failed"
+fi
+rm -f "$RUSTUP_LOG"
 rustup default stable || echo "Warning: rustup default stable failed"
 if ! smart_check "atlassian-cli"; then
     cargo install atlassian-cli || echo "[-] atlassian-cli install skipped"
@@ -156,9 +222,9 @@ fi
 
 if ! smart_check "go" "/usr/bin/go"; then
     sudo add-apt-repository ppa:longsleep/golang-backports -y && sudo apt update
+    if sudo apt install -y golang-go; then record_result installed
+    else record_result failed; echo "[-] Go install failed"; fi
 fi
-if sudo apt install -y golang-go; then record_result updated
-else record_result failed; echo "[-] Go install/update failed"; fi
 
 echo "==> 5) fnm & uv"
 if ! smart_check "fnm" "$HOME/.local/share/fnm/fnm"; then
@@ -184,18 +250,22 @@ if [ ! -d "$HOME/.sdkman" ]; then
         echo "[-] SDKMAN! installer returned a failure; continuing with the remaining WSL setup" >&2
     fi
 fi
+# sdkman is not nounset-safe; keep +u around every sdk invocation.
 set +u
+# shellcheck disable=SC1090
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
-set -u
 if (sdk update >/dev/null 2>&1); then record_result updated
 else record_result skipped; echo "[-] SDKMAN! metadata update skipped"; fi
-if (sdk current gradle >/dev/null 2>&1); then
-    if (sdk upgrade gradle >/dev/null 2>&1); then record_result updated
-    else record_result skipped; echo "[-] gradle via sdkman already current"; fi
+if [ -d "$HOME/.sdkman/candidates/gradle/current" ]; then
+    record_result skipped
+    echo "[-] gradle already present. Skipping..."
+elif (sdk install gradle); then
+    record_result installed
 else
-    if (sdk install gradle >/dev/null 2>&1); then record_result installed
-    else record_result failed; echo "[-] gradle via sdkman install failed"; fi
+    record_result failed
+    echo "[-] gradle via sdkman install failed"
 fi
+set -u
 echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
 
 if ! smart_check "xmake" "$HOME/.xmake/bin/xmake"; then
@@ -206,12 +276,17 @@ echo "==> 7) Extra CLI tools (dust, ngrok)"
 if ! smart_check "dust"; then
     cargo install du-dust || echo "[-] dust install skipped"
 fi
-curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-    | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
-    | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
-if sudo apt update && sudo apt install -y ngrok; then record_result updated
-else record_result failed; echo "[-] ngrok install/update failed"; fi
+if command -v ngrok >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] ngrok already present. Skipping..."
+else
+    curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+        | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+        | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
+    if sudo apt update && sudo apt install -y ngrok; then record_result installed
+    else record_result failed; echo "[-] ngrok install failed"; fi
+fi
 
 if ! smart_check "llama" "$HOME/.llama-app/llama"; then
     curl -fsSL https://llama.app/install.sh | sh || echo "[-] llama.cpp install skipped"
@@ -269,7 +344,9 @@ else
 fi
 
 echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot, Z.ai"
-curl -fsSL https://claude.ai/install.sh | bash || echo "[-] claude install skipped"
+if ! smart_check "claude" "$HOME/.local/bin/claude"; then
+    curl -fsSL https://claude.ai/install.sh | bash || echo "[-] claude install skipped"
+fi
 
 if ! smart_check "opencode" "$HOME/.opencode/bin/opencode"; then
     curl -fsSL https://opencode.ai/install | bash
@@ -371,9 +448,19 @@ if ! smart_check "goose" "$HOME/.local/bin/goose"; then
         CONFIGURE=false bash || echo "[-] Goose CLI install skipped"
 fi
 
-npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force || echo "[-] impeccable skills install skipped"
+if [ -d "$HOME/.cursor/skills/impeccable" ] || [ -d "$HOME/.claude/skills/impeccable" ]; then
+    record_result skipped
+    echo "[-] impeccable skills already present. Skipping..."
+else
+    npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force \
+        || echo "[-] impeccable skills install skipped"
+fi
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"
+# Codex marketplace clone uses SSH; pre-trust github.com so setup stays non-interactive.
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+ssh-keyscan -t ed25519,rsa github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 if command -v claude >/dev/null 2>&1; then
     claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>/dev/null || true
     claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true
@@ -388,32 +475,12 @@ if command -v codex >/dev/null 2>&1; then
 fi
 
 echo "==> 10) Dotfiles"
-DOTFILES="$HOME/dotfiles"
-if [ ! -d "$DOTFILES" ]; then
-    git clone https://github.com/petrademia/dotfiles.git "$DOTFILES"
-fi
-
+ensure_dotfiles_repo
 echo "==> Installing shared dotfiles"
 "$DOTFILES/install.sh"
 
 echo "==> 12) Injecting WSL shell bridge"
-WIN_USER="${WSL_WIN_USER:-}"
-if [ -z "$WIN_USER" ] && command -v powershell.exe >/dev/null 2>&1; then
-  WIN_USER="$(powershell.exe -NoProfile -Command '$env:USERNAME' 2>/dev/null | tr -d '\r\n' || true)"
-fi
-if [ -z "$WIN_USER" ] && [ -d /mnt/c/Users ]; then
-  for d in /mnt/c/Users/*/; do
-    base=$(basename "$d")
-    case "$base" in Public|Default|"Default User"|All\ Users) continue ;; esac
-    if [ -e "${d}AppData/Local/Microsoft/WindowsApps/op.exe" ] || [ -d "${d}AppData/Local/Programs/1Password" ]; then
-      WIN_USER="$base"
-      break
-    fi
-  done
-fi
-if [ -z "$WIN_USER" ] && [ -n "${USER:-}" ] && [ -d "/mnt/c/Users/${USER}" ]; then
-  WIN_USER="$USER"
-fi
+WIN_USER="$(detect_win_user)"
 if [ -z "$WIN_USER" ]; then
   echo "Warning: could not detect Windows username; set WSL_WIN_USER and re-run setup/wsl.sh" >&2
   WIN_USER="UNKNOWN"
@@ -506,12 +573,12 @@ claude --version 2>/dev/null || true
 
 echo
 echo "SETUP COMPLETE: WSL stack deployed (macOS parity)"
-# Stamp the setup revision so Windows can skip only while this script is unchanged.
-# Bump setup/REVISION when WSL setup must re-apply (new tools, PATH, markers).
-DOTFILES_ROOT="${DOTFILES:-$HOME/dotfiles}"
+# Stamp revision from the shared checkout (Windows path preferred via ensure_dotfiles_repo).
 SETUP_REVISION="0"
-if [ -f "$DOTFILES_ROOT/setup/REVISION" ]; then
-    SETUP_REVISION="$(tr -d '[:space:]' < "$DOTFILES_ROOT/setup/REVISION")"
+if [ -f "${DOTFILES:-$HOME/dotfiles}/setup/REVISION" ]; then
+    SETUP_REVISION="$(tr -d '[:space:]' < "${DOTFILES}/setup/REVISION")"
+elif [ -f "$HOME/dotfiles/setup/REVISION" ]; then
+    SETUP_REVISION="$(tr -d '[:space:]' < "$HOME/dotfiles/setup/REVISION")"
 fi
 mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles"
 printf '%s\n' "$SETUP_REVISION" > "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/wsl-setup.done"
