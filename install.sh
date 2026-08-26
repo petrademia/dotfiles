@@ -85,4 +85,12 @@ git config --global include.path "$DOTFILES/git/gitconfig"
 chmod +x "$DOTFILES/git/hooks/prepare-commit-msg" "$DOTFILES/git/hooks/commit-msg"
 git config --global core.hooksPath "$DOTFILES/git/hooks"
 
+# Podman docker shims: Make/scripts need a real PATH binary (aliases are shell-only).
+if command -v podman >/dev/null 2>&1; then
+  mkdir -p "$HOME/.local/bin"
+  chmod +x "$DOTFILES/bin/docker" "$DOTFILES/bin/docker-compose"
+  link "$DOTFILES/bin/docker" "$HOME/.local/bin/docker"
+  link "$DOTFILES/bin/docker-compose" "$HOME/.local/bin/docker-compose"
+fi
+
 echo "dotfiles installed"

@@ -960,6 +960,18 @@ Sync-Dotfile (Join-Path $dotfiles "config\nvim") (Join-Path $env:LOCALAPPDATA "n
 Sync-Dotfile (Join-Path $dotfiles "config\zellij") (Join-Path $HOME ".config\zellij")
 Sync-Dotfile (Join-Path $dotfiles "cursor\cli-config.json") (Join-Path $HOME ".cursor\cli-config.json")
 
+# Podman docker shims for Make/cmd (aliases are PowerShell-only).
+if (Get-Command podman -ErrorAction SilentlyContinue) {
+    $localBin = Join-Path $HOME ".local\bin"
+    New-Item -ItemType Directory -Path $localBin -Force | Out-Null
+    Sync-Dotfile (Join-Path $dotfiles "bin\docker.cmd") (Join-Path $localBin "docker.cmd")
+    Sync-Dotfile (Join-Path $dotfiles "bin\docker-compose.cmd") (Join-Path $localBin "docker-compose.cmd")
+    # Git Bash / MSYS Make look for extensionless names too.
+    Sync-Dotfile (Join-Path $dotfiles "bin\docker") (Join-Path $localBin "docker")
+    Sync-Dotfile (Join-Path $dotfiles "bin\docker-compose") (Join-Path $localBin "docker-compose")
+    Add-UserPath $localBin
+}
+
 foreach ($command in @("grammar", "leetcode", "handoff")) {
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".cursor\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".claude\commands\$command.md")

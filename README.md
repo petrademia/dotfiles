@@ -338,6 +338,11 @@ Podman uses the `applehv` provider through
 New machines inherit that provider. If Podman Desktop keeps trying to start a
 leftover libkrun machine, stop or remove that machine.
 
+When Podman is installed, setup links PATH shims (`~/.local/bin/docker` and
+`docker-compose`) so Make and other non-interactive tools resolve `docker
+compose` without relying on shell aliases. Interactive shells still alias
+`docker`/`docker-compose` to Podman.
+
 ### Kubernetes
 
 `kubectl`, `kind`, and `k3d` are installed by setup on macOS, Windows, and WSL.
@@ -356,5 +361,5 @@ Podman or Docker must be running first.
 setup.sh setup/   installers (macos.sh, windows.ps1, wsl.sh)
 install.sh        symlinks (macOS/WSL; Windows copies via windows.ps1)
 bootstrap/        java-*, macos.sh, post-setup.ps1
-ai/ git/ go/ cursor/ shell/ config/ (nvim, zellij, zsh, containers) scripts/
+ai/ git/ go/ cursor/ shell/ bin/ (docker shims) config/ (nvim, zellij, zsh, containers) scripts/
 ```

@@ -403,6 +403,7 @@ if command -v ollama.exe >/dev/null 2>&1; then
 fi
 
 if command -v podman >/dev/null 2>&1; then
+  # Interactive only; PATH shims from install.sh cover Make/scripts.
   alias docker='podman'
   alias docker-compose='podman compose'
 fi
