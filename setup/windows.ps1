@@ -108,14 +108,6 @@ function Get-DotfilesRoot {
     return Sync-DotfilesClone
 }
 
-function Get-DotfilesSetupRevision {
-    $revFile = Join-Path (Get-DotfilesRoot) "setup\REVISION"
-    if (Test-Path -LiteralPath $revFile) {
-        return (Get-Content -LiteralPath $revFile -Raw).Trim()
-    }
-    return "0"
-}
-
 function Test-WingetExit1603 {
     param([string]$Text, [int]$Code)
     return ($Code -eq 1603) -or ($Text -match "exit code:\s*1603")
@@ -1290,50 +1282,25 @@ function Get-WslLinuxSetupCommand {
     return "curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash"
 }
 
-function Test-WslLinuxStackConfigured {
-    $expected = Get-DotfilesSetupRevision
-    # Compare stamped revision (quote-free; survives wsl.exe). Mismatch or missing → re-run.
-    $raw = wsl.exe -d $wslDistro -- bash -lc 'cat $HOME/.config/dotfiles/wsl-setup.done 2>/dev/null' 2>$null
-    $got = (($raw | Out-String) -replace "`0", "").Trim()
-    if ($got -and $expected -and $got -eq $expected) { return $true }
-    return $false
+function Write-WslLinuxSetupNextStep {
+    Write-Host "[-] WSL Linux stack is separate from Windows setup." -ForegroundColor Gray
+    Write-Host "    In Ubuntu, run:" -ForegroundColor Yellow
+    Write-Host "      $(Get-WslLinuxSetupCommand)" -ForegroundColor Cyan
 }
 
-function Invoke-WslLinuxSetup {
-    if (!(Test-WslDistroInstalled $wslDistro)) { return }
-
+function Ensure-WslHostReady {
+    if (!(Test-WslDistroInstalled $wslDistro)) { return $false }
     if (-not (Ensure-WslNormalUser)) {
         Add-SetupResult Failed "WSL normal user"
-        return
+        return $false
     }
-
     wsl.exe -d $wslDistro -- bash -lc "echo ok" 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[!] $wslDistro not ready yet (reboot or open Ubuntu once)." -ForegroundColor Yellow
-        Write-Host "    Then re-run setup or: $(Get-WslLinuxSetupCommand)" -ForegroundColor DarkGray
-        return
+        return $false
     }
-
-    $expected = Get-DotfilesSetupRevision
-    if (Test-WslLinuxStackConfigured) {
-        Write-Host "[-] WSL Linux stack at revision $expected. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped "WSL Linux setup"
-        return
-    }
-
-    $wslSetupCmd = Get-WslLinuxSetupCommand
-    Write-Host "[+] Running Linux setup inside $wslDistro (revision $expected)..." -ForegroundColor Cyan
-    Write-Host "    $wslSetupCmd" -ForegroundColor DarkGray
-    wsl.exe -d $wslDistro -- bash -lc $wslSetupCmd
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "[+] WSL Linux stack deployed." -ForegroundColor Green
-        Add-SetupResult Installed "WSL Linux setup"
-    } else {
-        $exitCode = $LASTEXITCODE
-        Add-SetupResult Failed "WSL Linux setup"
-        Write-Host "[!] WSL setup failed (exit $exitCode). Run manually in Ubuntu:" -ForegroundColor Yellow
-        Write-Host "    $wslSetupCmd" -ForegroundColor Cyan
-    }
+    Add-SetupResult Skipped "WSL host"
+    return $true
 }
 
 function Test-IsAdmin {
@@ -1660,7 +1627,11 @@ if ($wslVmReady -and $script:WslBroken) {
 
 if ($wslInstalled) {
     Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
-    if ($wslVmReady) { Invoke-WslLinuxSetup } else { Write-WslRebootNeeded }
+    if ($wslVmReady) {
+        if (Ensure-WslHostReady) { Write-WslLinuxSetupNextStep }
+    } else {
+        Write-WslRebootNeeded
+    }
 } elseif ($wslVmReady) {
     # The generic Canonical.Ubuntu package still resolves to 22.04. Pin 24.04.
     # The package can be "installed" in Winget while wsl -l is still empty.
@@ -1672,7 +1643,7 @@ if ($wslInstalled) {
         $repaired = Install-UbuntuViaLauncher
     }
     if ($repaired) {
-        Invoke-WslLinuxSetup
+        if (Ensure-WslHostReady) { Write-WslLinuxSetupNextStep }
     } elseif (-not (Test-WslVmPlatformReady)) {
         Write-WslRebootNeeded
     } else {
@@ -1692,9 +1663,11 @@ if ($script:SetupResults.Failed -eq 0) {
 Write-SetupSummary
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Sign into 1Password, then:" -ForegroundColor Yellow
+Write-Host "  1. WSL Linux stack (in Ubuntu):" -ForegroundColor Yellow
+Write-Host "     $(Get-WslLinuxSetupCommand)" -ForegroundColor Cyan
+Write-Host "  2. Sign into 1Password, then:" -ForegroundColor Yellow
 Write-Host "     irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex" -ForegroundColor Cyan
-Write-Host "  2. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor Yellow
+Write-Host "  3. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor Yellow
 Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
@@ -1702,7 +1675,7 @@ Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL: setup enables Virtual Machine Platform automatically; reboot and re-run if Windows reports a pending feature change"
+Write-Host "  - WSL host: setup enables Virtual Machine Platform automatically; reboot and re-run Windows setup if Windows reports a pending feature change"
 Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"

@@ -13,9 +13,8 @@ Each platform prints an install/update/skip/failure summary.
 - **Failed: 0** - everything required is present or was installed successfully.
 
 Setup is provision-first, not a daily updater. Use UniGetUI, `scoop update *`,
-or `winget upgrade` when you want package upgrades. WSL is re-run only when
-`setup/REVISION` changes (stamped into `~/.config/dotfiles/wsl-setup.done`);
-bump that file after meaningful WSL setup changes.
+or `winget upgrade` when you want package upgrades. Windows setup only prepares
+the WSL *host* (distro + user); run the Linux stack separately inside Ubuntu.
 
 ### macOS
 
@@ -131,20 +130,24 @@ Windows directory-backed dotfiles are merged without deleting extra user files.
 
 The Windows setup installs or reconciles Ubuntu 24.04 with Winget
 `Canonical.Ubuntu.2404` and `ubuntu2404.exe install --root`, then creates a
-normal WSL user matching the Windows username.
+normal WSL user matching the Windows username. It does **not** run the Linux
+package/AI stack; that stays a separate step so Windows re-runs stay fast.
 
 It also enables Virtual Machine Platform with UAC when needed. Reboot and
-re-run setup if Windows reports a pending feature change. If `wsl` reports
-`REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi` and prompts
-for UAC.
+re-run Windows setup if Windows reports a pending feature change. If `wsl`
+reports `REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi`
+and prompts for UAC.
 
-Inside Ubuntu, run:
+Inside Ubuntu, run the Linux stack:
 
 ```bash
+# Prefer the local clone when you have unpushed setup fixes:
+bash ~/dotfiles/setup.sh
+# Or from GitHub main:
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
 ```
 
-On repeat runs, repo-managed items are updated when already installed. The
+On repeat runs, repo-managed items are skipped when already installed. The
 package managers used across the platform scripts include:
 
 - Homebrew
