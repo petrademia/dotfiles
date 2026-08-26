@@ -4,6 +4,19 @@
 
 Each platform prints an install/update/skip/failure summary.
 
+**What the summary means**
+
+- **Installed** - newly provisioned on this run.
+- **Skipped** - already present; setup did not reinstall or upgrade it.
+- **Updated** - rare; only when a helper still needs a real version bump
+  (for example Warp/EjectLens when the installed build differs).
+- **Failed: 0** - everything required is present or was installed successfully.
+
+Setup is provision-first, not a daily updater. Use UniGetUI, `scoop update *`,
+or `winget upgrade` when you want package upgrades. WSL is re-run only when
+`setup/REVISION` changes (stamped into `~/.config/dotfiles/wsl-setup.done`);
+bump that file after meaningful WSL setup changes.
+
 ### macOS
 
 ```bash

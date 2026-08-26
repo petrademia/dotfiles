@@ -506,12 +506,20 @@ claude --version 2>/dev/null || true
 
 echo
 echo "SETUP COMPLETE: WSL stack deployed (macOS parity)"
+# Stamp the setup revision so Windows can skip only while this script is unchanged.
+# Bump setup/REVISION when WSL setup must re-apply (new tools, PATH, markers).
+DOTFILES_ROOT="${DOTFILES:-$HOME/dotfiles}"
+SETUP_REVISION="0"
+if [ -f "$DOTFILES_ROOT/setup/REVISION" ]; then
+    SETUP_REVISION="$(tr -d '[:space:]' < "$DOTFILES_ROOT/setup/REVISION")"
+fi
 mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles"
-date -Iseconds > "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/wsl-setup.done"
+printf '%s\n' "$SETUP_REVISION" > "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/wsl-setup.done"
 echo
 echo "Setup summary"
 echo "  Installed: $INSTALLED_COUNT"
 echo "  Updated:   $UPDATED_COUNT"
 echo "  Skipped:   $SKIPPED_COUNT"
 echo "  Failed:    $FAILED_COUNT"
+echo "  Revision:  $SETUP_REVISION"
 echo "Reload your shell: source ~/.zshrc  (or ~/.bashrc)"
