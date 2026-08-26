@@ -534,9 +534,12 @@ function Set-WindowsHostDefaults {
         $shell = New-Object -ComObject Shell.Application
         $appsFolder = $shell.NameSpace("shell:::{4234d49b-0245-4df3-b780-3893943456e1}")
         if ($appsFolder) {
+            # Several apps share a display name (e.g. classic Outlook vs new Outlook).
+            # Unpin every match; -First 1 hits Office Outlook which has no taskbar verb.
             foreach ($name in $unpinNames) {
-                $item = $appsFolder.Items() | Where-Object { $_.Name -eq $name } | Select-Object -First 1
-                & $unpinFromTaskbar $item
+                $appsFolder.Items() | Where-Object { $_.Name -eq $name } | ForEach-Object {
+                    & $unpinFromTaskbar $_
+                }
             }
         }
         # Same Unpin verb on the pin shortcut. File Explorer has none in AppsFolder;
@@ -553,6 +556,8 @@ function Set-WindowsHostDefaults {
         }
         Invoke-TaskbarUnpin (Join-Path $env:WINDIR "explorer.exe")
         Invoke-TaskbarUnpin "shell:AppsFolder\Microsoft.Windows.Explorer"
+        Invoke-TaskbarUnpin "shell:AppsFolder\Microsoft.OutlookForWindows_8wekyb3d8bbwe!Microsoft.OutlookforWindows"
+        Invoke-TaskbarUnpin "shell:AppsFolder\Microsoft.Office.OUTLOOK.EXE.15"
     } catch {}
 
     Set-WindowsStartupApps
