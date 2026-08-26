@@ -54,7 +54,7 @@ FORMULAS=(
 for formula in "${FORMULAS[@]}"; do
   if brew list --formula --versions "$formula" >/dev/null 2>&1; then
     echo "==> Updating formula: $formula"
-    if brew upgrade "$formula"; then record_result updated
+    if brew upgrade --no-ask "$formula"; then record_result updated
     else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
   else
     echo "==> Installing formula: $formula"
@@ -158,7 +158,7 @@ CASKS=(
 for cask in "${CASKS[@]}"; do
   if brew list --cask --versions "$cask" >/dev/null 2>&1; then
     echo "==> Updating cask: $cask"
-    if brew upgrade --cask "$cask"; then record_result updated
+    if brew upgrade --cask --no-ask "$cask"; then record_result updated
     else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
   else
     echo "==> Installing cask: $cask"
