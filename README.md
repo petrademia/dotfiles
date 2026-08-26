@@ -10,11 +10,10 @@ Each platform prints an install/update/skip/failure summary.
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -o setup.sh && bash setup.sh
 ```
 
-From an existing clone:
+Apply macOS defaults and login items with:
 
 ```bash
-./setup.sh
-zsh bootstrap/macos.sh
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
 
 The macOS bootstrap ensures a small login-item allowlist:
@@ -38,15 +37,6 @@ To make Raycast replace Spotlight for `⌘Space`:
 3. Set **Raycast Hotkey** to `⌘Space`.
 4. If macOS reports a conflict, disable **Show Spotlight search** under
    **System Settings → Keyboard → Keyboard Shortcuts → Spotlight**.
-
-To update an existing clone later:
-
-```bash
-cd ~/dotfiles
-git pull
-./setup.sh
-zsh bootstrap/macos.sh
-```
 
 ### Windows
 
@@ -135,10 +125,8 @@ Inside Ubuntu, run:
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
 ```
 
-From a clone, use `./setup.sh` for the full setup or `./install.sh` for
-symlinks only.
-
-On repeat runs, repo-managed items are updated when already installed:
+On repeat runs, repo-managed items are updated when already installed. The
+package managers used across the platform scripts include:
 
 - Homebrew
 - Scoop
@@ -152,6 +140,22 @@ On repeat runs, repo-managed items are updated when already installed:
 Version-aware checks also update direct-download tools such as WSL Zellij,
 Helix, kubectl, kind, k3d, Windows Warp, and EjectLens. Other vendor
 installers remain guarded when they do not expose a safe version check.
+
+## Updating
+
+The setup command handles cloning on a new machine. For an existing clone,
+run:
+
+```bash
+cd ~/dotfiles
+git pull
+```
+
+Then run the platform-specific setup again:
+
+- macOS: `./setup.sh` and `zsh bootstrap/macos.sh`
+- WSL: `./setup.sh`
+- Windows: `.\setup\windows.ps1`
 
 ## Java
 
