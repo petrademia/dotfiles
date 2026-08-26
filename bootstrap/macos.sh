@@ -110,6 +110,52 @@ defaults write com.apple.screencapture type -string "png"
 defaults write com.apple.screencapture disable-shadow -bool true
 
 # ==========================================
+# Login Items
+# ==========================================
+echo "--> Configuring login items"
+
+# Keep this list intentionally small: only apps that provide ongoing background
+# services or input/window-management behavior should start with macOS.
+add_login_item() {
+  local app_name="$1"
+  local app_path=""
+  local candidate
+
+  for candidate in "/Applications/${app_name}.app" "$HOME/Applications/${app_name}.app"; do
+    if [ -d "$candidate" ]; then
+      app_path="$candidate"
+      break
+    fi
+  done
+
+  if [ -z "$app_path" ]; then
+    echo "    skipping $app_name (not installed)"
+    return 0
+  fi
+
+  if osascript - "$app_name" "$app_path" <<'APPLESCRIPT'
+on run argv
+  tell application "System Events"
+    set itemName to item 1 of argv
+    set itemPath to item 2 of argv
+    if not (exists login item itemName) then
+      make login item at end with properties {name:itemName, path:itemPath, hidden:false}
+    end if
+  end tell
+end run
+APPLESCRIPT
+  then
+    echo "    ensured $app_name"
+  else
+    echo "    warning: could not configure $app_name (allow System Events access if prompted)"
+  fi
+}
+
+for app in "1Password" "Rectangle" "MonitorControl" "Scroll Reverser" "Google Drive" "OneDrive" "Deskflow" "Alfred 5" "Raycast"; do
+  add_login_item "$app"
+done
+
+# ==========================================
 # Reset & Apply
 # ==========================================
 echo "--> Restarting affected system services..."
