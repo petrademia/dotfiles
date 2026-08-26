@@ -60,7 +60,18 @@ reports a conflict, disable **Show Spotlight search** under **System Settings
 
 ## Windows configuration
 
-`setup/windows.ps1` applies a small host set (same role as `bootstrap/macos.sh`): show file extensions and hidden files, `~/Screenshots`, faster key repeat, tap-to-click, disable Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture, hibernate plus Hibernate in the power menu, NTFS long paths, Alt+Tab as windows only (no Edge tabs), hide taskbar Search / Task view / Widgets / Chat / Copilot / Resume, unpin default taskbar apps (Edge, Store, File Explorer, Copilot, Mail, Teams, Xbox), Windows Security SmartScreen / PUA on and Smart App Control off, and trim startup apps. Startup is default-deny: only 1Password, ThreeFingerDrag, and Windows Security are enabled because they provide resident security or input behavior. TrafficMonitor, window-switcher, Surfshark, Google Drive, OneDrive, Everything, and FDM start on demand. Startup also disables DisplayLink's tray UI, browser helpers (Opera / GX / Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI, Discord, Slack, WhatsApp, Warp, OpenVPN Connect, Ollama, Spotify, Virtual Pet, ASUS Smart Display, Radeon overlay, Mobile devices/Phone Link, Copilot, Teams, ChatGPT, Xbox, To Do, and similar launchers or helpers. The DisplayLink driver remains installed for dock support, and the Riot Vanguard service is not disabled. WSL setup automatically enables the Virtual Machine Platform feature with UAC when needed; reboot and re-run setup if Windows reports a pending feature change. Hibernate, long paths, HKLM startup, Smart App Control Off, and the Widgets policy need elevation. Alt+Tab and some taskbar buttons may need a logoff (or Explorer restart) to take effect. Widgets (`TaskbarDa`) is ACL-locked on some Windows 11 builds; the Feeds policy is the fallback.
+`setup/windows.ps1` applies the Windows equivalent of `bootstrap/macos.sh`:
+
+- **Files and input:** show file extensions and hidden files, create `~/Screenshots`, enable faster key repeat and tap-to-click, and disable Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture.
+- **Power and navigation:** enable hibernation and add Hibernate to the power menu, enable NTFS long paths, and configure Alt+Tab to show windows only (not Edge tabs).
+- **Taskbar:** hide Search, Task View, Widgets, Chat, Copilot, and Resume; unpin default apps such as Edge, Store, File Explorer, Copilot, Mail, Teams, and Xbox.
+- **Security:** enable Windows Security SmartScreen and PUA protection, and disable Smart App Control.
+- **Startup:** use a default-deny policy. Only 1Password, ThreeFingerDrag, and Windows Security are enabled because they provide resident security or input behavior.
+  - Start on demand: TrafficMonitor, window-switcher, Surfshark, Google Drive, OneDrive, Everything, and FDM.
+  - Disabled at startup: DisplayLink's tray UI, browser helpers (Opera / GX / Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI, Discord, Slack, WhatsApp, Warp, OpenVPN Connect, Ollama, Spotify, Virtual Pet, ASUS Smart Display, Radeon overlay, Mobile devices/Phone Link, Copilot, Teams, ChatGPT, Xbox, To Do, and similar launchers or helpers.
+- **Drivers and WSL:** keep the DisplayLink driver installed for dock support and leave the Riot Vanguard service enabled. WSL automatically enables Virtual Machine Platform with UAC when needed; reboot and re-run setup if Windows reports a pending feature change.
+
+Some settings need elevation: hibernation, long paths, HKLM startup, Smart App Control, and the Widgets policy. Alt+Tab and some taskbar changes may need a logoff or Explorer restart. On some Windows 11 builds, Widgets (`TaskbarDa`) is ACL-locked; the Feeds policy is the fallback.
 
 ## Java
 
