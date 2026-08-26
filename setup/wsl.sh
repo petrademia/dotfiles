@@ -204,18 +204,12 @@ mkdir -p "$HOME/code"
 echo "==> 4) Rust & Go"
 if ! smart_check "rustup" "$HOME/.cargo/bin/rustup"; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-fi
-. "$HOME/.cargo/env" 2>/dev/null || true
-RUSTUP_LOG="$(mktemp)"
-if rustup update stable 2>&1 | tee "$RUSTUP_LOG"; then
-    if grep -q "unchanged" "$RUSTUP_LOG"; then record_result skipped
-    else record_result updated; fi
+    . "$HOME/.cargo/env" 2>/dev/null || true
+    rustup default stable || echo "Warning: rustup default stable failed"
+    record_result installed
 else
-    record_result failed
-    echo "Warning: rustup update stable failed"
+    . "$HOME/.cargo/env" 2>/dev/null || true
 fi
-rm -f "$RUSTUP_LOG"
-rustup default stable || echo "Warning: rustup default stable failed"
 if ! smart_check "atlassian-cli"; then
     cargo install atlassian-cli || echo "[-] atlassian-cli install skipped"
 fi
@@ -245,17 +239,21 @@ uv python install 3 --default
 
 echo "==> 6) SDKMAN!, gradle & xmake"
 export sdkman_auto_answer=true
-if [ ! -d "$HOME/.sdkman" ]; then
-    if ! curl -s "https://get.sdkman.io?rcupdate=false" | bash; then
+if [ -d "$HOME/.sdkman" ]; then
+    record_result skipped
+    echo "[-] SDKMAN! already present. Skipping..."
+else
+    if curl -s "https://get.sdkman.io?rcupdate=false" | bash; then
+        record_result installed
+    else
         echo "[-] SDKMAN! installer returned a failure; continuing with the remaining WSL setup" >&2
+        record_result failed
     fi
 fi
 # sdkman is not nounset-safe; keep +u around every sdk invocation.
 set +u
 # shellcheck disable=SC1090
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
-if (sdk update >/dev/null 2>&1); then record_result updated
-else record_result skipped; echo "[-] SDKMAN! metadata update skipped"; fi
 if [ -d "$HOME/.sdkman/candidates/gradle/current" ]; then
     record_result skipped
     echo "[-] gradle already present. Skipping..."
@@ -352,18 +350,20 @@ if ! smart_check "opencode" "$HOME/.opencode/bin/opencode"; then
     curl -fsSL https://opencode.ai/install | bash
 fi
 
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
-echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
-    | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
 if command -v crush >/dev/null 2>&1; then
     record_result skipped
     echo "[-] crush already present. Skipping..."
-elif sudo apt update && sudo apt install -y crush; then
-    record_result installed
 else
-    record_result failed
-    echo "[-] crush install failed"
+    sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
+        | sudo tee /etc/apt/sources.list.d/charm.list >/dev/null
+    if sudo apt update && sudo apt install -y crush; then
+        record_result installed
+    else
+        record_result failed
+        echo "[-] crush install failed"
+    fi
 fi
 
 # Skip when the CLI is already on PATH so re-runs stay mostly skipped / Failed: 0.
@@ -415,6 +415,7 @@ fi
 
 run_npm_global playwright playwright
 if [ -d "$HOME/.cache/ms-playwright" ] && compgen -G "$HOME/.cache/ms-playwright/chromium*" >/dev/null; then
+    record_result skipped
     echo "[-] Playwright Chromium already installed. Skipping..."
 else
     npx playwright install chromium || true
@@ -422,9 +423,7 @@ fi
 
 run_npm_global @github/copilot copilot
 run_npm_global @openai/codex codex
-if command -v gh >/dev/null 2>&1; then
-    gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
-fi
+# gh's built-in copilot command is enough; do not force-install the colliding extension.
 
 if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
     curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
@@ -460,18 +459,35 @@ echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"
 # Codex marketplace clone uses SSH; pre-trust github.com so setup stays non-interactive.
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
-ssh-keyscan -t ed25519,rsa github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
-if command -v claude >/dev/null 2>&1; then
-    claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>/dev/null || true
-    claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true
-    claude plugin install caveman 2>/dev/null || echo "Note: caveman plugin install failed"
-    claude plugin install ponytail 2>/dev/null || echo "Note: ponytail plugin install failed"
+touch "$HOME/.ssh/known_hosts"
+chmod 600 "$HOME/.ssh/known_hosts"
+if ! grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null; then
+    ssh-keyscan -t ed25519,rsa github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 fi
-if command -v codex >/dev/null 2>&1; then
-    codex plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
-    codex plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
-    codex plugin add caveman@caveman 2>/dev/null || echo "Note: caveman Codex plugin install failed"
-    codex plugin add ponytail@ponytail 2>/dev/null || echo "Note: ponytail Codex plugin install failed"
+CLAUDE_PLUGINS_OK=0
+CODEX_PLUGINS_OK=0
+if [ -d "$HOME/.claude/plugins/cache/caveman" ] && [ -d "$HOME/.claude/plugins/cache/ponytail" ]; then
+    CLAUDE_PLUGINS_OK=1
+fi
+if [ -d "$HOME/.codex/plugins/cache/caveman" ] && [ -d "$HOME/.codex/plugins/cache/ponytail" ]; then
+    CODEX_PLUGINS_OK=1
+fi
+if [ "$CLAUDE_PLUGINS_OK" -eq 1 ] && [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
+    record_result skipped
+    echo "[-] caveman/ponytail plugins already present. Skipping..."
+else
+    if command -v claude >/dev/null 2>&1 && [ "$CLAUDE_PLUGINS_OK" -eq 0 ]; then
+        claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>/dev/null || true
+        claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true
+        claude plugin install caveman 2>/dev/null || echo "Note: caveman plugin install failed"
+        claude plugin install ponytail 2>/dev/null || echo "Note: ponytail plugin install failed"
+    fi
+    if command -v codex >/dev/null 2>&1 && [ "$CODEX_PLUGINS_OK" -eq 0 ]; then
+        codex plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
+        codex plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
+        codex plugin add caveman@caveman 2>/dev/null || echo "Note: caveman Codex plugin install failed"
+        codex plugin add ponytail@ponytail 2>/dev/null || echo "Note: ponytail Codex plugin install failed"
+    fi
 fi
 
 echo "==> 10) Dotfiles"
