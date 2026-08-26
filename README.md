@@ -56,14 +56,18 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 
 - **Files and input:** show file extensions and hidden files, open File
   Explorer to This PC (not Home), enable End Task on the taskbar, create
-  `~/Screenshots`, enable faster key repeat and tap-to-click, and disable
-  Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture.
+  `~/Screenshots`, enable faster key repeat and tap-to-click, disable Sticky
+  Keys (Shift five times), and disable Windows three-finger swipe/tap so
+  ThreeFingerDrag can own the gesture.
 - **Power and navigation:** enable hibernation and add Hibernate to the power
   menu, enable NTFS long paths, and configure Alt+Tab to show windows only
   (not Edge tabs).
-- **Taskbar:** hide Search, Task View, Widgets, Chat, Copilot, and Resume;
-  unpin default apps such as Edge, Store, File Explorer, Copilot, Mail, Teams,
-  and Xbox.
+- **Start and Search:** more pins than recommendations, hide the Recommended
+  section and Store tips, turn off account nags, disable Bing web results, and
+  hide the Settings home page plus suggested content inside Settings.
+- **Taskbar:** show battery percent; hide Search, Task View, Widgets, Chat,
+  Copilot, and Resume; unpin default apps such as Edge, Store, File Explorer,
+  Copilot, Mail, Teams, and Xbox.
 - **Security:** enable Windows Security SmartScreen and PUA protection, and
   disable Smart App Control.
 - **Startup:** use a default-deny policy. Only 1Password, ThreeFingerDrag,
@@ -86,6 +90,7 @@ Some settings need elevation:
 - HKLM startup
 - Smart App Control
 - The Widgets policy
+- Consumer Features and hiding Start's Recommended section
 
 Alt+Tab and some taskbar changes may need a logoff or Explorer restart. On
 some Windows 11 builds, Widgets (`TaskbarDa`) is ACL-locked; the Feeds policy

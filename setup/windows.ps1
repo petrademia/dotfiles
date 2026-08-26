@@ -409,6 +409,29 @@ function Set-WindowsHostDefaults {
     if (!(Test-Path $search)) { New-Item -Path $search -Force | Out-Null }
     Set-ItemProperty -Path $search -Name SearchboxTaskbarMode -Type DWord -Value 0
     Set-ItemProperty -Path $search -Name SearchboxTaskbarModeCache -Type DWord -Value 0
+    Set-ItemProperty -Path $search -Name BingSearchEnabled -Type DWord -Value 0
+    # Personalization > Start: more pins, no account nags or Store tips.
+    Set-ItemProperty -Path $adv -Name Start_Layout -Type DWord -Value 1 -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $adv -Name Start_AccountNotifications -Type DWord -Value 0
+    Set-ItemProperty -Path $adv -Name Start_IrisRecommendations -Type DWord -Value 0
+    # Taskbar battery glyph shows a percent. Sticky Keys Flags is REG_SZ; 506
+    # clears SKF_STICKYKEYSON and SKF_HOTKEYACTIVE (Shift five times).
+    Set-ItemProperty -Path $adv -Name IsBatteryPercentageEnabled -Type DWord -Value 1
+    Set-ItemProperty -Path "HKCU:\Control Panel\Accessibility\StickyKeys" -Name Flags -Value "506"
+    $searchPolicy = "HKCU:\Software\Policies\Microsoft\Windows\Explorer"
+    if (!(Test-Path $searchPolicy)) { New-Item -Path $searchPolicy -Force | Out-Null }
+    Set-ItemProperty -Path $searchPolicy -Name DisableSearchBoxSuggestions -Type DWord -Value 1
+    $settingsPolicy = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+    if (!(Test-Path $settingsPolicy)) { New-Item -Path $settingsPolicy -Force | Out-Null }
+    Set-ItemProperty -Path $settingsPolicy -Name SettingsPageVisibility -Type String -Value "hide:home"
+    $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+    if (!(Test-Path $cdm)) { New-Item -Path $cdm -Force | Out-Null }
+    foreach ($name in @("SubscribedContent-338393Enabled", "SubscribedContent-353694Enabled", "SubscribedContent-353696Enabled")) {
+        Set-ItemProperty -Path $cdm -Name $name -Type DWord -Value 0
+    }
+    $settingsNags = "HKCU:\Software\Microsoft\Windows\CurrentVersion\SystemSettings\AccountNotifications"
+    if (!(Test-Path $settingsNags)) { New-Item -Path $settingsNags -Force | Out-Null }
+    Set-ItemProperty -Path $settingsNags -Name EnableAccountNotifications -Type DWord -Value 0
     $feeds = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Feeds"
     if (!(Test-Path $feeds)) { New-Item -Path $feeds -Force | Out-Null }
     try { Set-ItemProperty -Path $feeds -Name ShellFeedsTaskbarViewMode -Type DWord -Value 2 -ErrorAction Stop } catch {}
@@ -467,8 +490,16 @@ function Set-WindowsHostDefaults {
             $winFeeds = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
             if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force -ErrorAction Stop | Out-Null }
             Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0 -ErrorAction Stop
+            $cloud = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
+            if (!(Test-Path $cloud)) { New-Item -Path $cloud -Force -ErrorAction Stop | Out-Null }
+            Set-ItemProperty -Path $cloud -Name DisableWindowsConsumerFeatures -Type DWord -Value 1 -ErrorAction Stop
+            # Hide Start's Recommended section without IsEducationEnvironment,
+            # which also turns off Spotlight wallpaper.
+            $startPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
+            if (!(Test-Path $startPolicy)) { New-Item -Path $startPolicy -Force -ErrorAction Stop | Out-Null }
+            Set-ItemProperty -Path $startPolicy -Name HideRecommendedSection -Type DWord -Value 1 -ErrorAction Stop
         } catch {
-            Write-Host "[!] Hibernate power-menu / long paths / Widgets policy skipped (needs elevation)." -ForegroundColor Yellow
+            Write-Host "[!] Hibernate power-menu / long paths / Widgets / Start policy skipped (needs elevation)." -ForegroundColor Yellow
         }
     }
 
