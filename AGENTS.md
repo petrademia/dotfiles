@@ -12,6 +12,8 @@ Reproducible macOS/Windows/WSL setup via Homebrew, Scoop/Winget, copies or symli
 - `ai/` - AI slash commands and skills shared across tools.
 - `global/AGENTS.md` - source for the global `~/AGENTS.md` and `~/.claude/CLAUDE.md`.
 
+Windows setup only prepares the WSL host (distro, user, VMP). Run `setup.sh` inside Ubuntu for the Linux stack; do not invoke the full WSL package/AI install from `windows.ps1`.
+
 ## Conventions
 
 - Add a new app/tool in the matching `setup/` script, then keep `README.md` notes (Install, Java, CLIs, Manual) in sync when the change needs a user-facing step.
