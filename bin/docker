@@ -1,0 +1,8 @@
+#!/bin/sh
+# PATH shim so Make/scripts find `docker` without relying on shell aliases.
+# Interactive zsh still has alias docker=podman; this covers non-interactive callers.
+if ! command -v podman >/dev/null 2>&1; then
+  echo "docker: podman not found (install Podman or real Docker)" >&2
+  exit 127
+fi
+exec podman "$@"
