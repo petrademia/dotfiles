@@ -721,15 +721,14 @@ Write-Host "Updating Scoop Manifests..." -ForegroundColor Cyan
 Protect-ScoopGit { scoop update | Out-Host }
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
-# Repo-managed Scoop apps: install missing entries and upgrade existing entries.
+# Repo-managed Scoop apps: install when missing; skip when already present.
+# Upgrades are left to `scoop update *` / UniGetUI so re-runs stay mostly Skipped.
 function Smart-Scoop {
     param([string]$app)
     $installedList = scoop export
     if ($installedList -like "*$app*") {
-        Write-Host "[*] Updating $app..." -ForegroundColor Cyan
-        Protect-ScoopGit { param($name) scoop update $name | Out-Host } -Arg $app
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app }
-        else { Add-SetupResult Failed $app }
+        Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped $app
     } else {
         Write-Host "[+] $app not found. Installing now..." -ForegroundColor Cyan
         scoop install $app
@@ -849,14 +848,9 @@ foreach ($app in $wingetApps) {
         if ($installSucceeded) { Add-SetupResult Installed $app }
         else { Add-SetupResult Failed $app }
     } else {
-        Write-Host "[*] Updating $app..." -ForegroundColor Cyan
-        $upgradeLines = @()
-        winget upgrade -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable upgradeLines
-        $upgradeText = @($upgradeLines | ForEach-Object { "$_" }) -join "`n"
-        $upgradeCode = $LASTEXITCODE
-        if (Test-WingetNoChange $upgradeText) { Add-SetupResult Skipped $app }
-        elseif ($upgradeCode -eq 0) { Add-SetupResult Updated $app }
-        else { Add-SetupResult Failed $app }
+        # Already installed: do not winget-upgrade on every setup re-run.
+        Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped $app
     }
 }
 
@@ -882,14 +876,8 @@ $msStoreApps = @(
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
-        Write-Host "[*] Updating $($app.Label)..." -ForegroundColor Cyan
-        $storeLines = @()
-        winget upgrade --id $app.Id --source msstore --accept-package-agreements --accept-source-agreements --silent 2>&1 | Tee-Object -Variable storeLines
-        $storeText = @($storeLines | ForEach-Object { "$_" }) -join "`n"
-        $storeCode = $LASTEXITCODE
-        if (Test-WingetNoChange $storeText) { Add-SetupResult Skipped $app.Label }
-        elseif ($storeCode -eq 0) { Add-SetupResult Updated $app.Label }
-        else { Add-SetupResult Failed $app.Label }
+        Write-Host "[-] $($app.Label) already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped $app.Label
         continue
     }
     Write-Host "[+] Installing $($app.Label)..." -ForegroundColor Cyan
@@ -1221,12 +1209,30 @@ if (!(Test-Path $gooseDesktopExe)) {
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
-    uv tool install --upgrade zai-cli --python 3
-    uv tool install --upgrade graphifyy --python 3
+    if (Get-Command zai -ErrorAction SilentlyContinue) {
+        Write-Host "[-] zai already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "zai-cli"
+    } else {
+        uv tool install --upgrade zai-cli --python 3
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "zai-cli" }
+    }
+    if (Get-Command graphify -ErrorAction SilentlyContinue) {
+        Write-Host "[-] graphify already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "graphifyy"
+    } else {
+        uv tool install --upgrade graphifyy --python 3
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "graphifyy" }
+    }
 }
 
 if (Get-Command go -ErrorAction SilentlyContinue) {
-    go install github.com/charmbracelet/crush@latest
+    if (Get-Command crush -ErrorAction SilentlyContinue) {
+        Write-Host "[-] crush already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "crush"
+    } else {
+        go install github.com/charmbracelet/crush@latest
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "crush" }
+    }
 }
 
 # gh ships a built-in `copilot` command; github/gh-copilot collides with it.
@@ -1564,6 +1570,17 @@ exit `$LASTEXITCODE
     return $true
 }
 
+function Test-WslLinuxStackConfigured {
+    # Sentinel written at the end of setup/wsl.sh (no quoting pitfalls).
+    wsl.exe -d $wslDistro -- bash -lc 'test -f $HOME/.config/dotfiles/wsl-setup.done' 2>$null
+    if ($LASTEXITCODE -eq 0) { return $true }
+    # Older installs: regex (not a quoted spaced string) survives wsl.exe arg parsing.
+    # The previous 'grep -q "DOTFILES DEV ENV"' check always failed, so every Windows
+    # setup re-ran the full Linux stack and looked hung until Ctrl+C.
+    wsl.exe -d $wslDistro -- bash -lc 'grep -qE DOTFILES.DEV.ENV ~/.bashrc ~/.zshrc' 2>$null
+    return ($LASTEXITCODE -eq 0)
+}
+
 function Invoke-WslLinuxSetup {
     if (!(Test-WslDistroInstalled $wslDistro)) { return }
 
@@ -1579,9 +1596,9 @@ function Invoke-WslLinuxSetup {
         return
     }
 
-    $needsSetup = wsl.exe -d $wslDistro -- bash -lc 'grep -q "DOTFILES DEV ENV" ~/.bashrc 2>/dev/null || grep -q "DOTFILES DEV ENV" ~/.zshrc 2>/dev/null; echo $?'
-    if ($needsSetup -match "0") {
+    if (Test-WslLinuxStackConfigured) {
         Write-Host "[-] WSL Linux stack already configured." -ForegroundColor Gray
+        Add-SetupResult Skipped "WSL Linux setup"
         return
     }
 
@@ -1589,6 +1606,7 @@ function Invoke-WslLinuxSetup {
     wsl.exe -d $wslDistro -- bash -lc $wslSetupCmd
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[+] WSL Linux stack deployed." -ForegroundColor Green
+        Add-SetupResult Installed "WSL Linux setup"
     } else {
         $exitCode = $LASTEXITCODE
         Add-SetupResult Failed "WSL Linux setup"
