@@ -1105,13 +1105,16 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     function Smart-NpmGlobal {
         param([string]$Package, [string]$Command, [switch]$IgnoreScripts)
-        $installed = $Command -and (Get-Command $Command -ErrorAction SilentlyContinue)
-        if ($installed) { Write-Host "[*] Updating $Package..." -ForegroundColor Cyan }
-        else { Write-Host "[+] Installing $Package..." -ForegroundColor Cyan }
+        if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) {
+            Write-Host "[-] $Command already present. Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped $Package
+            return $true
+        }
+        Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
         if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent | Out-Null }
         else { npm install -g $Package --silent | Out-Null }
         if ($LASTEXITCODE -eq 0) {
-            Add-SetupResult $(if ($installed) { "Updated" } else { "Installed" }) $Package
+            Add-SetupResult Installed $Package
             return $true
         }
         Add-SetupResult Failed $Package
@@ -1119,18 +1122,14 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     }
     # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
     # OpenCode is Scoop; Copilot is built into gh; Z.ai is uv zai-cli.
-    $installedAny = $false
-    $installedAny = (Smart-NpmGlobal "@earendil-works/pi-coding-agent" "pi" -IgnoreScripts) -or $installedAny
-    $installedAny = (Smart-NpmGlobal "reasonix" "reasonix") -or $installedAny
-    $installedAny = (Smart-NpmGlobal "@deepseek-ai/dsh" "dsh") -or $installedAny
-    $installedAny = (Smart-NpmGlobal "wrangler" "wrangler") -or $installedAny
-    $installedAny = (Smart-NpmGlobal "@openai/codex" "codex") -or $installedAny
-    $installedAny = (Smart-NpmGlobal "openclaw@latest" "openclaw") -or $installedAny
-    $installedAny = (Smart-NpmGlobal "impeccable" "impeccable") -or $installedAny
-    $installedAny = (Smart-NpmGlobal "playwright" "playwright") -or $installedAny
-    if (-not $installedAny) {
-        Write-Host "[-] Node AI CLIs already installed. Skipping..." -ForegroundColor Gray
-    }
+    [void](Smart-NpmGlobal "@earendil-works/pi-coding-agent" "pi" -IgnoreScripts)
+    [void](Smart-NpmGlobal "reasonix" "reasonix")
+    [void](Smart-NpmGlobal "@deepseek-ai/dsh" "dsh")
+    [void](Smart-NpmGlobal "wrangler" "wrangler")
+    [void](Smart-NpmGlobal "@openai/codex" "codex")
+    [void](Smart-NpmGlobal "openclaw@latest" "openclaw")
+    [void](Smart-NpmGlobal "impeccable" "impeccable")
+    [void](Smart-NpmGlobal "playwright" "playwright")
     $pwBrowsers = Join-Path $env:LOCALAPPDATA "ms-playwright"
     $hasChromium = $false
     if (Test-Path $pwBrowsers) {
