@@ -66,6 +66,7 @@ done
 CASKS=(
   1password
   alacritty
+  alfred
   antigravity
   antigravity-cli
   appcleaner
@@ -144,6 +145,7 @@ CASKS=(
   spotify
   monitorcontrol
   rectangle
+  raycast
   scroll-reverser
   iina
   joplin
