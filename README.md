@@ -22,6 +22,23 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh |
 
 Or from a clone: `./setup.sh` (full) / `./install.sh` (symlinks only; Windows copies files instead).
 
+On macOS, run the defaults and login-item bootstrap separately after the full
+setup:
+
+```bash
+./setup.sh
+zsh bootstrap/macos.sh
+```
+
+To update an existing clone later:
+
+```bash
+cd ~/dotfiles
+git pull
+./setup.sh
+zsh bootstrap/macos.sh
+```
+
 ## macOS defaults
 
 ```bash
