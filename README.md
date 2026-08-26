@@ -1,16 +1,20 @@
 # Dotfiles
 
-## Install
+## Installation
+
+### macOS
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -o setup.sh && bash setup.sh
 ```
 
-Windows:
+### Windows
 
 ```powershell
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
 ```
+
+### WSL
 
 The script sets CurrentUser `RemoteSigned` (Windows defaults to Restricted, which prints `running scripts is disabled` when the profile loads). If `irm | iex` itself is blocked, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force` first.
 
@@ -39,7 +43,7 @@ git pull
 zsh bootstrap/macos.sh
 ```
 
-## macOS defaults
+## macOS configuration
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
@@ -54,7 +58,7 @@ To make Raycast replace Spotlight for `⌘Space`, open Raycast settings with
 reports a conflict, disable **Show Spotlight search** under **System Settings
 → Keyboard → Keyboard Shortcuts → Spotlight** first.
 
-## Windows defaults
+## Windows configuration
 
 `setup/windows.ps1` applies a small host set (same role as `bootstrap/macos.sh`): show file extensions and hidden files, `~/Screenshots`, faster key repeat, tap-to-click, disable Windows three-finger swipe/tap so ThreeFingerDrag can own the gesture, hibernate plus Hibernate in the power menu, NTFS long paths, Alt+Tab as windows only (no Edge tabs), hide taskbar Search / Task view / Widgets / Chat / Copilot / Resume, unpin default taskbar apps (Edge, Store, File Explorer, Copilot, Mail, Teams, Xbox), Windows Security SmartScreen / PUA on and Smart App Control off, and trim startup apps. Startup is default-deny: only 1Password, ThreeFingerDrag, and Windows Security are enabled because they provide resident security or input behavior. TrafficMonitor, window-switcher, Surfshark, Google Drive, OneDrive, Everything, and FDM start on demand. Startup also disables DisplayLink's tray UI, browser helpers (Opera / GX / Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI, Discord, Slack, WhatsApp, Warp, OpenVPN Connect, Ollama, Spotify, Virtual Pet, ASUS Smart Display, Radeon overlay, Mobile devices/Phone Link, Copilot, Teams, ChatGPT, Xbox, To Do, and similar launchers or helpers. The DisplayLink driver remains installed for dock support, and the Riot Vanguard service is not disabled. WSL setup automatically enables the Virtual Machine Platform feature with UAC when needed; reboot and re-run setup if Windows reports a pending feature change. Hibernate, long paths, HKLM startup, Smart App Control Off, and the Widgets policy need elevation. Alt+Tab and some taskbar buttons may need a logoff (or Explorer restart) to take effect. Widgets (`TaskbarDa`) is ACL-locked on some Windows 11 builds; the Feeds policy is the fallback.
 
