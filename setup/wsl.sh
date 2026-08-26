@@ -506,6 +506,8 @@ claude --version 2>/dev/null || true
 
 echo
 echo "SETUP COMPLETE: WSL stack deployed (macOS parity)"
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles"
+date -Iseconds > "${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/wsl-setup.done"
 echo
 echo "Setup summary"
 echo "  Installed: $INSTALLED_COUNT"
