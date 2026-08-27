@@ -456,20 +456,33 @@ else
 fi
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"
-# Codex marketplace clone uses SSH; pre-trust github.com so setup stays non-interactive.
+# Codex marketplace clone uses SSH; ensure github.com is trusted non-interactively.
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 touch "$HOME/.ssh/known_hosts"
 chmod 600 "$HOME/.ssh/known_hosts"
-if ! grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null; then
+if ! ssh-keygen -F github.com >/dev/null 2>&1; then
     ssh-keyscan -t ed25519,rsa github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 fi
+export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o StrictHostKeyChecking=accept-new}"
+
+claude_plugin_present() {
+    [ -d "$HOME/.claude/plugins/cache/$1" ] \
+        || [ -d "$HOME/.claude/plugins/marketplaces/$1" ] \
+        || [ -d "$HOME/.claude/plugins/installed/$1" ]
+}
+codex_plugin_present() {
+    [ -d "$HOME/.codex/plugins/cache/$1" ] \
+        || [ -d "$HOME/.codex/plugins/cache/$1/$1" ] \
+        || compgen -G "$HOME/.codex/plugins/cache/$1/*" >/dev/null 2>&1
+}
+
 CLAUDE_PLUGINS_OK=0
 CODEX_PLUGINS_OK=0
-if [ -d "$HOME/.claude/plugins/cache/caveman" ] && [ -d "$HOME/.claude/plugins/cache/ponytail" ]; then
+if claude_plugin_present caveman && claude_plugin_present ponytail; then
     CLAUDE_PLUGINS_OK=1
 fi
-if [ -d "$HOME/.codex/plugins/cache/caveman" ] && [ -d "$HOME/.codex/plugins/cache/ponytail" ]; then
+if codex_plugin_present caveman && codex_plugin_present ponytail; then
     CODEX_PLUGINS_OK=1
 fi
 if [ "$CLAUDE_PLUGINS_OK" -eq 1 ] && [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
@@ -481,19 +494,25 @@ else
         claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true
         claude plugin install caveman 2>/dev/null || echo "Note: caveman plugin install failed"
         claude plugin install ponytail 2>/dev/null || echo "Note: ponytail plugin install failed"
+    elif [ "$CLAUDE_PLUGINS_OK" -eq 1 ]; then
+        echo "[-] Claude caveman/ponytail already present. Skipping..."
     fi
     if command -v codex >/dev/null 2>&1 && [ "$CODEX_PLUGINS_OK" -eq 0 ]; then
         codex plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
         codex plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
         codex plugin add caveman@caveman 2>/dev/null || echo "Note: caveman Codex plugin install failed"
         codex plugin add ponytail@ponytail 2>/dev/null || echo "Note: ponytail Codex plugin install failed"
+    elif [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
+        echo "[-] Codex caveman/ponytail already present. Skipping..."
     fi
 fi
 
 echo "==> 10) Dotfiles"
 ensure_dotfiles_repo
 echo "==> Installing shared dotfiles"
-"$DOTFILES/install.sh"
+# Always invoke via bash: the Windows checkout may have CRLF shebangs that
+# Linux cannot exec directly ("required file not found").
+bash "$DOTFILES/install.sh"
 
 echo "==> 12) Injecting WSL shell bridge"
 WIN_USER="$(detect_win_user)"
