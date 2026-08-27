@@ -423,7 +423,8 @@ fi
 
 run_npm_global @github/copilot copilot
 run_npm_global @openai/codex codex
-# gh's built-in copilot command is enough; do not force-install the colliding extension.
+# GitHub Copilot CLI is npm @github/copilot (`copilot`).
+# Do not install github/gh-copilot; that retired extension collides with gh.
 
 if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
     curl -fsSL https://hermes-agent.nousresearch.com/install.sh |

@@ -799,7 +799,8 @@ $wingetApps = @(
     "Microsoft.VCRedist.2015+.x64",
     "Microsoft.DotNet.DesktopRuntime.10",
     "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
-    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "Microsoft.PowerToys",
+    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot",
+    "Microsoft.PowerToys",
     "Devolutions.UniGetUI", "PatchMyPC.PatchMyPC",
     "voidtools.Everything",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
@@ -1245,7 +1246,8 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
     }
 }
 
-# gh ships a built-in `copilot` command; github/gh-copilot collides with it.
+# GitHub Copilot CLI is winget GitHub.Copilot (`copilot`).
+# Do not install github/gh-copilot; that retired extension collides with gh.
 
 # --- 10b. Claude Code & Codex plugins (caveman, ponytail) ---
 if (Get-Command claude -ErrorAction SilentlyContinue) {
