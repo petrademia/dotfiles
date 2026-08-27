@@ -15,6 +15,18 @@ record_result() {
   esac
 }
 
+# Direct installers use this guard when they do not expose a safe version check.
+smart_check() {
+  local cmd=$1
+  local install_path=${2:-}
+  if command -v "$cmd" >/dev/null 2>&1 || { [ -n "$install_path" ] && { [ -d "$install_path" ] || [ -f "$install_path" ]; }; }; then
+    echo "[-] $cmd already present. Skipping..."
+    record_result skipped
+    return 0
+  fi
+  return 1
+}
+
 xcode-select -p >/dev/null 2>&1 || xcode-select --install
 
 if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
@@ -51,11 +63,12 @@ FORMULAS=(
   omar16100/atlassian-cli/atlassian-cli
 )
 
+# Repo-managed brew formulas: install when missing; skip when already present.
+# Upgrades are left to `brew upgrade` so re-runs stay mostly Skipped.
 for formula in "${FORMULAS[@]}"; do
   if brew list --formula --versions "$formula" >/dev/null 2>&1; then
-    echo "==> Updating formula: $formula"
-    if brew upgrade --no-ask "$formula"; then record_result updated
-    else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
+    echo "[-] $formula already present. Skipping..."
+    record_result skipped
   else
     echo "==> Installing formula: $formula"
     if brew install "$formula"; then record_result installed
@@ -157,9 +170,8 @@ CASKS=(
 
 for cask in "${CASKS[@]}"; do
   if brew list --cask --versions "$cask" >/dev/null 2>&1; then
-    echo "==> Updating cask: $cask"
-    if brew upgrade --cask --no-ask "$cask"; then record_result updated
-    else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
+    echo "[-] $cask already present. Skipping..."
+    record_result skipped
   else
     echo "==> Installing cask: $cask"
     if brew install --cask "$cask"; then record_result installed
@@ -169,7 +181,10 @@ done
 
 # CotEditor cot CLI - https://coteditor.com/cot
 COTEDITOR_COT="/Applications/CotEditor.app/Contents/SharedSupport/bin/cot"
-if [ -x "$COTEDITOR_COT" ]; then
+if [ -x /usr/local/bin/cot ]; then
+  echo "[-] cot already present. Skipping..."
+  record_result skipped
+elif [ -x "$COTEDITOR_COT" ]; then
   echo "==> Linking cot CLI to /usr/local/bin/cot"
   sudo mkdir -p /usr/local/bin
   sudo ln -sfn "$COTEDITOR_COT" /usr/local/bin/cot
@@ -188,8 +203,13 @@ if command -v mas >/dev/null 2>&1; then
     for app in "${MAS_APPS[@]}"; do
       app_id="${app%% *}"
       app_name="${app#* }"
-      echo "==> Installing App Store app: $app_name"
-      sudo mas get "$app_id" || sudo mas install "$app_id" || echo "Warning: mas failed for $app_name ($app_id)"
+      if mas list 2>/dev/null | grep -q "^${app_id}[[:space:]]"; then
+        echo "[-] $app_name already present. Skipping..."
+        record_result skipped
+      else
+        echo "==> Installing App Store app: $app_name"
+        sudo mas get "$app_id" || sudo mas install "$app_id" || echo "Warning: mas failed for $app_name ($app_id)"
+      fi
     done
   else
     echo "==> Skipping App Store apps (mas 7 needs sudo on a TTY). Later run:"
@@ -203,57 +223,139 @@ export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export JAVA_HOME="/opt/homebrew/opt/openjdk"
 
-rustup update stable || echo "Warning: rustup update stable failed"
-rustup default stable || echo "Warning: rustup default stable failed"
+if command -v rustc >/dev/null 2>&1; then
+  echo "[-] rustc already present. Skipping..."
+  record_result skipped
+else
+  rustup update stable || echo "Warning: rustup update stable failed"
+  rustup default stable || echo "Warning: rustup default stable failed"
+fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 eval "$(fnm env --use-on-cd)"
 fnm use --install-if-missing lts-latest
 fnm default lts-latest
 
-npm install -g @z_ai/coding-helper || true
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent || true
-npm install -g reasonix || true
-npm install -g @deepseek-ai/dsh || true
-npm install -g wrangler || true
-npm install -g openclaw@latest || true
-npm install -g impeccable || true
+# Skip when the CLI is already on PATH so re-runs stay mostly skipped / Failed: 0.
+run_npm_global() {
+  local package=$1
+  local cmd=$2
+  local ignore_scripts=${3:-}
+  if [ -n "$cmd" ] && command -v "$cmd" >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] $cmd already present. Skipping..."
+    return 0
+  fi
+  if [ "$ignore_scripts" = "--ignore-scripts" ]; then
+    if npm install -g --ignore-scripts "$package" --silent; then
+      record_result installed
+    else
+      record_result failed
+      echo "[-] npm install failed: $package"
+    fi
+  else
+    if npm install -g "$package" --silent; then
+      record_result installed
+    else
+      record_result failed
+      echo "[-] npm install failed: $package"
+    fi
+  fi
+}
 
-npm install -g playwright || true
-npx playwright install chromium || true
+run_npm_global @z_ai/coding-helper coding-helper
+run_npm_global @earendil-works/pi-coding-agent pi --ignore-scripts
+run_npm_global reasonix reasonix
+run_npm_global @deepseek-ai/dsh dsh
+run_npm_global wrangler wrangler
+run_npm_global openclaw@latest openclaw
+run_npm_global impeccable impeccable
+run_npm_global playwright playwright
+if find "$HOME/.cache/ms-playwright" -maxdepth 1 -type d -name 'chromium*' 2>/dev/null | grep -q .; then
+  record_result skipped
+  echo "[-] Playwright Chromium already installed. Skipping..."
+else
+  npx playwright install chromium || true
+fi
 
-curl -fsSL https://claude.ai/install.sh | bash
-if ! command -v hermes >/dev/null 2>&1; then
+if ! smart_check "claude" "$HOME/.local/bin/claude"; then
+  curl -fsSL https://claude.ai/install.sh | bash
+fi
+if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
   curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
     bash -s -- --skip-setup --non-interactive || true
 fi
-if ! command -v omp >/dev/null 2>&1; then
+if ! smart_check "omp"; then
   curl -fsSL https://omp.sh/install | sh || echo "Note: Oh My Pi (omp) install failed"
 fi
-npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force || echo "Note: impeccable skills install failed"
-uv tool install --upgrade zai-cli --python 3 || true
-uv tool install --upgrade graphifyy --python 3 || true
-
-if command -v gh >/dev/null 2>&1; then
-  gh extension install github/gh-copilot --force >/dev/null 2>&1 || true
+if [ -d "$HOME/.cursor/skills/impeccable" ] || [ -d "$HOME/.claude/skills/impeccable" ]; then
+  record_result skipped
+  echo "[-] impeccable skills already present. Skipping..."
+else
+  npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force \
+    || echo "Note: impeccable skills install failed"
+fi
+if command -v zai >/dev/null 2>&1; then
+  record_result skipped
+  echo "[-] zai already present. Skipping..."
+else
+  uv tool install --upgrade zai-cli --python 3 || true
+fi
+if command -v graphify >/dev/null 2>&1; then
+  record_result skipped
+  echo "[-] graphify already present. Skipping..."
+else
+  uv tool install --upgrade graphifyy --python 3 || true
 fi
 
-echo "==> Installing Claude Code plugins"
-claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>/dev/null || true
-claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true
-claude plugin install caveman 2>/dev/null || echo "Note: caveman plugin install failed - may need manual install"
-claude plugin install ponytail 2>/dev/null || echo "Note: ponytail plugin install failed - may need manual install"
+# copilot comes from the copilot-cli cask (GitHub Copilot CLI).
+# Do not install github/gh-copilot; that retired extension collides with gh.
 
-if command -v codex >/dev/null 2>&1; then
-  echo "==> Installing Codex / ChatGPT plugins"
-  codex plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
-  codex plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
-  codex plugin add caveman@caveman 2>/dev/null || echo "Note: caveman Codex plugin install failed - may need manual install"
-  codex plugin add ponytail@ponytail 2>/dev/null || echo "Note: ponytail Codex plugin install failed - may need manual install"
-  echo "Restart the ChatGPT app and start a new thread to use caveman/ponytail"
-  echo "For ponytail: open /hooks in Codex and trust its lifecycle hooks"
+echo "==> Installing Claude Code & Codex plugins (caveman, ponytail)"
+claude_plugin_present() {
+  [ -d "$HOME/.claude/plugins/cache/$1" ] \
+    || [ -d "$HOME/.claude/plugins/marketplaces/$1" ] \
+    || [ -d "$HOME/.claude/plugins/installed/$1" ]
+}
+codex_plugin_present() {
+  [ -d "$HOME/.codex/plugins/cache/$1" ] \
+    || [ -d "$HOME/.codex/plugins/cache/$1/$1" ] \
+    || find "$HOME/.codex/plugins/cache/$1" -mindepth 1 -maxdepth 1 2>/dev/null | grep -q .
+}
+
+CLAUDE_PLUGINS_OK=0
+CODEX_PLUGINS_OK=0
+if claude_plugin_present caveman && claude_plugin_present ponytail; then
+  CLAUDE_PLUGINS_OK=1
+fi
+if codex_plugin_present caveman && codex_plugin_present ponytail; then
+  CODEX_PLUGINS_OK=1
+fi
+if [ "$CLAUDE_PLUGINS_OK" -eq 1 ] && [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
+  record_result skipped
+  echo "[-] caveman/ponytail plugins already present. Skipping..."
 else
-  echo "==> Skipping Codex plugins; install codex cask first"
+  if command -v claude >/dev/null 2>&1 && [ "$CLAUDE_PLUGINS_OK" -eq 0 ]; then
+    claude plugin marketplace add https://github.com/JuliusBrussee/caveman 2>/dev/null || true
+    claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>/dev/null || true
+    claude plugin install caveman 2>/dev/null || echo "Note: caveman plugin install failed - may need manual install"
+    claude plugin install ponytail 2>/dev/null || echo "Note: ponytail plugin install failed - may need manual install"
+  elif [ "$CLAUDE_PLUGINS_OK" -eq 1 ]; then
+    echo "[-] Claude caveman/ponytail already present. Skipping..."
+  fi
+  if command -v codex >/dev/null 2>&1 && [ "$CODEX_PLUGINS_OK" -eq 0 ]; then
+    echo "==> Installing Codex / ChatGPT plugins"
+    codex plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
+    codex plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
+    codex plugin add caveman@caveman 2>/dev/null || echo "Note: caveman Codex plugin install failed - may need manual install"
+    codex plugin add ponytail@ponytail 2>/dev/null || echo "Note: ponytail Codex plugin install failed - may need manual install"
+    echo "Restart the ChatGPT app and start a new thread to use caveman/ponytail"
+    echo "For ponytail: open /hooks in Codex and trust its lifecycle hooks"
+  elif [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
+    echo "[-] Codex caveman/ponytail already present. Skipping..."
+  else
+    echo "==> Skipping Codex plugins; install codex cask first"
+  fi
 fi
 
 DOTFILES="$HOME/dotfiles"

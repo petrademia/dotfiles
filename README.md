@@ -12,9 +12,10 @@ Each platform prints an install/update/skip/failure summary.
   (for example Warp/EjectLens when the installed build differs).
 - **Failed: 0** - everything required is present or was installed successfully.
 
-Setup is provision-first, not a daily updater. Use UniGetUI, `scoop update *`,
-or `winget upgrade` when you want package upgrades. Windows setup only prepares
-the WSL *host* (distro + user); run the Linux stack separately inside Ubuntu.
+Setup is provision-first, not a daily updater. Use `brew upgrade` on macOS,
+UniGetUI, `scoop update *`, or `winget upgrade` when you want package upgrades.
+Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
+separately inside Ubuntu.
 
 ### macOS
 
