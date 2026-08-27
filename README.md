@@ -338,6 +338,9 @@ package-manager builds.
   for ROG Flow X13 as a lightweight Armoury Crate alternative. Setup installs
   .NET 10 Desktop Runtime first. Do not run G-Helper and Armoury Crate at the
   same time.
+- Realtek Audio Control (`9P2B8MCSVPLN`) is the Store mixer for the OEM DCH
+  audio driver. Other ASUS support-page apps (GlideX, Dolby, NVIDIA Control
+  Panel) stay manual or unused.
 - Logitech C920 on this machine: disable **HD Pro Webcam C920** under Device
   Manager → Sound, video and game controllers, and leave **Cameras → HD Pro
   Webcam C920** enabled. The C920 USB mic crashes `Audiosrv` (`0xc0000005`);
