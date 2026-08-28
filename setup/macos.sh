@@ -58,7 +58,7 @@ FORMULAS=(
   rustup fastfetch aria2 p7zip 1password-cli sqlite
   gradle maven plantuml kafka tmux zellij helix ripgrep python neovim
   graphviz z3 zstd ngrok jenv mas opencode llama.cpp herdr kimi-code
-  block-goose-cli kind kubernetes-cli k3d
+  block-goose-cli kind kubernetes-cli k3d podman-compose
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
 )

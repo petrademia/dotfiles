@@ -1,5 +1,7 @@
 #!/bin/sh
 # PATH shim for legacy `docker-compose` callers (Make, CI scripts).
+# Prefer `podman compose` (same shape as `docker compose`); it uses
+# podman-compose or docker-compose as the provider when installed.
 if ! command -v podman >/dev/null 2>&1; then
   echo "docker-compose: podman not found (install Podman or real Docker)" >&2
   exit 127
