@@ -361,7 +361,9 @@ leftover libkrun machine, stop or remove that machine.
 When Podman is installed, setup links PATH shims (`~/.local/bin/docker` and
 `docker-compose`) so Make and other non-interactive tools resolve `docker
 compose` without relying on shell aliases. Interactive shells still alias
-`docker`/`docker-compose` to Podman.
+`docker`/`docker-compose` to Podman. Setup also installs `podman-compose`
+(Homebrew on macOS; `uv tool` on Windows/WSL) as the Compose provider behind
+`podman compose`.
 
 ### Kubernetes
 
