@@ -552,8 +552,9 @@ fi
 
 if command -v podman >/dev/null 2>&1; then
   # Interactive only; PATH shims from install.sh cover Make/scripts.
+  export PODMAN_COMPOSE_WARNING_LOGS=false
   alias docker='podman'
-  alias docker-compose='podman compose'
+  alias docker-compose='podman-compose'
 fi
 
 get-keys() {

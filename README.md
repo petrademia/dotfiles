@@ -353,7 +353,9 @@ package-manager builds.
 
 Podman uses the `applehv` provider through
 `config/containers/containers.conf`. This avoids libkrun/
-`krunkit --timesync` skew with Podman Desktop.
+`krunkit --timesync` skew with Podman Desktop. The `[engine]` table also sets
+`compose_warning_logs = false` and prefers Homebrew `podman-compose` so
+`podman compose` does not loop through the `docker-compose` PATH shim.
 
 New machines inherit that provider. If Podman Desktop keeps trying to start a
 leftover libkrun machine, stop or remove that machine.
