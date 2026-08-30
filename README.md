@@ -388,8 +388,13 @@ package-manager builds.
   .NET 10 Desktop Runtime first. Do not run G-Helper and Armoury Crate at the
   same time.
 - Realtek Audio Control (`9P2B8MCSVPLN`) is the Store mixer for the OEM DCH
-  audio driver. Other ASUS support-page apps (GlideX, Dolby, NVIDIA Control
-  Panel) stay manual or unused.
+  audio driver. Other ASUS support-page apps (GlideX, Dolby) stay manual.
+- **NVIDIA App** (`XP8CLZL93F5Z4P`, Microsoft Store) is installed in the user
+  phase. It replaces GeForce Experience (drivers, overlay, ShadowPlay, GPU
+  3D settings). GeForce Experience is **not** in our Winget list; it arrives
+  bundled inside NVIDIA's graphics driver (`Display.GFExperience`, currently
+  536.45 on this machine). Admin phase uninstalls GFE via NVIDIA NVI2.
+  Update Game Ready / Studio drivers inside NVIDIA App; that is not Winget.
 - Logitech C920 on this machine: disable **HD Pro Webcam C920** under Device
   Manager → Sound, video and game controllers, and leave **Cameras → HD Pro
   Webcam C920** enabled. The C920 USB mic crashes `Audiosrv` (`0xc0000005`);

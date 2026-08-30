@@ -309,6 +309,16 @@ function Unregister-DotfilesAdminPhaseTask {
     Unregister-ScheduledTask -TaskName $script:DotfilesAdminTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 }
 
+function Get-DotfilesUserPhaseProcesses {
+    param([string]$Path)
+    @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.CommandLine -and
+            ($_.CommandLine -like "*$Path*") -and
+            ($_.CommandLine -like "*UserPhase*")
+        })
+}
+
 function Start-DotfilesUserPhaseNonElevated {
     param([switch]$Wait)
     $path = Get-WindowsSetupScriptPath
@@ -324,6 +334,7 @@ function Start-DotfilesUserPhaseNonElevated {
         "-NoProfile", "-NoExit", "-ExecutionPolicy", "Bypass",
         "-File", $path, "-UserPhase", "-SkipAutoAdmin"
     )
+    $manual = "& `"$path`" -UserPhase -SkipAutoAdmin"
 
     Write-Host "[+] Starting user phase (non-elevated)..." -ForegroundColor Cyan
     Write-Host "    Log: $script:UserPhaseLogFile" -ForegroundColor Gray
@@ -335,19 +346,30 @@ function Start-DotfilesUserPhaseNonElevated {
         }) -join " "
         try {
             $shell = New-Object -ComObject Shell.Application
-            $shell.ShellExecute("powershell.exe", $argString, $wd, "open", 1) | Out-Null
+            $rc = $shell.ShellExecute("powershell.exe", $argString, $wd, "open", 1)
+            if ($rc -is [int] -and $rc -le 32) {
+                throw "ShellExecute returned $rc"
+            }
         } catch {
             Write-Host "[!] Could not open user phase window: $_" -ForegroundColor Yellow
-            Write-Host "    Normal PS: & `"$path`" -UserPhase -SkipAutoAdmin" -ForegroundColor Cyan
+            Write-Host "    Normal PS: $manual" -ForegroundColor Cyan
             return 1
         }
         if ($Wait) {
             Write-Host "[+] Waiting for user phase window (close it when done)..." -ForegroundColor Gray
+            $started = $false
+            for ($i = 0; $i -lt 20; $i++) {
+                Start-Sleep -Seconds 1
+                if ((Get-DotfilesUserPhaseProcesses $path).Count -gt 0) { $started = $true; break }
+            }
+            if (-not $started) {
+                Write-Host "[!] User phase window did not start." -ForegroundColor Yellow
+                Write-Host "    Normal PS: $manual" -ForegroundColor Cyan
+                return 1
+            }
             do {
                 Start-Sleep -Seconds 2
-                $running = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-                    Where-Object { $_.CommandLine -like "*$([regex]::Escape($path))*UserPhase*" })
-            } while ($running.Count -gt 0)
+            } while ((Get-DotfilesUserPhaseProcesses $path).Count -gt 0)
             if (Test-Path $script:UserPhaseLogFile) {
                 Write-Host "[+] User phase log: $script:UserPhaseLogFile" -ForegroundColor Green
             }
@@ -556,6 +578,46 @@ function Install-VsBuildTools {
     if (($LASTEXITCODE -ne 0) -or -not (Test-VsCToolsInstalled)) {
         Write-Host "[!] VS Build Tools missing or failed. Elevated:" -ForegroundColor Yellow
         Write-Host "    winget install -e --id Microsoft.VisualStudio.2022.BuildTools --override `"$override`"" -ForegroundColor Cyan
+    }
+}
+
+function Test-GeForceExperiencePresent {
+    $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like "*GeForce Experience*" }
+    return [bool]$arp
+}
+
+function Uninstall-GeForceExperience {
+    if (-not (Test-GeForceExperiencePresent)) {
+        Write-Host "[-] NVIDIA GeForce Experience not installed. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "GeForce Experience"
+        return
+    }
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[-] GeForce Experience uninstall needs -AdminPhase (NVIDIA NVI2)." -ForegroundColor Gray
+        $script:AdminPhasePending = $true
+        Add-SetupResult Skipped "GeForce Experience"
+        return
+    }
+    Write-Host "[+] Uninstalling NVIDIA GeForce Experience (replaced by NVIDIA App)..." -ForegroundColor Cyan
+    $nvi2 = Join-Path $env:ProgramFiles "NVIDIA Corporation\Installer2\InstallerCore\NVI2.DLL"
+    if (Test-Path $nvi2) {
+        $p = Start-Process -FilePath "$env:SystemRoot\System32\rundll32.exe" `
+            -ArgumentList "`"$nvi2`",UninstallPackage Display.GFExperience" -Wait -PassThru
+        if ($p -and $p.ExitCode -ne 0 -and (Test-GeForceExperiencePresent)) {
+            Write-Host "[!] NVI2 uninstall exited $($p.ExitCode). Trying winget..." -ForegroundColor Yellow
+            winget uninstall --name "NVIDIA GeForce Experience" --accept-source-agreements --silent --disable-interactivity
+        }
+    } else {
+        winget uninstall --name "NVIDIA GeForce Experience" --accept-source-agreements --silent --disable-interactivity
+    }
+    Start-Sleep -Seconds 2
+    if (Test-GeForceExperiencePresent) {
+        Write-Host "[!] GeForce Experience is still installed." -ForegroundColor Yellow
+        Add-SetupResult Failed "GeForce Experience"
+    } else {
+        Write-Host "[+] GeForce Experience removed." -ForegroundColor Green
+        Add-SetupResult Updated "GeForce Experience"
     }
 }
 
@@ -1076,8 +1138,10 @@ function Set-StartupApproved {
     param([string]$Key, [string]$Name, [bool]$Enabled)
     try {
         if (!(Test-Path $Key)) { New-Item -Path $Key -Force -ErrorAction Stop | Out-Null }
+        # 12 bytes: status DWORD (02=on, 03=off) + FILETIME. A zero timestamp
+        # makes Windows 11 Settings/Task Manager treat a disable as still On.
         $flag = if ($Enabled) { [byte]2 } else { [byte]3 }
-        $bytes = [byte[]](@($flag) + @(0) * 11)
+        $bytes = [byte[]](@($flag, 0, 0, 0) + [BitConverter]::GetBytes([DateTime]::Now.ToFileTime()))
         New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force -ErrorAction Stop | Out-Null
     } catch {}
 }
@@ -1324,6 +1388,8 @@ Install-EjectLens
 
 Initialize-TrafficMonitor
 
+Uninstall-GeForceExperience
+
 # --- 5b. Microsoft Store apps ---
 # 9PLM9XGG6VKS = unified ChatGPT/Codex; 9NT1R1C2HH7J = ChatGPT Classic
 # Spotify's Winget NSIS installer refuses an elevated / UAC-elevated session.
@@ -1335,6 +1401,7 @@ $msStoreApps = @(
     @{ Id = "9NKSQGP7F2NH"; Label = "WhatsApp"; Appx = "*WhatsApp*" }
     @{ Id = "9NCBCSZSJRSB"; Label = "Spotify"; Appx = "SpotifyAB.SpotifyMusic" }
     @{ Id = "9P2B8MCSVPLN"; Label = "Realtek Audio Control"; Appx = "RealtekSemiconductorCorp.RealtekAudioControl" }
+    @{ Id = "XP8CLZL93F5Z4P"; Label = "NVIDIA App"; Appx = "*NVIDIAApp*" }
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
@@ -2118,6 +2185,7 @@ function Invoke-DotfilesAdminPhase {
     Write-Host "[+] Installing Winget apps in admin phase ($($adminWinget.Count) packages, denylist $($script:WingetDenylist.Count))..." -ForegroundColor Cyan
     Install-WingetApps -Apps $adminWinget -AdminOnly
     Install-VsBuildTools
+    Uninstall-GeForceExperience
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask
 }
@@ -2176,6 +2244,7 @@ Write-Host "  4. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor 
 Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
+Write-Host "  - NVIDIA App: update the Game Ready driver in the app (GFE is uninstalled)"
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot after -AdminPhase if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
