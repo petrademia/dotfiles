@@ -1,8 +1,8 @@
 # Windows setup - mirrors the macOS/WSL tool stack via Scoop + Winget.
 #
-# Default (no flags): full setup in one go.
-#   Normal PowerShell  -> user phase, then one UAC for admin phase
-#   Elevated PowerShell -> admin phase, then user phase (non-elevated)
+# Default (no flags): one bootstrap runs both phases (admin is required).
+#   Elevated PowerShell (recommended) -> admin phase, then user phase (non-elevated)
+#   Normal PowerShell (alternative)     -> user phase, then one UAC for admin phase
 #
 # Explicit flags:
 #   -UserPhase / -AdminPhase  run one phase only

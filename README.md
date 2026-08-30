@@ -53,21 +53,32 @@ To make Raycast replace Spotlight for `⌘Space`:
 
 ### Windows
 
-**One command does both phases** (admin is required, not optional):
+**Recommended: run from an elevated PowerShell.** The bootstrap runs the admin
+phase first, then automatically launches the user phase non-elevated.
 
 ```powershell
-# Normal PowerShell (recommended) - user phase, then one UAC for admin
-irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
-
-# Or elevated PowerShell - admin phase, then user phase (non-elevated) automatically
+# PowerShell as Administrator (recommended)
 curl.exe -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 -o $env:TEMP\windows.ps1
 & $env:TEMP\windows.ps1
 ```
 
+This provides administrator privileges up front, reducing additional UAC
+prompts for machine-wide installers where supported. Installers that reject
+admin context (for example Spotify) still run in the chained user phase.
+
+Alternatively:
+
+```powershell
+# Normal PowerShell
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
+```
+
+This runs the user phase first and then elevates for the admin phase.
+
 | How you start | What happens |
 |---------------|--------------|
-| Normal PS, no flags | User phase → **auto UAC** → admin phase |
-| Elevated PS, no flags | Admin phase → **auto** user phase (drops elevation for Winget/Spotify) |
+| Elevated PS, no flags | Admin phase → **auto** user phase (RunLevel Limited) |
+| Normal PS, no flags | User phase → **one UAC** → admin phase |
 | Re-run when done | Mostly Skipped, no UAC |
 
 Then **reboot** if WSL reported a pending feature change, and run Linux setup in Ubuntu:
