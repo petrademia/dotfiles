@@ -38,6 +38,15 @@ function Invoke-OpRead {
     return $null
 }
 
+function Invoke-OpReadFirst {
+    param([string[]]$Refs)
+    foreach ($ref in $Refs) {
+        $val = Invoke-OpRead $ref
+        if ($val) { return $val }
+    }
+    return $null
+}
+
 function Ensure-GhAuth {
     if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
         Write-Host "[-] gh not installed; skipping GitHub auth." -ForegroundColor DarkGray
@@ -49,12 +58,16 @@ function Ensure-GhAuth {
         return
     }
 
-    $token = Invoke-OpRead "op://Personal/GitHub/credential"
+    $token = Invoke-OpReadFirst @(
+        "op://Personal/GitHub CLI Token/credential",
+        "op://Personal/GitHub CLI Token/password",
+        "op://Personal/GitHub CLI Token/token",
+        "op://Personal/GitHub/credential",
+        "op://Personal/GitHub/password",
+        "op://Personal/GitHub PAT/credential"
+    )
     if (-not $token) {
-        $token = Invoke-OpRead "op://Personal/GitHub PAT/credential"
-    }
-    if (-not $token) {
-        Write-Host "[!] No GitHub token in 1Password (op://Personal/GitHub/credential). Run: gh auth login" -ForegroundColor Yellow
+        Write-Host "[!] No GitHub token in 1Password (GitHub CLI Token item). Git push still works via SSH Key." -ForegroundColor Yellow
         return
     }
 
@@ -123,7 +136,7 @@ function Invoke-BitbucketSync {
 function Show-ManualChecklist {
     Write-Host ""
     Write-Host "Manual follow-ups:" -ForegroundColor Yellow
-    Write-Host "  - 1Password: unlock vault; enable SSH agent for Bitbucket git push (petruswiyadi-Bitbucket)"
+    Write-Host "  - 1Password: SSH agent keys SSH Key (GitHub) and petruswiyadi-Bitbucket (Bitbucket)"
     Write-Host "  - Desktop apps: sign into Cursor, Claude, ChatGPT, Antigravity, Goose"
     Write-Host "  - DisplayLink: reboot after driver install if you use a dock"
     Write-Host "  - Wavlink: install model-specific drivers from https://www.wavlink.com/en_us/Drivers.html"

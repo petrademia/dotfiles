@@ -1,0 +1,8 @@
+# Synced to %LOCALAPPDATA%\1Password\config\ssh\agent.toml by setup/windows.ps1
+# GitHub: item title "SSH Key". Bitbucket: petruswiyadi-Bitbucket (see global/AGENTS.md).
+
+[[ssh-keys]]
+item = "SSH Key"
+
+[[ssh-keys]]
+item = "petruswiyadi-Bitbucket"

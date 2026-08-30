@@ -259,11 +259,13 @@ Setup includes:
 - `atlassian-cli`
 - `wrangler` (Cloudflare Pages/Workers)
 
-Authenticate GitHub with:
+Authenticate GitHub with 1Password (after `op vault list` works):
 
-```bash
-gh auth login
+```powershell
+irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex
 ```
+
+Uses the `GitHub CLI Token` item (`password`, `credential`, or `token` field). Git push uses SSH (`SSH Key` in 1Password agent), not `gh`.
 
 ### Amartha and Atlassian
 
@@ -291,9 +293,14 @@ Atlassian API tokens are per-app and scoped. Keep separate 1Password items:
 
 ## Git and SSH
 
-SSH credentials for Git operations are separate from the Amartha API tokens.
+Git uses SSH via the 1Password SSH agent (`global/AGENTS.md`). `setup/windows.ps1` sets System OpenSSH and syncs `config/1password/ssh-agent.toml`.
 
-- `petruswiyadi-Bitbucket`: SSH for Git push
+| 1Password SSH item | Host |
+|--------------------|------|
+| `SSH Key` | GitHub (`ssh -T git@github.com`) |
+| `petruswiyadi-Bitbucket` | Bitbucket git push |
+
+Amartha **API** tokens (PR review, Jira) are separate logins, not these SSH keys.
 
 ## AI
 

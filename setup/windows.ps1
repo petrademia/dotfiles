@@ -1336,6 +1336,36 @@ git config --global core.hooksPath (Join-Path $dotfiles "git\hooks")
 # Git for Windows ships its own ssh.exe, which cannot use the 1Password SSH agent.
 git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
 
+function Sync-1PasswordSshAgentConfig {
+    param([string]$SourceRoot)
+    $src = Join-Path $SourceRoot "config\1password\ssh-agent.toml"
+    if (!(Test-Path $src)) { return }
+    $destDir = Join-Path $env:LOCALAPPDATA "1Password\config\ssh"
+    $dest = Join-Path $destDir "agent.toml"
+    New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    $content = Get-Content -LiteralPath $src -Raw
+    if ((Test-Path $dest) -and ((Get-Content -LiteralPath $dest -Raw) -eq $content)) {
+        Write-Host "[-] 1Password SSH agent config unchanged." -ForegroundColor Gray
+        return
+    }
+    Set-Content -LiteralPath $dest -Value $content -Encoding UTF8
+    Write-Host "[+] Synced 1Password SSH agent config ($dest)." -ForegroundColor Green
+}
+
+$sshAgentSvc = Get-Service -Name ssh-agent -ErrorAction SilentlyContinue
+if ($sshAgentSvc -and $sshAgentSvc.StartType -ne 'Disabled') {
+    if ($sshAgentSvc.Status -eq 'Running') { Stop-Service -Name ssh-agent -Force -ErrorAction SilentlyContinue }
+    try {
+        Set-Service -Name ssh-agent -StartupType Disabled -ErrorAction Stop
+        Write-Host "[+] Disabled Windows OpenSSH Authentication Agent (1Password SSH agent)." -ForegroundColor Green
+    } catch {
+        Write-Host "[!] Could not disable ssh-agent service (run admin once): $_" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "[-] Windows OpenSSH Authentication Agent already disabled." -ForegroundColor Gray
+}
+Sync-1PasswordSshAgentConfig -SourceRoot $dotfiles
+
 # --- 8. Window Switcher (sigoden/window-switcher) ---
 Write-Host "Checking Alt-Backtick Switcher (sigoden)..." -ForegroundColor Cyan
 
