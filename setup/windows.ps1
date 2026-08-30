@@ -2,7 +2,7 @@
 #
 # Default (no flags): one bootstrap runs both phases (admin is required).
 #   Elevated PowerShell (recommended) -> admin phase installs all Winget IDs except
-#     $WingetDenylist; installers that refuse elevation defer to user phase automatically
+#     $WingetDenylist; then opens a visible non-elevated window for user phase
 #   Normal PowerShell (alternative)     -> user phase (denylist/deferred) then UAC admin phase
 #
 # Explicit flags:
@@ -37,6 +37,8 @@ $script:WingetDenylist = @(
     # Runtime refusals are appended to $env:TEMP\dotfiles-winget-user-phase.txt for the chained user phase.
 )
 $script:WingetDeferFile = Join-Path $env:TEMP "dotfiles-winget-user-phase.txt"
+$script:UserPhaseLogFile = Join-Path $env:TEMP "dotfiles-windows-user-phase.log"
+$script:UserPhaseTranscriptStarted = $false
 $script:WingetApps = @(
     "DisplayLink.GraphicsDriver",
     "Microsoft.VCRedist.2015+.x64",
@@ -311,24 +313,51 @@ function Start-DotfilesUserPhaseNonElevated {
         return 1
     }
     Unregister-ScheduledTask -TaskName $script:DotfilesUserTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-    try {
-        $action = New-DotfilesPowerShellTaskAction -Path $path -ExtraArguments @("-UserPhase", "-SkipAutoAdmin")
-        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
-        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-        $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
-        Register-ScheduledTask -TaskName $script:DotfilesUserTaskName -Action $action -Trigger $trigger `
-            -Settings $settings -Principal $principal -Force | Out-Null
-        Start-ScheduledTask -TaskName $script:DotfilesUserTaskName
+
+    $wd = Split-Path $path
+    $windowArgs = @(
+        "-NoProfile", "-NoExit", "-ExecutionPolicy", "Bypass",
+        "-File", $path, "-UserPhase", "-SkipAutoAdmin"
+    )
+
+    Write-Host "[+] Starting user phase (non-elevated)..." -ForegroundColor Cyan
+    Write-Host "    Log: $script:UserPhaseLogFile" -ForegroundColor Gray
+
+    if (Test-IsAdmin) {
+        # ShellExecute from an elevated host drops to the normal user token and shows a window.
+        $argString = ($windowArgs | ForEach-Object {
+            if ($_ -match '\s') { "`"$_`"" } else { $_ }
+        }) -join " "
+        try {
+            $shell = New-Object -ComObject Shell.Application
+            $shell.ShellExecute("powershell.exe", $argString, $wd, "open", 1) | Out-Null
+        } catch {
+            Write-Host "[!] Could not open user phase window: $_" -ForegroundColor Yellow
+            Write-Host "    Normal PS: & `"$path`" -UserPhase -SkipAutoAdmin" -ForegroundColor Cyan
+            return 1
+        }
         if ($Wait) {
-            do { Start-Sleep -Seconds 3 } while ((Get-ScheduledTask -TaskName $script:DotfilesUserTaskName).State -eq "Running")
-            Unregister-ScheduledTask -TaskName $script:DotfilesUserTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+            Write-Host "[+] Waiting for user phase window (close it when done)..." -ForegroundColor Gray
+            do {
+                Start-Sleep -Seconds 2
+                $running = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*$([regex]::Escape($path))*UserPhase*" })
+            } while ($running.Count -gt 0)
+            if (Test-Path $script:UserPhaseLogFile) {
+                Write-Host "[+] User phase log: $script:UserPhaseLogFile" -ForegroundColor Green
+            }
+        } else {
+            Write-Host "[+] User phase is running in a separate window." -ForegroundColor Green
         }
         return 0
-    } catch {
-        Write-Host "[!] Could not start non-elevated user phase: $_" -ForegroundColor Yellow
-        Write-Host "    Normal PS: irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex" -ForegroundColor Cyan
-        return 1
     }
+
+    if ($Wait) {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $path -UserPhase -SkipAutoAdmin
+        return $LASTEXITCODE
+    }
+    Start-Process -FilePath "powershell.exe" -ArgumentList $windowArgs -WorkingDirectory $wd -WindowStyle Normal
+    return 0
 }
 
 function Initialize-DotfilesSetupPhase {
@@ -349,6 +378,24 @@ function Test-DotfilesRunAdminPhase {
 
 function Test-DotfilesRunUserPhase {
     return $UserPhase -or $script:RunUserPhase
+}
+
+function Start-DotfilesUserPhaseLogging {
+    if (-not (Test-DotfilesRunUserPhase)) { return }
+    if ($script:UserPhaseTranscriptStarted) { return }
+    try {
+        Start-Transcript -Path $script:UserPhaseLogFile -Append -Force | Out-Null
+        $script:UserPhaseTranscriptStarted = $true
+        Write-Host "[+] User phase log: $script:UserPhaseLogFile" -ForegroundColor Gray
+    } catch {
+        Write-Host "[!] Could not start user phase log: $_" -ForegroundColor Yellow
+    }
+}
+
+function Stop-DotfilesUserPhaseLogging {
+    if (-not $script:UserPhaseTranscriptStarted) { return }
+    try { Stop-Transcript | Out-Null } catch {}
+    $script:UserPhaseTranscriptStarted = $false
 }
 
 function Write-DotfilesAdminPhaseNextSteps {
@@ -689,12 +736,12 @@ function Set-WindowsHostUserDefaults {
     # clears SKF_STICKYKEYSON and SKF_HOTKEYACTIVE (Shift five times).
     Set-ItemProperty -Path $adv -Name IsBatteryPercentageEnabled -Type DWord -Value 1
     Set-ItemProperty -Path "HKCU:\Control Panel\Accessibility\StickyKeys" -Name Flags -Value "506"
-    $searchPolicy = "HKCU:\Software\Policies\Microsoft\Windows\Explorer"
-    if (!(Test-Path $searchPolicy)) { New-Item -Path $searchPolicy -Force | Out-Null }
-    Set-ItemProperty -Path $searchPolicy -Name DisableSearchBoxSuggestions -Type DWord -Value 1
-    $settingsPolicy = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-    if (!(Test-Path $settingsPolicy)) { New-Item -Path $settingsPolicy -Force | Out-Null }
-    Set-ItemProperty -Path $settingsPolicy -Name SettingsPageVisibility -Type String -Value "hide:home"
+    if (-not (Set-HkcuRegValue "Software\Policies\Microsoft\Windows\Explorer" "DisableSearchBoxSuggestions" 1)) {
+        Write-Host "[!] DisableSearchBoxSuggestions policy failed." -ForegroundColor DarkYellow
+    }
+    if (-not (Set-HkcuRegValue "Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" "SettingsPageVisibility" "hide:home" -Type String)) {
+        Write-Host "[!] SettingsPageVisibility policy failed." -ForegroundColor DarkYellow
+    }
     $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
     if (!(Test-Path $cdm)) { New-Item -Path $cdm -Force | Out-Null }
     foreach ($name in @("SubscribedContent-338393Enabled", "SubscribedContent-353694Enabled", "SubscribedContent-353696Enabled")) {
@@ -788,6 +835,29 @@ function Set-WindowsHostUserDefaults {
     Set-WindowsStartupApps
 }
 
+function Set-HkcuRegValue {
+    param(
+        [Parameter(Mandatory)][string]$SubKey,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][object]$Value,
+        [ValidateSet("DWord", "String")][string]$Type = "DWord"
+    )
+    $psPath = "HKCU:\$SubKey"
+    $regType = if ($Type -eq "String") { "REG_SZ" } else { "REG_DWORD" }
+    try {
+        if (!(Test-Path $psPath)) { New-Item -Path $psPath -Force -ErrorAction Stop | Out-Null }
+        if ($Type -eq "String") {
+            Set-ItemProperty -Path $psPath -Name $Name -Type String -Value [string]$Value -ErrorAction Stop
+        } else {
+            Set-ItemProperty -Path $psPath -Name $Name -Type DWord -Value ([int]$Value) -ErrorAction Stop
+        }
+        return $true
+    } catch {
+        & reg.exe add "HKCU\$SubKey" /v $Name /t $regType /d $Value /f 2>$null | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+}
+
 function Set-HklmRegValue {
     param(
         [Parameter(Mandatory)][string]$SubKey,
@@ -850,6 +920,7 @@ function Set-WindowsHostAdminDefaults {
             Write-Host ("[!] HKLM\{0}\{1} failed." -f $pair.SubKey, $pair.Name) -ForegroundColor DarkYellow
         }
     }
+    Set-WindowsStartupAppsMachine
 }
 
 function Add-DotfilesWingetDefer {
@@ -954,10 +1025,12 @@ function Install-WingetApps {
 
 function Set-StartupApproved {
     param([string]$Key, [string]$Name, [bool]$Enabled)
-    if (!(Test-Path $Key)) { New-Item -Path $Key -Force | Out-Null }
-    $flag = if ($Enabled) { [byte]2 } else { [byte]3 }
-    $bytes = [byte[]](@($flag) + @(0) * 11)
-    New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force -ErrorAction SilentlyContinue | Out-Null
+    try {
+        if (!(Test-Path $Key)) { New-Item -Path $Key -Force -ErrorAction Stop | Out-Null }
+        $flag = if ($Enabled) { [byte]2 } else { [byte]3 }
+        $bytes = [byte[]](@($flag) + @(0) * 11)
+        New-ItemProperty -Path $Key -Name $Name -PropertyType Binary -Value $bytes -Force -ErrorAction Stop | Out-Null
+    } catch {}
 }
 
 function Set-AppXStartupState {
@@ -974,12 +1047,32 @@ function Set-AppXStartupState {
     }
 }
 
+function Set-WindowsStartupAppsMachine {
+    if (-not (Test-IsAdmin)) { return }
+    $runLm = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+    $runLmWow = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32"
+    foreach ($pair in @(
+        @{ Key = $runLm; Name = "Virtual Pet"; On = $false },
+        @{ Key = $runLm; Name = "Riot Vanguard"; On = $false },
+        @{ Key = $runLm; Name = "Riot Client"; On = $false },
+        @{ Key = $runLm; Name = "EADesktop"; On = $false },
+        @{ Key = $runLm; Name = "SecurityHealth"; On = $true },
+        @{ Key = $runLm; Name = "DisplayLinkTrayApp"; On = $false },
+        @{ Key = $runLmWow; Name = "ASUS Smart Display Control"; On = $false }
+    )) {
+        Set-StartupApproved $pair.Key $pair.Name $pair.On
+    }
+    $everything = Get-Service -Name "Everything" -ErrorAction SilentlyContinue
+    if ($everything -and $everything.StartType -eq "Automatic") {
+        try { Set-Service -Name "Everything" -StartupType Manual -ErrorAction Stop }
+        catch { Write-Host "[!] Everything service startup type failed: $_" -ForegroundColor DarkYellow }
+    }
+}
+
 function Set-WindowsStartupApps {
     Write-Host "Applying startup app allow/deny list..." -ForegroundColor Cyan
     $run = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
     $folder = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
-    $runLm = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
-    $runLmWow = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32"
 
     # Default deny: optional tools, sync clients, launchers, and helpers start on demand.
     foreach ($name in @(
@@ -1015,19 +1108,6 @@ function Set-WindowsStartupApps {
 
     Set-StartupApproved $folder "Ollama.lnk" $false
 
-    foreach ($pair in @(
-        @{ Key = $runLm; Name = "Virtual Pet"; On = $false },
-        # Vanguard's Run entry is only its tray UI; the anti-cheat service is separate.
-        @{ Key = $runLm; Name = "Riot Vanguard"; On = $false },
-        @{ Key = $runLm; Name = "Riot Client"; On = $false },
-        @{ Key = $runLm; Name = "EADesktop"; On = $false },
-        @{ Key = $runLm; Name = "SecurityHealth"; On = $true },
-        @{ Key = $runLm; Name = "DisplayLinkTrayApp"; On = $false },
-        @{ Key = $runLmWow; Name = "ASUS Smart Display Control"; On = $false }
-    )) {
-        try { Set-StartupApproved $pair.Key $pair.Name $pair.On } catch {}
-    }
-
     Set-AppXStartupState "Agilebits.1Password_" "1PasswordStartup" 2
     Set-AppXStartupState "*ThreeFinger*" "ThreeFingerDragOnWindows" 2
     Set-AppXStartupState "MicrosoftWindows.CrossDevice_" "CrossDevice.Start" 0
@@ -1044,12 +1124,6 @@ function Set-WindowsStartupApps {
     Set-AppXStartupState "Microsoft.PowerAutomateDesktop_" "AutoStartTask" 0
     Set-AppXStartupState "Microsoft.WindowsTerminal_" "StartTerminalOnLoginTask" 0
     Set-AppXStartupState "LGElectronics.LGMonitorApp_" "LGMonitorAutoStart" 0
-
-    # Everything remains available on demand without a resident indexing service.
-    $everything = Get-Service -Name "Everything" -ErrorAction SilentlyContinue
-    if ($everything -and $everything.StartType -eq "Automatic") {
-        try { Set-Service -Name "Everything" -StartupType Manual } catch {}
-    }
 
     # WhatsApp's AppX startup task is a GUID that can change; disable every task in the family.
     $root = "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData"
@@ -1093,6 +1167,7 @@ function Install-GitHubKnownHosts {
 }
 
 Initialize-DotfilesSetupPhase
+Start-DotfilesUserPhaseLogging
 
 if ((Test-DotfilesRunAdminPhase) -and -not (Test-IsAdmin)) {
     exit (Start-DotfilesAdminPhaseElevated)
@@ -2004,7 +2079,6 @@ if (Test-DotfilesRunAdminPhase) {
     Write-SetupSummary
     if ($script:ChainUserPhase) {
         Write-Host ""
-        Write-Host "[+] Starting user phase (non-elevated)..." -ForegroundColor Cyan
         Start-DotfilesUserPhaseNonElevated -Wait | Out-Null
     } else {
         Write-Host ""
@@ -2061,3 +2135,8 @@ Write-Host "  - Antigravity / Goose / Cursor / Claude: sign in in each desktop a
 Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
 Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
 Write-Host "  - Java: jv temurin21-jdk"
+Stop-DotfilesUserPhaseLogging
+if ((Test-DotfilesRunUserPhase) -and (Test-Path $script:UserPhaseLogFile)) {
+    Write-Host ""
+    Write-Host "User phase log: $script:UserPhaseLogFile" -ForegroundColor Gray
+}
