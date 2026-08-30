@@ -33,15 +33,6 @@ $wslDistro = "Ubuntu-24.04"
 $wslPackageId = "Canonical.Ubuntu.2404"
 $script:WingetAdminApps = @("DisplayLink.GraphicsDriver")
 
-# --- 0. Pre-Flight ---
-# Restricted is the Windows default, so the profile fails to load until this is set.
-# CurrentUser first (persists). Process Bypass after that, or PowerShell errors that
-# CurrentUser is overridden by the more specific Process scope.
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
-# irm | iex often starts in System32; keep installers from writing into that tree.
-Set-Location $HOME
-
 $script:SetupResults = [ordered]@{
     Installed = 0
     Updated = 0
@@ -49,6 +40,47 @@ $script:SetupResults = [ordered]@{
     Failed = 0
 }
 $script:SetupFailures = [System.Collections.Generic.List[string]]::new()
+
+function Set-DotfilesBootstrapExecutionPolicy {
+    # Process scope only: enough for this bootstrap. Child phases pass -ExecutionPolicy Bypass.
+    # Do not set CurrentUser here; when Process is already Bypass, that emits ExecutionPolicyOverride noise.
+    Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+}
+
+function Ensure-DotfilesCurrentUserExecutionPolicy {
+    # New PowerShell sessions need RemoteSigned (or better) so $PROFILE scripts load.
+    # Set CurrentUser from a child process without Process=Bypass to avoid override warnings.
+    $list = Get-ExecutionPolicy -List
+    foreach ($scope in @("MachinePolicy", "UserPolicy")) {
+        $policy = $list[$scope]
+        if ($policy -ne "Undefined" -and $policy -in @("Restricted", "AllSigned")) {
+            Write-Host "[!] $scope is '$policy'; the PowerShell profile may not run until policy is relaxed." -ForegroundColor Yellow
+            return
+        }
+    }
+
+    $currentUser = $list["CurrentUser"]
+    if ($currentUser -in @("RemoteSigned", "Unrestricted", "Bypass", "AllSigned")) { return }
+
+    try {
+        & powershell.exe -NoProfile -Command @'
+$ErrorActionPreference = 'Stop'
+if ((Get-ExecutionPolicy -Scope CurrentUser) -in 'Restricted','Undefined') {
+    Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+}
+'@
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[!] Could not set CurrentUser execution policy to RemoteSigned (exit $LASTEXITCODE)." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "[!] Could not set CurrentUser execution policy to RemoteSigned: $_" -ForegroundColor Yellow
+    }
+}
+
+# --- 0. Pre-Flight ---
+Set-DotfilesBootstrapExecutionPolicy
+# irm | iex often starts in System32; keep installers from writing into that tree.
+Set-Location $HOME
 
 function Add-SetupResult {
     param(
@@ -1303,6 +1335,7 @@ Set-Alias vim nvim
 Set-Alias vi nvim
 "@
 if (!(Select-String -Path $PROFILE -Pattern "AI & Dev Environment Setup" -Quiet)) { Add-Content $PROFILE "`n$profileLogic" }
+Ensure-DotfilesCurrentUserExecutionPolicy
 Add-UserPath (Join-Path $HOME ".local\bin")
 
 # --- 10. AI Agent Initializations ---
