@@ -887,10 +887,56 @@ function Initialize-TrafficMonitor {
     }
 }
 
+function Invoke-DesktopShellRefresh {
+    if (-not ("DotfilesDesktopNotify" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class DotfilesDesktopNotify {
+    [DllImport("shell32.dll")]
+    public static extern void SHChangeNotify(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
+}
+"@
+    }
+    # SHCNE_ASSOCCHANGED: Explorer re-reads desktop icons without a restart.
+    [DotfilesDesktopNotify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+}
+
+# Winget/Scoop dump a .lnk on Desktop and Public Desktop. Recycle Bin is a
+# CLSID, not a shortcut, and is left alone.
+function Clear-DesktopInstallerShortcuts {
+    $dirs = @(
+        [Environment]::GetFolderPath("Desktop"),
+        [Environment]::GetFolderPath("CommonDesktopDirectory")
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+    $removed = 0
+    foreach ($dir in $dirs) {
+        Get-ChildItem -LiteralPath $dir -Filter "*.lnk" -File -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+                $removed++
+            } catch {}
+        }
+    }
+    if ($removed -gt 0) {
+        Write-Host "[+] Removed $removed desktop shortcut(s)." -ForegroundColor Green
+        Invoke-DesktopShellRefresh
+    }
+}
+
 # Settings > Personalization > Background / Lock screen = Windows Spotlight (daily image).
 # Registry mode flags alone leave an OEM picture in place; SPI a Spotlight starter
 # image first so the Iris service can take over rotation.
 function Set-WindowsSpotlight {
+    $spotlightIcon = "{2cc5ca98-6485-478a-8d04-0e5e9efc3a6c}"
+    foreach ($hive in @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu"
+    )) {
+        if (!(Test-Path $hive)) { New-Item -Path $hive -Force | Out-Null }
+        Set-ItemProperty -Path $hive -Name $spotlightIcon -Type DWord -Value 1
+    }
+
     $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
     if (!(Test-Path $cdm)) { New-Item -Path $cdm -Force | Out-Null }
     Set-ItemProperty -Path $cdm -Name ContentDeliveryAllowed -Type DWord -Value 1
@@ -1065,6 +1111,7 @@ function Set-WindowsHostUserDefaults {
     } catch {}
 
     Set-WindowsStartupApps
+    Clear-DesktopInstallerShortcuts
 }
 
 function Test-RegValueEquals {
@@ -2326,6 +2373,7 @@ function Invoke-DotfilesAdminPhase {
     Install-VsBuildTools
     Uninstall-GeForceExperience
     Install-NvidiaApp
+    Clear-DesktopInstallerShortcuts
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask
 }
