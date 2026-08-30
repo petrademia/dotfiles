@@ -253,14 +253,19 @@ function Start-DotfilesAdminPhaseElevated {
         $path = (Resolve-Path $path).Path
     }
     Write-Host "[+] Starting elevated admin phase (one UAC prompt)..." -ForegroundColor Yellow
-    $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @(
-        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $path, "-AdminPhase"
-    ) -Wait -PassThru
-    if ($null -eq $proc) {
+    Write-Host "    The elevated window stays open when finished." -ForegroundColor Gray
+    try {
+        # No -Wait: -NoExit keeps that host open, so waiting would freeze this prompt
+        # until the elevated window is closed. Do not exit this session afterward.
+        $null = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @(
+            "-NoProfile", "-NoExit", "-ExecutionPolicy", "Bypass",
+            "-File", $path, "-AdminPhase", "-SkipAutoAdmin"
+        ) -PassThru
+    } catch {
         Write-Host "[!] Admin phase elevation was cancelled." -ForegroundColor Yellow
         return 1
     }
-    return $proc.ExitCode
+    return 0
 }
 
 function New-DotfilesPowerShellTaskAction {
@@ -861,6 +866,20 @@ function Set-WindowsHostUserDefaults {
     Set-WindowsStartupApps
 }
 
+function Test-RegValueEquals {
+    param(
+        [string]$PsPath,
+        [string]$Name,
+        [object]$Value,
+        [string]$Type
+    )
+    if (!(Test-Path $PsPath)) { return $false }
+    $current = (Get-ItemProperty -Path $PsPath -Name $Name -ErrorAction SilentlyContinue).$Name
+    if ($null -eq $current) { return $false }
+    if ($Type -eq "String") { return ([string]$current -eq [string]$Value) }
+    return ([int]$current -eq [int]$Value)
+}
+
 function Set-HkcuRegValue {
     param(
         [Parameter(Mandatory)][string]$SubKey,
@@ -870,6 +889,7 @@ function Set-HkcuRegValue {
     )
     $psPath = "HKCU:\$SubKey"
     $regType = if ($Type -eq "String") { "REG_SZ" } else { "REG_DWORD" }
+    if (Test-RegValueEquals $psPath $Name $Value $Type) { return $true }
     try {
         if (!(Test-Path $psPath)) { New-Item -Path $psPath -Force -ErrorAction Stop | Out-Null }
         if ($Type -eq "String") {
@@ -880,7 +900,8 @@ function Set-HkcuRegValue {
         return $true
     } catch {
         & reg.exe add "HKCU\$SubKey" /v $Name /t $regType /d $Value /f 2>$null | Out-Null
-        return ($LASTEXITCODE -eq 0)
+        if ($LASTEXITCODE -eq 0) { return $true }
+        return (Test-RegValueEquals $psPath $Name $Value $Type)
     }
 }
 
@@ -893,6 +914,7 @@ function Set-HklmRegValue {
     )
     $psPath = "HKLM:\$SubKey"
     $regType = if ($Type -eq "String") { "REG_SZ" } else { "REG_DWORD" }
+    if (Test-RegValueEquals $psPath $Name $Value $Type) { return $true }
     try {
         if (!(Test-Path $psPath)) { New-Item -Path $psPath -Force | Out-Null }
         if ($Type -eq "String") {
@@ -903,7 +925,8 @@ function Set-HklmRegValue {
         return $true
     } catch {
         & reg.exe add "HKLM\$SubKey" /v $Name /t $regType /d $Value /f 2>$null | Out-Null
-        return ($LASTEXITCODE -eq 0)
+        if ($LASTEXITCODE -eq 0) { return $true }
+        return (Test-RegValueEquals $psPath $Name $Value $Type)
     }
 }
 
@@ -1199,7 +1222,8 @@ Initialize-DotfilesSetupPhase
 Start-DotfilesUserPhaseLogging
 
 if ((Test-DotfilesRunAdminPhase) -and -not (Test-IsAdmin)) {
-    exit (Start-DotfilesAdminPhaseElevated)
+    [void](Start-DotfilesAdminPhaseElevated)
+    return
 }
 
 if (Test-DotfilesRunUserPhase) {
@@ -2115,7 +2139,7 @@ if (Test-DotfilesRunAdminPhase) {
         Write-Host "Next: reboot if WSL reported a pending feature change, then start WSL Linux setup." -ForegroundColor Yellow
         Write-Host "  $(Get-WslLinuxSetupCommand)" -ForegroundColor Cyan
     }
-    exit 0
+    return
 }
 
 Invoke-DotfilesUserPhaseWslCheck
@@ -2132,7 +2156,7 @@ if ($script:ChainAdminPhase -and $script:AdminPhasePending) {
     Write-Host "[+] Admin phase required. Elevating (one UAC)..." -ForegroundColor Yellow
     $adminCode = Start-DotfilesAdminPhaseElevated
     if ($adminCode -ne 0) {
-        Write-Host "[!] Admin phase did not complete (exit $adminCode)." -ForegroundColor Yellow
+        Write-Host "[!] Admin phase did not start (exit $adminCode)." -ForegroundColor Yellow
         Write-DotfilesAdminPhaseNextSteps
     }
 } elseif ($script:AdminPhasePending) {
