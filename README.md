@@ -54,10 +54,10 @@ To make Raycast replace Spotlight for `⌘Space`:
 ### Windows
 
 **Recommended: run from an elevated PowerShell** for an unattended Windows sweep.
-The bootstrap runs the admin phase first (machine installs, HKLM, WSL host),
-then automatically launches the user phase non-elevated (per-user Winget,
-Store apps, Scoop). **WSL Linux setup** (`bash ~/dotfiles/setup.sh`) stays a
-separate step after reboot if needed.
+The bootstrap runs the admin phase first (almost all Winget minus denylist, HKLM,
+WSL host, firewall), then auto-chains a short non-elevated user phase for
+denylist IDs, runtime deferrals, Store apps, and Scoop. **WSL Linux setup**
+(`bash ~/dotfiles/setup.sh`) stays a separate step after reboot if needed.
 
 ```powershell
 # PowerShell as Administrator (recommended - walk away after this)
@@ -65,10 +65,11 @@ curl.exe -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/
 & $env:TEMP\windows.ps1
 ```
 
-One UAC when you open the admin window. **All Winget packages** install in the
-admin phase except a small denylist; any installer that refuses elevation is
-retried automatically in the chained user phase. Store apps (Spotify) and
-Scoop still run in user phase.
+One UAC when you open the admin window. Winget uses a single `$WingetApps` list;
+admin installs every ID except `$WingetDenylist` (empty by default). Installers
+that refuse elevation are written to `%TEMP%\dotfiles-winget-user-phase.txt` and
+retried in the chained user phase. Add known refusers to `$WingetDenylist` in
+`setup/windows.ps1` to skip them up front.
 
 Alternatively (user phase first, then one UAC for admin):
 
@@ -77,12 +78,13 @@ Alternatively (user phase first, then one UAC for admin):
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
 ```
 
-This runs the user phase first and then elevates for the admin phase.
+This runs the user phase first (denylist/deferred only) and then elevates for
+the admin phase.
 
 | How you start | What happens |
 |---------------|--------------|
-| Elevated PS, no flags | Admin phase → **auto** user phase (RunLevel Limited) |
-| Normal PS, no flags | User phase → **one UAC** → admin phase |
+| Elevated PS, no flags | Admin phase (all Winget minus denylist) → **auto** user phase (denylist + deferred) |
+| Normal PS, no flags | User phase (denylist/deferred) → **one UAC** → admin phase |
 | Re-run when done | Mostly Skipped, no UAC |
 
 Then **reboot** if WSL reported a pending feature change, and run Linux setup in Ubuntu:
@@ -134,16 +136,13 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 - **Drivers and WSL:** keep the DisplayLink driver installed for dock support
   and leave the Riot Vanguard service enabled.
 
-Some settings need elevation and are applied by `-AdminPhase`:
+Some settings need elevation and are applied in the admin phase:
 
-- Hibernation
-- NTFS long paths
-- HKLM startup
-- Smart App Control
-- The Widgets policy
-- Consumer Features and hiding Start's Recommended section
+- Hibernation, NTFS long paths, Smart App Control off
+- HKLM startup and Widgets/Start policies
 - WSL host (Virtual Machine Platform, Ubuntu registration)
-- DisplayLink driver
+- Almost all Winget packages (single list minus `$WingetDenylist`)
+- Visual Studio Build Tools (for `atlassian-cli` / Rust)
 - Deskflow firewall rule
 
 Alt+Tab and some taskbar changes may need a logoff or Explorer restart. On

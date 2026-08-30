@@ -38,41 +38,41 @@ $script:WingetDenylist = @(
 )
 $script:WingetDeferFile = Join-Path $env:TEMP "dotfiles-winget-user-phase.txt"
 $script:WingetApps = @(
-    "DisplayLink.GraphicsDriver"
-    "Microsoft.VCRedist.2015+.x64"
-    "Microsoft.DotNet.DesktopRuntime.10"
-    "PatchMyPC.PatchMyPC"
-    "CodecGuide.K-LiteCodecPack.Full"
-    "TheDocumentFoundation.LibreOffice"
-    "ONLYOFFICE.DesktopEditors"
-    "Valve.Steam"
-    "ElectronicArts.EADesktop"
-    "RiotGames.Valorant.AP"
-    "SoftDeluxe.FreeDownloadManager"
-    "seerge.g-helper"
-    "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect"
-    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot"
-    "Microsoft.PowerToys"
-    "Devolutions.UniGetUI"
-    "voidtools.Everything"
-    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop"
-    "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary"
-    "Google.GoogleDrive", "Microsoft.OneDrive"
-    "Google.Antigravity", "Google.AntigravityCLI"
-    "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman"
-    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper"
-    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR"
-    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Opera.OperaAir", "Ablaze.Floorp"
-    "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser"
-    "eloston.ungoogled-chromium"
-    "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord"
-    "UpNote.UpNote"
-    "Streetwriters.Notesnook"
-    "StandardNotes.StandardNotes", "Automattic.Simplenote"
-    "Joplin.Joplin", "Obsidian.Obsidian"
-    "FilesCommunity.Files"
-    "VideoLAN.VLC", "Stremio.Stremio"
-    "qBittorrent.qBittorrent", "Transmission.Transmission"
+    "DisplayLink.GraphicsDriver",
+    "Microsoft.VCRedist.2015+.x64",
+    "Microsoft.DotNet.DesktopRuntime.10",
+    "PatchMyPC.PatchMyPC",
+    "CodecGuide.K-LiteCodecPack.Full",
+    "TheDocumentFoundation.LibreOffice",
+    "ONLYOFFICE.DesktopEditors",
+    "Valve.Steam",
+    "ElectronicArts.EADesktop",
+    "RiotGames.Valorant.AP",
+    "SoftDeluxe.FreeDownloadManager",
+    "seerge.g-helper",
+    "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
+    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot",
+    "Microsoft.PowerToys",
+    "Devolutions.UniGetUI",
+    "voidtools.Everything",
+    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
+    "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
+    "Google.GoogleDrive", "Microsoft.OneDrive",
+    "Google.Antigravity", "Google.AntigravityCLI",
+    "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman",
+    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper",
+    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR",
+    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Opera.OperaAir", "Ablaze.Floorp",
+    "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser",
+    "eloston.ungoogled-chromium",
+    "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
+    "UpNote.UpNote",
+    "Streetwriters.Notesnook",
+    "StandardNotes.StandardNotes", "Automattic.Simplenote",
+    "Joplin.Joplin", "Obsidian.Obsidian",
+    "FilesCommunity.Files",
+    "VideoLAN.VLC", "Stremio.Stremio",
+    "qBittorrent.qBittorrent", "Transmission.Transmission",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
 
@@ -788,6 +788,29 @@ function Set-WindowsHostUserDefaults {
     Set-WindowsStartupApps
 }
 
+function Set-HklmRegValue {
+    param(
+        [Parameter(Mandatory)][string]$SubKey,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][object]$Value,
+        [ValidateSet("DWord", "String")][string]$Type = "DWord"
+    )
+    $psPath = "HKLM:\$SubKey"
+    $regType = if ($Type -eq "String") { "REG_SZ" } else { "REG_DWORD" }
+    try {
+        if (!(Test-Path $psPath)) { New-Item -Path $psPath -Force | Out-Null }
+        if ($Type -eq "String") {
+            Set-ItemProperty -Path $psPath -Name $Name -Type String -Value [string]$Value -ErrorAction Stop
+        } else {
+            Set-ItemProperty -Path $psPath -Name $Name -Type DWord -Value ([int]$Value) -ErrorAction Stop
+        }
+        return $true
+    } catch {
+        & reg.exe add "HKLM\$SubKey" /v $Name /t $regType /d $Value /f 2>$null | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+}
+
 function Set-WindowsHostAdminDefaults {
     if (-not (Test-IsAdmin)) {
         Write-Host "[!] HKLM defaults skipped (run -AdminPhase elevated)." -ForegroundColor Yellow
@@ -795,43 +818,37 @@ function Set-WindowsHostAdminDefaults {
         return
     }
     Write-Host "Applying Windows admin defaults..." -ForegroundColor Cyan
-    try {
-        $sac = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy"
-        if (Test-Path $sac) {
-            Set-ItemProperty -Path $sac -Name VerifiedAndReputablePolicyState -Type DWord -Value 0 -ErrorAction Stop
+
+    if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy") {
+        if (-not (Set-HklmRegValue "SYSTEM\CurrentControlSet\Control\CI\Policy" "VerifiedAndReputablePolicyState" 0)) {
+            Write-Host "[!] Smart App Control policy failed." -ForegroundColor DarkYellow
         }
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Type String -Value "Warn" -ErrorAction Stop
-        if (Get-Command Set-MpPreference -ErrorAction SilentlyContinue) {
-            Set-MpPreference -PUAProtection 1 -ErrorAction Stop
-        }
-    } catch {
-        Write-Host "[!] Smart App Control Off / SmartScreen HKLM failed: $_" -ForegroundColor Yellow
+    }
+    if (-not (Set-HklmRegValue "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" "SmartScreenEnabled" "Warn" -Type String)) {
+        Write-Host "[!] SmartScreen HKLM failed." -ForegroundColor DarkYellow
+    }
+    if (Get-Command Set-MpPreference -ErrorAction SilentlyContinue) {
+        try { Set-MpPreference -PUAProtection 1 -ErrorAction Stop }
+        catch { Write-Host "[!] PUA protection failed: $_" -ForegroundColor DarkYellow }
     }
 
     powercfg /hibernate on 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[!] Hibernate enable failed." -ForegroundColor Yellow
+        Write-Host "[!] Hibernate enable failed." -ForegroundColor DarkYellow
     }
-    try {
-        $fly = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"
-        if (!(Test-Path $fly)) { New-Item -Path $fly -Force -ErrorAction Stop | Out-Null }
-        Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1 -ErrorAction Stop
-        Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1 -ErrorAction Stop
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1 -ErrorAction Stop
-        $dsh = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
-        if (!(Test-Path $dsh)) { New-Item -Path $dsh -Force -ErrorAction Stop | Out-Null }
-        Set-ItemProperty -Path $dsh -Name AllowNewsAndInterests -Type DWord -Value 0 -ErrorAction Stop
-        $winFeeds = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
-        if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force -ErrorAction Stop | Out-Null }
-        Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0 -ErrorAction Stop
-        $cloud = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
-        if (!(Test-Path $cloud)) { New-Item -Path $cloud -Force -ErrorAction Stop | Out-Null }
-        Set-ItemProperty -Path $cloud -Name DisableWindowsConsumerFeatures -Type DWord -Value 1 -ErrorAction Stop
-        $startPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
-        if (!(Test-Path $startPolicy)) { New-Item -Path $startPolicy -Force -ErrorAction Stop | Out-Null }
-        Set-ItemProperty -Path $startPolicy -Name HideRecommendedSection -Type DWord -Value 1 -ErrorAction Stop
-    } catch {
-        Write-Host "[!] Hibernate power-menu / long paths / Widgets / Start policy failed: $_" -ForegroundColor Yellow
+
+    foreach ($pair in @(
+        @{ SubKey = "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"; Name = "ShowHibernateOption"; Value = 1 },
+        @{ SubKey = "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"; Name = "ShowSleepOption"; Value = 1 },
+        @{ SubKey = "SYSTEM\CurrentControlSet\Control\FileSystem"; Name = "LongPathsEnabled"; Value = 1 },
+        @{ SubKey = "SOFTWARE\Policies\Microsoft\Dsh"; Name = "AllowNewsAndInterests"; Value = 0 },
+        @{ SubKey = "SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"; Name = "EnableFeeds"; Value = 0 },
+        @{ SubKey = "SOFTWARE\Policies\Microsoft\Windows\CloudContent"; Name = "DisableWindowsConsumerFeatures"; Value = 1 },
+        @{ SubKey = "SOFTWARE\Policies\Microsoft\Windows\Explorer"; Name = "HideRecommendedSection"; Value = 1 }
+    )) {
+        if (-not (Set-HklmRegValue $pair.SubKey $pair.Name $pair.Value)) {
+            Write-Host ("[!] HKLM\{0}\{1} failed." -f $pair.SubKey, $pair.Name) -ForegroundColor DarkYellow
+        }
     }
 }
 
