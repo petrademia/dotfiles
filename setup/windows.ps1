@@ -1,9 +1,9 @@
 # Windows setup - mirrors the macOS/WSL tool stack via Scoop + Winget.
 #
 # Default (no flags): one bootstrap runs both phases (admin is required).
-#   Elevated PowerShell (recommended) -> unattended Windows sweep: admin phase (machine
-#   installs, HKLM, WSL host) then user phase non-elevated (per-user Winget/Store/Scoop)
-#   Normal PowerShell (alternative)     -> user phase first, then UAC for admin phase
+#   Elevated PowerShell (recommended) -> admin phase installs all Winget IDs except
+#     $WingetDenylist; installers that refuse elevation defer to user phase automatically
+#   Normal PowerShell (alternative)     -> user phase (denylist/deferred) then UAC admin phase
 #
 # Explicit flags:
 #   -UserPhase / -AdminPhase  run one phase only
@@ -32,9 +32,12 @@ $script:DotfilesUserTaskName = "DotfilesSetupUserPhase"
 $script:WslBroken = $false
 $wslDistro = "Ubuntu-24.04"
 $wslPackageId = "Canonical.Ubuntu.2404"
-# Machine-scope / elevation-prone Winget IDs: admin phase only (token already elevated).
-# Per-user apps stay in $wingetApps and install in the non-elevated user phase.
-$script:WingetAdminApps = @(
+$script:WingetDenylist = @(
+    # Known Winget IDs that fail with "cannot be run from an administrator context".
+    # Runtime refusals are appended to $env:TEMP\dotfiles-winget-user-phase.txt for the chained user phase.
+)
+$script:WingetDeferFile = Join-Path $env:TEMP "dotfiles-winget-user-phase.txt"
+$script:WingetApps = @(
     "DisplayLink.GraphicsDriver"
     "Microsoft.VCRedist.2015+.x64"
     "Microsoft.DotNet.DesktopRuntime.10"
@@ -47,6 +50,30 @@ $script:WingetAdminApps = @(
     "RiotGames.Valorant.AP"
     "SoftDeluxe.FreeDownloadManager"
     "seerge.g-helper"
+    "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect"
+    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot"
+    "Microsoft.PowerToys"
+    "Devolutions.UniGetUI"
+    "voidtools.Everything"
+    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop"
+    "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary"
+    "Google.GoogleDrive", "Microsoft.OneDrive"
+    "Google.Antigravity", "Google.AntigravityCLI"
+    "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman"
+    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper"
+    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR"
+    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Opera.OperaAir", "Ablaze.Floorp"
+    "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser"
+    "eloston.ungoogled-chromium"
+    "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord"
+    "UpNote.UpNote"
+    "Streetwriters.Notesnook"
+    "StandardNotes.StandardNotes", "Automattic.Simplenote"
+    "Joplin.Joplin", "Obsidian.Obsidian"
+    "FilesCommunity.Files"
+    "VideoLAN.VLC", "Stremio.Stremio"
+    "qBittorrent.qBittorrent", "Transmission.Transmission"
+    "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
 
 $script:SetupResults = [ordered]@{
@@ -808,6 +835,30 @@ function Set-WindowsHostAdminDefaults {
     }
 }
 
+function Add-DotfilesWingetDefer {
+    param([string]$App)
+    if ([string]::IsNullOrWhiteSpace($App)) { return }
+    $existing = @()
+    if (Test-Path $script:WingetDeferFile) {
+        $existing = Get-Content -LiteralPath $script:WingetDeferFile -ErrorAction SilentlyContinue
+    }
+    if ($existing -contains $App) { return }
+    Add-Content -LiteralPath $script:WingetDeferFile -Value $App
+}
+
+function Get-DotfilesWingetAdminApps {
+    $script:WingetApps | Where-Object { $_ -notin $script:WingetDenylist }
+}
+
+function Get-DotfilesWingetUserApps {
+    $deferred = @()
+    if (Test-Path $script:WingetDeferFile) {
+        $deferred = Get-Content -LiteralPath $script:WingetDeferFile -ErrorAction SilentlyContinue |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    }
+    @($script:WingetDenylist + $deferred) | Select-Object -Unique
+}
+
 function Install-DeskflowFirewallRule {
     Write-Host "Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
     $dfRule = "Deskflow Inbound (TCP 24800)"
@@ -861,8 +912,14 @@ function Install-WingetApps {
                     $script:AdminPhasePending = $true
                 }
             } elseif (Test-WingetAdminContext $wingetText) {
-                Write-Host "[!] $app refuses an elevated session. Re-run -UserPhase." -ForegroundColor Yellow
-                Add-SetupResult Skipped $app
+                if ($AdminOnly) {
+                    Write-Host "[-] $app deferred to user phase (installer refuses elevated session)." -ForegroundColor Gray
+                    Add-DotfilesWingetDefer $app
+                    Add-SetupResult Skipped $app
+                } else {
+                    Write-Host "[!] $app refuses an elevated session. Re-run -UserPhase." -ForegroundColor Yellow
+                    Add-SetupResult Skipped $app
+                }
                 continue
             } elseif (Test-WingetHashMismatch $wingetText) {
                 Write-Host "[!] $app Winget manifest/installer hash mismatch. Skipping; retry later." -ForegroundColor Yellow
@@ -1104,36 +1161,14 @@ if ($javaLocal) {
 }
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
-Write-Host "Checking Winget Apps..." -ForegroundColor Cyan
-
-$wingetApps = @(
-    "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
-    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot",
-    "Microsoft.PowerToys",
-    "Devolutions.UniGetUI",
-    "voidtools.Everything",
-    "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
-    "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
-    "Google.GoogleDrive", "Microsoft.OneDrive",
-    "Google.Antigravity", "Google.AntigravityCLI",
-    "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman",
-    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper",
-    "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR",
-    "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Opera.OperaAir", "Ablaze.Floorp",
-    "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser",
-    "eloston.ungoogled-chromium",
-    "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
-    "UpNote.UpNote",
-    "Streetwriters.Notesnook",
-    "StandardNotes.StandardNotes", "Automattic.Simplenote",
-    "Joplin.Joplin", "Obsidian.Obsidian",
-    "FilesCommunity.Files",
-    "VideoLAN.VLC", "Stremio.Stremio",
-    "qBittorrent.qBittorrent", "Transmission.Transmission",
-    "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
-)
-
-Install-WingetApps -Apps $wingetApps -UserOnly
+# Admin phase installs all Winget IDs except $WingetDenylist; refusals defer to user phase via temp file.
+Write-Host "Checking user-phase Winget apps..." -ForegroundColor Cyan
+$userWinget = Get-DotfilesWingetUserApps
+if ($userWinget.Count -gt 0) {
+    Install-WingetApps -Apps $userWinget -UserOnly
+} else {
+    Write-Host "[-] No user-phase Winget apps (denylist empty, none deferred)." -ForegroundColor Gray
+}
 
 $uniGetUiExe = Join-Path $env:LOCALAPPDATA "Programs\UniGetUI\UniGetUI.exe"
 New-StartMenuShortcut -Name "UniGetUI" -Target $uniGetUiExe
@@ -1900,10 +1935,12 @@ function Invoke-DotfilesAdminPhase {
     Write-Host "==> Dotfiles admin phase (elevated)" -ForegroundColor Cyan
     Set-WindowsHostAdminDefaults
     Install-DeskflowFirewallRule
-    # Machine-scope MSIs (VC++, PatchMyPC, DisplayLink) need elevation; user phase is non-elevated.
+    Remove-Item -LiteralPath $script:WingetDeferFile -Force -ErrorAction SilentlyContinue
     Write-Host "[+] Upgrading Microsoft.VCRedist.2015+.x64 if a newer build exists..." -ForegroundColor Cyan
     winget upgrade -e --id Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements --silent --source winget
-    Install-WingetApps -Apps $script:WingetAdminApps -AdminOnly
+    $adminWinget = Get-DotfilesWingetAdminApps
+    Write-Host "[+] Installing Winget apps in admin phase ($($adminWinget.Count) packages, denylist $($script:WingetDenylist.Count))..." -ForegroundColor Cyan
+    Install-WingetApps -Apps $adminWinget -AdminOnly
     Install-VsBuildTools
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask

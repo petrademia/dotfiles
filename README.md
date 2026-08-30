@@ -65,10 +65,10 @@ curl.exe -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/
 & $env:TEMP\windows.ps1
 ```
 
-One UAC when you open the admin window. Machine-scope Winget packages (VC++,
-PatchMyPC, LibreOffice, Steam, and similar) install during admin phase so they
-do not prompt again in user phase. Installers that reject admin context
-(Spotify) still run in the chained user phase.
+One UAC when you open the admin window. **All Winget packages** install in the
+admin phase except a small denylist; any installer that refuses elevation is
+retried automatically in the chained user phase. Store apps (Spotify) and
+Scoop still run in user phase.
 
 Alternatively (user phase first, then one UAC for admin):
 
