@@ -89,8 +89,10 @@ bash ~/dotfiles/setup.sh
 
 Opt out of auto-chaining with `-SkipAutoAdmin`. Run one phase only with `-UserPhase` or `-AdminPhase`.
 
-The script sets the CurrentUser execution policy to `RemoteSigned`. If
-`irm | iex` is blocked, run:
+The bootstrap uses process-scoped `Bypass` for the running session. After the user
+phase installs the PowerShell profile, it sets `CurrentUser` to `RemoteSigned`
+when needed so profile scripts load in new sessions. If `irm | iex` is blocked,
+run:
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
