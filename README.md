@@ -113,9 +113,10 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
   Keys (Shift five times), and disable Windows three-finger swipe/tap so
   ThreeFingerDrag can own the gesture.
 - **Wallpaper and lock screen:** Windows Spotlight (daily Bing image) for both
-  the desktop background and the lock screen. Desktop Spotlight adds a
-  **Learn about this picture** icon; a logoff or Explorer restart may be
-  needed the first time.
+  the desktop background and the lock screen. Hide the **Learn about this
+  picture** desktop icon; wallpaper still rotates.
+- **Desktop:** delete installer `.lnk` files from the user Desktop and Public
+  Desktop after package install (Recycle Bin stays). Apps live in Start.
 - **Power and navigation:** enable hibernation and add Hibernate to the power
   menu, enable NTFS long paths, and configure Alt+Tab to show windows only
   (not Edge tabs).
