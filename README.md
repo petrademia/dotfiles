@@ -389,12 +389,14 @@ package-manager builds.
   same time.
 - Realtek Audio Control (`9P2B8MCSVPLN`) is the Store mixer for the OEM DCH
   audio driver. Other ASUS support-page apps (GlideX, Dolby) stay manual.
-- **NVIDIA App** (`XP8CLZL93F5Z4P`, Microsoft Store) is installed in the user
-  phase. It replaces GeForce Experience (drivers, overlay, ShadowPlay, GPU
-  3D settings). GeForce Experience is **not** in our Winget list; it arrives
-  bundled inside NVIDIA's graphics driver (`Display.GFExperience`, currently
-  536.45 on this machine). Admin phase uninstalls GFE via NVIDIA NVI2.
-  Update Game Ready / Studio drivers inside NVIDIA App; that is not Winget.
+- **NVIDIA App** is installed in the admin phase from NVIDIA's official
+  silent installer (`-s`), not the Microsoft Store. The Store package
+  (`XP8CLZL93F5Z4P`) downloads the same EXE but winget reports
+  `3825205280` (`0xE4000020`) without elevation. GeForce Experience is
+  **not** in our Winget list; it arrives bundled inside NVIDIA's graphics
+  driver (`Display.GFExperience`). Admin phase uninstalls GFE via NVIDIA
+  NVI2 (`-silent -n`) first, then installs NVIDIA App. Update Game Ready /
+  Studio drivers inside NVIDIA App; that is not Winget.
 - Logitech C920 on this machine: disable **HD Pro Webcam C920** under Device
   Manager → Sound, video and game controllers, and leave **Cameras → HD Pro
   Webcam C920** enabled. The C920 USB mic crashes `Audiosrv` (`0xc0000005`);
