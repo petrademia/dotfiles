@@ -1,8 +1,9 @@
 # Windows setup - mirrors the macOS/WSL tool stack via Scoop + Winget.
 #
 # Default (no flags): one bootstrap runs both phases (admin is required).
-#   Elevated PowerShell (recommended) -> admin phase, then user phase (non-elevated)
-#   Normal PowerShell (alternative)     -> user phase, then one UAC for admin phase
+#   Elevated PowerShell (recommended) -> unattended Windows sweep: admin phase (machine
+#   installs, HKLM, WSL host) then user phase non-elevated (per-user Winget/Store/Scoop)
+#   Normal PowerShell (alternative)     -> user phase first, then UAC for admin phase
 #
 # Explicit flags:
 #   -UserPhase / -AdminPhase  run one phase only
@@ -31,7 +32,22 @@ $script:DotfilesUserTaskName = "DotfilesSetupUserPhase"
 $script:WslBroken = $false
 $wslDistro = "Ubuntu-24.04"
 $wslPackageId = "Canonical.Ubuntu.2404"
-$script:WingetAdminApps = @("DisplayLink.GraphicsDriver")
+# Machine-scope / elevation-prone Winget IDs: admin phase only (token already elevated).
+# Per-user apps stay in $wingetApps and install in the non-elevated user phase.
+$script:WingetAdminApps = @(
+    "DisplayLink.GraphicsDriver"
+    "Microsoft.VCRedist.2015+.x64"
+    "Microsoft.DotNet.DesktopRuntime.10"
+    "PatchMyPC.PatchMyPC"
+    "CodecGuide.K-LiteCodecPack.Full"
+    "TheDocumentFoundation.LibreOffice"
+    "ONLYOFFICE.DesktopEditors"
+    "Valve.Steam"
+    "ElectronicArts.EADesktop"
+    "RiotGames.Valorant.AP"
+    "SoftDeluxe.FreeDownloadManager"
+    "seerge.g-helper"
+)
 
 $script:SetupResults = [ordered]@{
     Installed = 0
@@ -1089,17 +1105,12 @@ if ($javaLocal) {
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
 Write-Host "Checking Winget Apps..." -ForegroundColor Cyan
-# Deskflow's MSI requires VC++ 14.50+. Winget can report the ID installed at 14.30.
-Write-Host "[+] Upgrading Microsoft.VCRedist.2015+.x64 if a newer build exists..." -ForegroundColor Cyan
-winget upgrade -e --id Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements --silent --source winget
 
 $wingetApps = @(
-    "Microsoft.VCRedist.2015+.x64",
-    "Microsoft.DotNet.DesktopRuntime.10",
     "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
     "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot",
     "Microsoft.PowerToys",
-    "Devolutions.UniGetUI", "PatchMyPC.PatchMyPC",
+    "Devolutions.UniGetUI",
     "voidtools.Everything",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
     "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
@@ -1116,16 +1127,9 @@ $wingetApps = @(
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
-    "TheDocumentFoundation.LibreOffice", "ONLYOFFICE.DesktopEditors",
     "FilesCommunity.Files",
     "VideoLAN.VLC", "Stremio.Stremio",
-    "CodecGuide.K-LiteCodecPack.Full",
     "qBittorrent.qBittorrent", "Transmission.Transmission",
-    "SoftDeluxe.FreeDownloadManager",
-    "Valve.Steam",
-    "ElectronicArts.EADesktop",
-    "RiotGames.Valorant.AP",
-    "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
 
@@ -1136,7 +1140,6 @@ New-StartMenuShortcut -Name "UniGetUI" -Target $uniGetUiExe
 
 Install-Warp
 Install-EjectLens
-Install-VsBuildTools
 
 Initialize-TrafficMonitor
 
@@ -1897,7 +1900,11 @@ function Invoke-DotfilesAdminPhase {
     Write-Host "==> Dotfiles admin phase (elevated)" -ForegroundColor Cyan
     Set-WindowsHostAdminDefaults
     Install-DeskflowFirewallRule
+    # Machine-scope MSIs (VC++, PatchMyPC, DisplayLink) need elevation; user phase is non-elevated.
+    Write-Host "[+] Upgrading Microsoft.VCRedist.2015+.x64 if a newer build exists..." -ForegroundColor Cyan
+    winget upgrade -e --id Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements --silent --source winget
     Install-WingetApps -Apps $script:WingetAdminApps -AdminOnly
+    Install-VsBuildTools
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask
 }
