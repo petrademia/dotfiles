@@ -37,6 +37,8 @@ $script:WingetDenylist = @(
     # Runtime refusals are appended to $env:TEMP\dotfiles-winget-user-phase.txt for the chained user phase.
 )
 $script:WingetDeferFile = Join-Path $env:TEMP "dotfiles-winget-user-phase.txt"
+$script:NvidiaAppDeferFile = Join-Path $env:TEMP "dotfiles-nvidia-app-after-reboot.txt"
+$script:GeForceExperienceRemovedThisRun = $false
 $script:UserPhaseLogFile = Join-Path $env:TEMP "dotfiles-windows-user-phase.log"
 $script:UserPhaseTranscriptStarted = $false
 $script:WingetApps = @(
@@ -624,6 +626,10 @@ function Uninstall-GeForceExperience {
     } else {
         Write-Host "[+] GeForce Experience removed." -ForegroundColor Green
         Add-SetupResult Updated "GeForce Experience"
+        # NVI2 -n skips the reboot GFE uninstall needs. NVIDIA App in this
+        # same session exits -469762016 (0xE4000020).
+        $script:GeForceExperienceRemovedThisRun = $true
+        Set-Content -LiteralPath $script:NvidiaAppDeferFile -Value "reboot-after-gfe"
     }
 }
 
@@ -640,6 +646,12 @@ function Test-NvidiaAppPresent {
     if (Get-AppxPackage -Name "*NVIDIAApp*" -ErrorAction SilentlyContinue) { return $true }
     $exe = Join-Path $env:ProgramFiles "NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe"
     return (Test-Path $exe)
+}
+
+function Test-NvidiaAppInstallerNeedsReboot {
+    param([int]$ExitCode)
+    # Signed and unsigned forms of 0xE4000020 (NVIDIA: reboot / stale installer state).
+    return $ExitCode -in -469762016, 3825205280
 }
 
 function Get-NvidiaAppInstallerUrl {
@@ -660,12 +672,19 @@ function Install-NvidiaApp {
     }
     if (Test-NvidiaAppPresent) {
         Write-Host "[-] NVIDIA App already present. Skipping..." -ForegroundColor Gray
+        Remove-Item -LiteralPath $script:NvidiaAppDeferFile -Force -ErrorAction SilentlyContinue
         Add-SetupResult Skipped "NVIDIA App"
         return
     }
     if (-not (Test-IsAdmin)) {
         Write-Host "[-] NVIDIA App install needs -AdminPhase (official -s installer)." -ForegroundColor Gray
         $script:AdminPhasePending = $true
+        Add-SetupResult Skipped "NVIDIA App"
+        return
+    }
+    if ($script:GeForceExperienceRemovedThisRun) {
+        Write-Host "[-] NVIDIA App needs a reboot after GeForce Experience uninstall." -ForegroundColor Yellow
+        Write-Host "    Reboot, then re-run: & `$env:TEMP\windows.ps1 -AdminPhase -SkipAutoAdmin" -ForegroundColor Cyan
         Add-SetupResult Skipped "NVIDIA App"
         return
     }
@@ -678,14 +697,22 @@ function Install-NvidiaApp {
         return
     }
     $p = Start-Process -FilePath $setup -ArgumentList "-s" -Wait -PassThru
-    Remove-Item $setup -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
     if (Test-NvidiaAppPresent -or ($p -and $p.ExitCode -in 0, 3010, 1641)) {
+        Remove-Item $setup -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $script:NvidiaAppDeferFile -Force -ErrorAction SilentlyContinue
         Add-SetupResult Installed "NVIDIA App"
-    } else {
-        Write-Host "[!] NVIDIA App installer exited $($p.ExitCode)." -ForegroundColor Yellow
-        Add-SetupResult Failed "NVIDIA App"
+        return
     }
+    $code = if ($p) { $p.ExitCode } else { -1 }
+    if (Test-NvidiaAppInstallerNeedsReboot $code) {
+        Set-Content -LiteralPath $script:NvidiaAppDeferFile -Value "reboot-after-0xE4000020"
+        Write-Host "[!] NVIDIA App installer needs a reboot (0xE4000020). Re-run -AdminPhase after reboot." -ForegroundColor Yellow
+        Add-SetupResult Skipped "NVIDIA App"
+        return
+    }
+    Write-Host "[!] NVIDIA App installer exited $code." -ForegroundColor Yellow
+    Add-SetupResult Failed "NVIDIA App"
 }
 
 # GitHub releases ship macOS/Linux only. Compile with MSVC if link.exe exists,
@@ -860,6 +887,50 @@ function Initialize-TrafficMonitor {
     }
 }
 
+# Settings > Personalization > Background / Lock screen = Windows Spotlight (daily image).
+# Registry mode flags alone leave an OEM picture in place; SPI a Spotlight starter
+# image first so the Iris service can take over rotation.
+function Set-WindowsSpotlight {
+    $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+    if (!(Test-Path $cdm)) { New-Item -Path $cdm -Force | Out-Null }
+    Set-ItemProperty -Path $cdm -Name ContentDeliveryAllowed -Type DWord -Value 1
+    Set-ItemProperty -Path $cdm -Name RotatingLockScreenEnabled -Type DWord -Value 1
+    Set-ItemProperty -Path $cdm -Name RotatingLockScreenOverlayEnabled -Type DWord -Value 1
+    Set-ItemProperty -Path $cdm -Name "SubscribedContent-338387Enabled" -Type DWord -Value 1
+
+    $lock = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Lock Screen"
+    if (!(Test-Path $lock)) { New-Item -Path $lock -Force | Out-Null }
+    Set-ItemProperty -Path $lock -Name SlideshowEnabled -Type DWord -Value 0
+
+    $desk = "HKCU:\Software\Microsoft\Windows\CurrentVersion\DesktopSpotlight\Settings"
+    if (!(Test-Path $desk)) { New-Item -Path $desk -Force | Out-Null }
+    Set-ItemProperty -Path $desk -Name EnabledState -Type DWord -Value 1
+
+    $wp = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers"
+    if (!(Test-Path $wp)) { New-Item -Path $wp -Force | Out-Null }
+    Set-ItemProperty -Path $wp -Name BackgroundType -Type DWord -Value 3
+    New-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name WindowsSpotlight -PropertyType String -Value "1" -Force | Out-Null
+
+    $paper = [string](Get-ItemProperty "HKCU:\Control Panel\Desktop" -ErrorAction SilentlyContinue).Wallpaper
+    if ($paper -match "IrisService|DesktopSpotlight|\\Web\\Wallpaper\\spotlight\\") { return }
+
+    $starter = Join-Path $env:SystemRoot "Web\Wallpaper\spotlight\img14.jpg"
+    if (!(Test-Path $starter)) { $starter = Join-Path $env:SystemRoot "Web\Wallpaper\spotlight\img50.jpg" }
+    if (!(Test-Path $starter)) { return }
+    if (-not ("DotfilesWallpaper" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class DotfilesWallpaper {
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+    }
+    [DotfilesWallpaper]::SystemParametersInfo(20, 0, $starter, 3) | Out-Null
+    $cached = Join-Path $env:APPDATA "Microsoft\Windows\Themes\TranscodedWallpaper"
+    if (Test-Path $cached) { Remove-Item $cached -Force -ErrorAction SilentlyContinue }
+}
+
 function Set-WindowsHostUserDefaults {
     Write-Host "Applying Windows user defaults..." -ForegroundColor Cyan
 
@@ -907,6 +978,7 @@ function Set-WindowsHostUserDefaults {
     foreach ($name in @("SubscribedContent-338393Enabled", "SubscribedContent-353694Enabled", "SubscribedContent-353696Enabled")) {
         Set-ItemProperty -Path $cdm -Name $name -Type DWord -Value 0
     }
+    Set-WindowsSpotlight
     $settingsNags = "HKCU:\Software\Microsoft\Windows\CurrentVersion\SystemSettings\AccountNotifications"
     if (!(Test-Path $settingsNags)) { New-Item -Path $settingsNags -Force | Out-Null }
     Set-ItemProperty -Path $settingsNags -Name EnableAccountNotifications -Type DWord -Value 0
@@ -2312,7 +2384,7 @@ Write-Host "  4. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor 
 Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
-Write-Host "  - NVIDIA App: update the Game Ready driver in the app (GFE is uninstalled)"
+Write-Host "  - NVIDIA App: reboot after GFE uninstall, re-run -AdminPhase, then update Game Ready in the app"
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot after -AdminPhase if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"

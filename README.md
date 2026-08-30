@@ -112,6 +112,10 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
   `~/Screenshots`, enable faster key repeat and tap-to-click, disable Sticky
   Keys (Shift five times), and disable Windows three-finger swipe/tap so
   ThreeFingerDrag can own the gesture.
+- **Wallpaper and lock screen:** Windows Spotlight (daily Bing image) for both
+  the desktop background and the lock screen. Desktop Spotlight adds a
+  **Learn about this picture** icon; a logoff or Explorer restart may be
+  needed the first time.
 - **Power and navigation:** enable hibernation and add Hibernate to the power
   menu, enable NTFS long paths, and configure Alt+Tab to show windows only
   (not Edge tabs).
@@ -395,7 +399,9 @@ package-manager builds.
   `3825205280` (`0xE4000020`) without elevation. GeForce Experience is
   **not** in our Winget list; it arrives bundled inside NVIDIA's graphics
   driver (`Display.GFExperience`). Admin phase uninstalls GFE via NVIDIA
-  NVI2 (`-silent -n`) first, then installs NVIDIA App. Update Game Ready /
+  NVI2 (`-silent -n`). That skip-reboot flag leaves NVI2 busy, so NVIDIA
+  App is deferred until the next `-AdminPhase` after a reboot (same
+  `0xE4000020` if you install in the same session). Update Game Ready /
   Studio drivers inside NVIDIA App; that is not Winget.
 - Logitech C920 on this machine: disable **HD Pro Webcam C920** under Device
   Manager → Sound, video and game controllers, and leave **Cameras → HD Pro
