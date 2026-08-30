@@ -15,6 +15,20 @@ record_result() {
   esac
 }
 
+brew_formula_installed() {
+  local pkg=$1
+  brew list --formula --versions "$pkg" >/dev/null 2>&1 && return 0
+  local short="${pkg##*/}"
+  [ "$short" != "$pkg" ] && brew list --formula --versions "$short" >/dev/null 2>&1
+}
+
+brew_cask_installed() {
+  local pkg=$1
+  brew list --cask --versions "$pkg" >/dev/null 2>&1 && return 0
+  local short="${pkg##*/}"
+  [ "$short" != "$pkg" ] && brew list --cask --versions "$short" >/dev/null 2>&1
+}
+
 # Direct installers use this guard when they do not expose a safe version check.
 smart_check() {
   local cmd=$1
@@ -55,9 +69,9 @@ brew trust omar16100/atlassian-cli
 FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
-  rustup fastfetch aria2 p7zip 1password-cli sqlite
+  rustup fastfetch aria2 p7zip sqlite
   gradle maven plantuml kafka tmux zellij helix ripgrep python neovim
-  graphviz z3 zstd ngrok jenv mas opencode llama.cpp herdr kimi-code
+  graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code
   block-goose-cli kind kubernetes-cli k3d podman-compose
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
@@ -66,7 +80,7 @@ FORMULAS=(
 # Repo-managed brew formulas: install when missing; skip when already present.
 # Upgrades are left to `brew upgrade` so re-runs stay mostly Skipped.
 for formula in "${FORMULAS[@]}"; do
-  if brew list --formula --versions "$formula" >/dev/null 2>&1; then
+  if brew_formula_installed "$formula"; then
     echo "[-] $formula already present. Skipping..."
     record_result skipped
   else
@@ -78,6 +92,7 @@ done
 
 CASKS=(
   1password
+  1password-cli
   alacritty
   alfred
   antigravity
@@ -108,6 +123,7 @@ CASKS=(
   lm-studio
   neovide-app
   notesnook
+  ngrok
   obsidian
   ollama-app
   osaurus
@@ -169,7 +185,7 @@ CASKS=(
 )
 
 for cask in "${CASKS[@]}"; do
-  if brew list --cask --versions "$cask" >/dev/null 2>&1; then
+  if brew_cask_installed "$cask"; then
     echo "[-] $cask already present. Skipping..."
     record_result skipped
   else
