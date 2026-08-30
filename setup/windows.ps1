@@ -531,7 +531,7 @@ function Install-EjectLens {
     }
 }
 
-# rustup-msvc / UniGetUI cargo installs need link.exe + a Windows SDK.
+# rustup-msvc / UniGetUI cargo managers need link.exe + a Windows SDK.
 # Plain winget without --override only drops the VS installer, not the C++ workload.
 function Test-VsCToolsInstalled {
     $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
@@ -583,6 +583,28 @@ function Install-AtlassianCli {
     Write-Host "[+] Installing atlassian-cli (cargo + $triple; no Windows GitHub binary)..." -ForegroundColor Cyan
     rustup toolchain install "stable-$triple"
     & cargo "+stable-$triple" install atlassian-cli
+}
+
+function Install-UniGetUiCargoDeps {
+    if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
+        Write-Host "[!] cargo not found. Skipping UniGetUI cargo deps." -ForegroundColor Yellow
+        return
+    }
+    foreach ($pair in @(
+        @{ Crate = "cargo-update"; Command = "cargo-install-update" },
+        @{ Crate = "cargo-binstall"; Command = "cargo-binstall" }
+    )) {
+        $bin = Join-Path $HOME ".cargo\bin\$($pair.Command).exe"
+        if ((Test-Path $bin) -or (Get-Command $pair.Command -ErrorAction SilentlyContinue)) {
+            Write-Host "[-] $($pair.Crate) already present. Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped $pair.Crate
+            continue
+        }
+        Write-Host "[+] Installing $($pair.Crate) (UniGetUI cargo manager)..." -ForegroundColor Cyan
+        cargo install $pair.Crate
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed $pair.Crate }
+        else { Add-SetupResult Failed $pair.Crate }
+    }
 }
 
 # Same as right-click Unpin from taskbar. File Explorer has no shell verb; this COM
@@ -723,6 +745,10 @@ function Set-WindowsHostUserDefaults {
     foreach ($name in @("TaskbarDa", "TaskbarMn", "ShowCopilotButton", "IsEnabled")) {
         & reg.exe add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v $name /t REG_DWORD /d 0 /f 2>$null | Out-Null
     }
+    # Win11: 0=small, 1=medium, 2=large. Unset defaults to medium.
+    & reg.exe add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarSi /t REG_DWORD /d 0 /f 2>$null | Out-Null
+    # ROG Flow X13 is a 2-in-1; the tablet-optimized bar is taller even in laptop posture.
+    & reg.exe add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ExpandableTaskbar /t REG_DWORD /d 0 /f 2>$null | Out-Null
     $search = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
     if (!(Test-Path $search)) { New-Item -Path $search -Force | Out-Null }
     Set-ItemProperty -Path $search -Name SearchboxTaskbarMode -Type DWord -Value 0
@@ -1075,9 +1101,8 @@ function Set-WindowsStartupApps {
     $folder = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
 
     # Default deny: optional tools, sync clients, launchers, and helpers start on demand.
+    # TrafficMonitor and WindowSwitcher stay on; they are added to Run earlier.
     foreach ($name in @(
-        "TrafficMonitor",
-        "WindowSwitcher",
         "Surfshark",
         "GoogleDriveFS",
         "OneDrive",
@@ -1105,6 +1130,10 @@ function Set-WindowsStartupApps {
         "EA Desktop",
         "Free Download Manager"
     )) { Set-StartupApproved $run $name $false }
+
+    foreach ($name in @("TrafficMonitor", "WindowSwitcher")) {
+        Set-StartupApproved $run $name $true
+    }
 
     Set-StartupApproved $folder "Ollama.lnk" $false
 
@@ -1212,7 +1241,7 @@ function Smart-Scoop {
 # --- 2. Core Dependencies & Buckets ---
 foreach ($b in @("extras", "versions", "nerd-fonts", "java")) { Add-ScoopBucket $b }
 
-$core = @("git", "7zip", "gh", "go", "rustup-msvc", "fastfetch", "aria2")
+$core = @("git", "7zip", "gh", "go", "rustup-msvc", "fastfetch", "aria2", "scoop-search")
 foreach ($app in $core) { Smart-Scoop $app }
 
 # --- 3. Main App Block (CLI & Portable) ---
@@ -1232,6 +1261,7 @@ if (Get-Command rustup -ErrorAction SilentlyContinue) {
     rustup default stable 2>&1 | Out-Null
     $env:PATH = "$HOME\.cargo\bin;$env:PATH"
     Install-AtlassianCli
+    Install-UniGetUiCargoDeps
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
