@@ -118,16 +118,15 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 - **Start and Search:** more pins than recommendations, hide the Recommended
   section and Store tips, turn off account nags, disable Bing web results, and
   hide the Settings home page plus suggested content inside Settings.
-- **Taskbar:** show battery percent; hide Search, Task View, Widgets, Chat,
-  Copilot, and Resume; unpin default apps such as Edge, Store, File Explorer,
-  Copilot, Mail, Teams, and Xbox.
+- **Taskbar:** small icons (`TaskbarSi=0`); disable the 2-in-1 tablet-optimized
+  bar (`ExpandableTaskbar=0`); show battery percent; hide Search, Task View,
+  Widgets, Chat, Copilot, and Resume; unpin default apps such as Edge, Store,
+  File Explorer, Copilot, Mail, Teams, and Xbox.
 - **Security:** enable Windows Security SmartScreen and PUA protection, and
   disable Smart App Control.
-- **Startup:** use a default-deny policy. Only 1Password, ThreeFingerDrag,
-  and Windows Security are enabled because they provide resident security or
-  input behavior.
-  - Start on demand: TrafficMonitor, window-switcher, Surfshark, Google
-    Drive, OneDrive, Everything, and FDM.
+- **Startup:** use a default-deny policy. Enabled at login: 1Password,
+  ThreeFingerDrag, Windows Security, TrafficMonitor, and window-switcher.
+  - Start on demand: Surfshark, Google Drive, OneDrive, Everything, and FDM.
   - Disabled at startup: DisplayLink's tray UI, browser helpers (Opera / GX /
     Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI,
     Discord, Slack, WhatsApp, Warp, OpenVPN Connect, Ollama, Spotify, Virtual
@@ -272,7 +271,9 @@ Uses the `GitHub CLI Token` item (`password`, `credential`, or `token` field). G
 On Windows, no GitHub binary is available for `atlassian-cli`. Setup compiles
 it with MSVC `link.exe` when present, or with Scoop `gcc` and the GNU Rust
 target otherwise. Visual Studio 2022 Build Tools (C++ workload) are installed
-so `rustup-msvc` and UniGetUI Rust packages can link.
+so `rustup-msvc` and UniGetUI Rust packages can link. Setup also installs
+`scoop-search`, `cargo-update`, and `cargo-binstall` for UniGetUI's Scoop
+search and Cargo managers.
 
 ```bash
 atlassian-cli auth login --profile amartha --bitbucket --bearer --workspace Amartha
