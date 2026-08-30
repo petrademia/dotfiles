@@ -627,6 +627,67 @@ function Uninstall-GeForceExperience {
     }
 }
 
+function Test-NvidiaGpuPresent {
+    $gpus = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match "NVIDIA" }
+    return [bool]$gpus
+}
+
+function Test-NvidiaAppPresent {
+    $arp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -eq "NVIDIA App" }
+    if ($arp) { return $true }
+    if (Get-AppxPackage -Name "*NVIDIAApp*" -ErrorAction SilentlyContinue) { return $true }
+    $exe = Join-Path $env:ProgramFiles "NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe"
+    return (Test-Path $exe)
+}
+
+function Get-NvidiaAppInstallerUrl {
+    try {
+        $html = (Invoke-WebRequest -Uri "https://community.chocolatey.org/packages/nvidia-app" -UseBasicParsing).Content
+        if ($html -match "https://us\.download\.nvidia\.com/nvapp/client/[\d.]+/NVIDIA_app_v[\d.]+\.exe") {
+            return $Matches[0]
+        }
+    } catch {}
+    return "https://us.download.nvidia.com/nvapp/client/11.0.8.299/NVIDIA_app_v11.0.8.299.exe"
+}
+
+function Install-NvidiaApp {
+    if (-not (Test-NvidiaGpuPresent)) {
+        Write-Host "[-] No NVIDIA GPU. Skipping NVIDIA App." -ForegroundColor Gray
+        Add-SetupResult Skipped "NVIDIA App"
+        return
+    }
+    if (Test-NvidiaAppPresent) {
+        Write-Host "[-] NVIDIA App already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "NVIDIA App"
+        return
+    }
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[-] NVIDIA App install needs -AdminPhase (official -s installer)." -ForegroundColor Gray
+        $script:AdminPhasePending = $true
+        Add-SetupResult Skipped "NVIDIA App"
+        return
+    }
+    Write-Host "[+] Installing NVIDIA App (official installer, silent)..." -ForegroundColor Cyan
+    $url = Get-NvidiaAppInstallerUrl
+    $setup = Join-Path $env:TEMP "NVIDIA_app_setup.exe"
+    if (-not (Save-RemoteFile $url $setup)) {
+        Write-Host "[!] Could not download NVIDIA App from $url" -ForegroundColor Yellow
+        Add-SetupResult Failed "NVIDIA App"
+        return
+    }
+    $p = Start-Process -FilePath $setup -ArgumentList "-s" -Wait -PassThru
+    Remove-Item $setup -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    if (Test-NvidiaAppPresent -or ($p -and $p.ExitCode -in 0, 3010, 1641)) {
+        Add-SetupResult Installed "NVIDIA App"
+    } else {
+        Write-Host "[!] NVIDIA App installer exited $($p.ExitCode)." -ForegroundColor Yellow
+        Add-SetupResult Failed "NVIDIA App"
+    }
+}
+
 # GitHub releases ship macOS/Linux only. Compile with MSVC if link.exe exists,
 # otherwise Scoop gcc + the gnu rustc triple.
 function Install-AtlassianCli {
@@ -1395,6 +1456,7 @@ Install-EjectLens
 Initialize-TrafficMonitor
 
 Uninstall-GeForceExperience
+Install-NvidiaApp
 
 # --- 5b. Microsoft Store apps ---
 # 9PLM9XGG6VKS = unified ChatGPT/Codex; 9NT1R1C2HH7J = ChatGPT Classic
@@ -1407,7 +1469,6 @@ $msStoreApps = @(
     @{ Id = "9NKSQGP7F2NH"; Label = "WhatsApp"; Appx = "*WhatsApp*" }
     @{ Id = "9NCBCSZSJRSB"; Label = "Spotify"; Appx = "SpotifyAB.SpotifyMusic" }
     @{ Id = "9P2B8MCSVPLN"; Label = "Realtek Audio Control"; Appx = "RealtekSemiconductorCorp.RealtekAudioControl" }
-    @{ Id = "XP8CLZL93F5Z4P"; Label = "NVIDIA App"; Appx = "*NVIDIAApp*" }
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
@@ -2192,6 +2253,7 @@ function Invoke-DotfilesAdminPhase {
     Install-WingetApps -Apps $adminWinget -AdminOnly
     Install-VsBuildTools
     Uninstall-GeForceExperience
+    Install-NvidiaApp
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask
 }
