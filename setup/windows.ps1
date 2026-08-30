@@ -186,6 +186,22 @@ function Start-DotfilesAdminPhaseElevated {
     return $proc.ExitCode
 }
 
+function New-DotfilesPowerShellTaskAction {
+    param(
+        [string]$Path,
+        [string[]]$ExtraArguments
+    )
+
+    $argumentString = @(
+        "-NoProfile"
+        "-ExecutionPolicy Bypass"
+        "-File `"$Path`""
+        $ExtraArguments
+    ) -join " "
+
+    return New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argumentString
+}
+
 function Register-DotfilesAdminPhaseTask {
     $path = Get-WindowsSetupScriptPath
     if (-not $path) {
@@ -193,9 +209,7 @@ function Register-DotfilesAdminPhaseTask {
         return $false
     }
     try {
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument @(
-            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$path`"", "-AdminPhase"
-        )
+        $action = New-DotfilesPowerShellTaskAction -Path $path -ExtraArguments @("-AdminPhase")
         $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
         $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
@@ -223,9 +237,7 @@ function Start-DotfilesUserPhaseNonElevated {
     }
     Unregister-ScheduledTask -TaskName $script:DotfilesUserTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
     try {
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument @(
-            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$path`"", "-UserPhase", "-SkipAutoAdmin"
-        )
+        $action = New-DotfilesPowerShellTaskAction -Path $path -ExtraArguments @("-UserPhase", "-SkipAutoAdmin")
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
         $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
