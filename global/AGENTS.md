@@ -24,4 +24,24 @@
 
 ## Environment
 
-- 1Password available. Session: macOS/WSL `OP_SESSION` in `~/.zshrc`; Windows `Get-Keys` in the PowerShell profile.
+### 1Password
+
+Desktop app unlocked; **Settings > Developer**: turn on **Integrate with 1Password CLI** and **SSH Agent**. Keep 1Password in the system tray.
+
+**Verify (any platform):** `op vault list` then `ssh -T git@github.com` (expect `Hi petrademia!`).
+
+**Windows**
+
+- AI keys: `Get-Keys` in PowerShell `$PROFILE` (from `setup/windows.ps1`).
+- Git over SSH: `git config --global core.sshCommand` is System OpenSSH (`C:/Windows/System32/OpenSSH/ssh.exe`). Do not set `IdentityAgent` in `~/.ssh/config` (1Password uses the Windows pipe automatically).
+- Disable the Windows **OpenSSH Authentication Agent** service (1Password replaces it).
+- SSH keys in agent (from `config/1password/ssh-agent.toml`, synced to `%LOCALAPPDATA%\1Password\config\ssh\agent.toml`):
+  - `SSH Key` - GitHub (`git@github.com`; `git/gitconfig` rewrites `https://github.com/` to SSH)
+- `gh` (optional, for `gh api` / PRs): `bootstrap/post-setup.ps1` reads `GitHub CLI Token` (`credential`, `password`, or `token` field). **Git push uses SSH**, not `gh`.
+
+**macOS / WSL**
+
+- AI keys: `get-keys` in `~/.zshrc` (`config/zsh/ai.zsh`).
+- Git SSH: 1Password SSH agent (`IdentityAgent` on macOS; WSL uses Windows `op.exe` when bridged).
+
+

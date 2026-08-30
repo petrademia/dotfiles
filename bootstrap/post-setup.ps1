@@ -36,6 +36,15 @@ function Invoke-OpRead {
     return $null
 }
 
+function Invoke-OpReadFirst {
+    param([string[]]$Refs)
+    foreach ($ref in $Refs) {
+        $val = Invoke-OpRead $ref
+        if ($val) { return $val }
+    }
+    return $null
+}
+
 function Ensure-GhAuth {
     if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
         Write-Host "[-] gh not installed; skipping GitHub auth." -ForegroundColor DarkGray
@@ -47,12 +56,16 @@ function Ensure-GhAuth {
         return
     }
 
-    $token = Invoke-OpRead "op://Personal/GitHub/credential"
+    $token = Invoke-OpReadFirst @(
+        "op://Personal/GitHub CLI Token/credential",
+        "op://Personal/GitHub CLI Token/password",
+        "op://Personal/GitHub CLI Token/token",
+        "op://Personal/GitHub/credential",
+        "op://Personal/GitHub/password",
+        "op://Personal/GitHub PAT/credential"
+    )
     if (-not $token) {
-        $token = Invoke-OpRead "op://Personal/GitHub PAT/credential"
-    }
-    if (-not $token) {
-        Write-Host "[!] No GitHub token in 1Password (op://Personal/GitHub/credential). Run: gh auth login" -ForegroundColor Yellow
+        Write-Host "[!] No GitHub token in 1Password (GitHub CLI Token item). Git push still works via SSH Key." -ForegroundColor Yellow
         return
     }
 
