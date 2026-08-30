@@ -53,20 +53,24 @@ To make Raycast replace Spotlight for `⌘Space`:
 
 ### Windows
 
-**Recommended: run from an elevated PowerShell.** The bootstrap runs the admin
-phase first, then automatically launches the user phase non-elevated.
+**Recommended: run from an elevated PowerShell** for an unattended Windows sweep.
+The bootstrap runs the admin phase first (machine installs, HKLM, WSL host),
+then automatically launches the user phase non-elevated (per-user Winget,
+Store apps, Scoop). **WSL Linux setup** (`bash ~/dotfiles/setup.sh`) stays a
+separate step after reboot if needed.
 
 ```powershell
-# PowerShell as Administrator (recommended)
+# PowerShell as Administrator (recommended - walk away after this)
 curl.exe -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 -o $env:TEMP\windows.ps1
 & $env:TEMP\windows.ps1
 ```
 
-This provides administrator privileges up front, reducing additional UAC
-prompts for machine-wide installers where supported. Installers that reject
-admin context (for example Spotify) still run in the chained user phase.
+One UAC when you open the admin window. Machine-scope Winget packages (VC++,
+PatchMyPC, LibreOffice, Steam, and similar) install during admin phase so they
+do not prompt again in user phase. Installers that reject admin context
+(Spotify) still run in the chained user phase.
 
-Alternatively:
+Alternatively (user phase first, then one UAC for admin):
 
 ```powershell
 # Normal PowerShell
