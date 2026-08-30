@@ -601,9 +601,15 @@ function Uninstall-GeForceExperience {
     }
     Write-Host "[+] Uninstalling NVIDIA GeForce Experience (replaced by NVIDIA App)..." -ForegroundColor Cyan
     $nvi2 = Join-Path $env:ProgramFiles "NVIDIA Corporation\Installer2\InstallerCore\NVI2.DLL"
+    $rundll = Join-Path $env:SystemRoot "SysWOW64\rundll32.exe"
+    if (!(Test-Path $rundll)) { $rundll = Join-Path $env:SystemRoot "System32\rundll32.exe" }
     if (Test-Path $nvi2) {
-        $p = Start-Process -FilePath "$env:SystemRoot\System32\rundll32.exe" `
-            -ArgumentList "`"$nvi2`",UninstallPackage Display.GFExperience" -Wait -PassThru
+        # -silent = no wizard; -n = no reboot prompt (NVIDIA NVI2).
+        $p = Start-Process -FilePath $rundll -ArgumentList @(
+            "`"$nvi2`",UninstallPackage Display.GFExperience",
+            "-silent",
+            "-n"
+        ) -Wait -PassThru
         if ($p -and $p.ExitCode -ne 0 -and (Test-GeForceExperiencePresent)) {
             Write-Host "[!] NVI2 uninstall exited $($p.ExitCode). Trying winget..." -ForegroundColor Yellow
             winget uninstall --name "NVIDIA GeForce Experience" --accept-source-agreements --silent --disable-interactivity
