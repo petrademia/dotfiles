@@ -53,9 +53,30 @@ To make Raycast replace Spotlight for `⌘Space`:
 
 ### Windows
 
+**One command does both phases** (admin is required, not optional):
+
 ```powershell
+# Normal PowerShell (recommended) - user phase, then one UAC for admin
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
+
+# Or elevated PowerShell - admin phase, then user phase (non-elevated) automatically
+curl.exe -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 -o $env:TEMP\windows.ps1
+& $env:TEMP\windows.ps1
 ```
+
+| How you start | What happens |
+|---------------|--------------|
+| Normal PS, no flags | User phase → **auto UAC** → admin phase |
+| Elevated PS, no flags | Admin phase → **auto** user phase (drops elevation for Winget/Spotify) |
+| Re-run when done | Mostly Skipped, no UAC |
+
+Then **reboot** if WSL reported a pending feature change, and run Linux setup in Ubuntu:
+
+```bash
+bash ~/dotfiles/setup.sh
+```
+
+Opt out of auto-chaining with `-SkipAutoAdmin`. Run one phase only with `-UserPhase` or `-AdminPhase`.
 
 The script sets the CurrentUser execution policy to `RemoteSigned`. If
 `irm | iex` is blocked, run:
@@ -96,7 +117,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 - **Drivers and WSL:** keep the DisplayLink driver installed for dock support
   and leave the Riot Vanguard service enabled.
 
-Some settings need elevation:
+Some settings need elevation and are applied by `-AdminPhase`:
 
 - Hibernation
 - NTFS long paths
@@ -104,6 +125,9 @@ Some settings need elevation:
 - Smart App Control
 - The Widgets policy
 - Consumer Features and hiding Start's Recommended section
+- WSL host (Virtual Machine Platform, Ubuntu registration)
+- DisplayLink driver
+- Deskflow firewall rule
 
 Alt+Tab and some taskbar changes may need a logoff or Explorer restart. On
 some Windows 11 builds, Widgets (`TaskbarDa`) is ACL-locked; the Feeds policy
@@ -129,15 +153,15 @@ Windows directory-backed dotfiles are merged without deleting extra user files.
 
 ### WSL
 
-The Windows setup installs or reconciles Ubuntu 24.04 with Winget
+The Windows **admin phase** installs or reconciles Ubuntu 24.04 with Winget
 `Canonical.Ubuntu.2404` and `ubuntu2404.exe install --root`, then creates a
 normal WSL user matching the Windows username. It does **not** run the Linux
 package/AI stack; that stays a separate step so Windows re-runs stay fast.
 
-It also enables Virtual Machine Platform with UAC when needed. Reboot and
-re-run Windows setup if Windows reports a pending feature change. If `wsl`
-reports `REGDB_E_CLASSNOTREG`, the script downloads the official `wsl.msi`
-and prompts for UAC.
+Run `.\setup\windows.ps1 -AdminPhase` (elevated) on a fresh machine. Reboot
+and re-run `-UserPhase` if Windows reports a pending feature change. If `wsl`
+reports `REGDB_E_CLASSNOTREG`, the admin phase downloads the official
+`wsl.msi` and repairs the host inline (no nested UAC prompts).
 
 Inside Ubuntu, run the Linux stack:
 
@@ -178,7 +202,7 @@ Then run the platform-specific setup again:
 
 - macOS: `./setup.sh` and `zsh bootstrap/macos.sh`
 - WSL: `./setup.sh`
-- Windows: `.\setup\windows.ps1`
+- Windows: `.\setup\windows.ps1 -UserPhase` (and `-AdminPhase` when the script says admin work is pending)
 
 ## Java
 

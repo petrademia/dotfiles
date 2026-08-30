@@ -1,4 +1,37 @@
 # Windows setup - mirrors the macOS/WSL tool stack via Scoop + Winget.
+#
+# Default (no flags): full setup in one go.
+#   Normal PowerShell  -> user phase, then one UAC for admin phase
+#   Elevated PowerShell -> admin phase, then user phase (non-elevated)
+#
+# Explicit flags:
+#   -UserPhase / -AdminPhase  run one phase only
+#   -SkipAutoAdmin            do not auto-elevate or chain the other phase
+#   -ScheduleAdminPhase        defer admin phase to next logon (with -UserPhase)
+
+param(
+    [switch]$AdminPhase,
+    [switch]$UserPhase,
+    [switch]$ScheduleAdminPhase,
+    [switch]$SkipAutoAdmin
+)
+
+if ($AdminPhase -and $UserPhase) {
+    Write-Error "Pass -AdminPhase or -UserPhase, not both."
+    exit 1
+}
+
+$script:AdminPhasePending = $false
+$script:RunAdminPhase = $false
+$script:RunUserPhase = $false
+$script:ChainAdminPhase = $false
+$script:ChainUserPhase = $false
+$script:DotfilesAdminTaskName = "DotfilesSetupAdminPhase"
+$script:DotfilesUserTaskName = "DotfilesSetupUserPhase"
+$script:WslBroken = $false
+$wslDistro = "Ubuntu-24.04"
+$wslPackageId = "Canonical.Ubuntu.2404"
+$script:WingetAdminApps = @("DisplayLink.GraphicsDriver")
 
 # --- 0. Pre-Flight ---
 # Restricted is the Windows default, so the profile fails to load until this is set.
@@ -106,6 +139,143 @@ function Get-DotfilesRoot {
         if (Test-Path (Join-Path $root "setup\windows.ps1")) { return $root }
     }
     return Sync-DotfilesClone
+}
+
+function Test-IsAdmin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $p = [Security.Principal.WindowsPrincipal]::new($id)
+    return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Get-WindowsSetupScriptPath {
+    if ($PSScriptRoot) {
+        $local = Join-Path $PSScriptRoot "windows.ps1"
+        if (Test-Path $local) { return (Resolve-Path $local).Path }
+    }
+    $cloned = Join-Path (Get-DotfilesRoot) "setup\windows.ps1"
+    if (Test-Path $cloned) { return (Resolve-Path $cloned).Path }
+    return $null
+}
+
+function Get-DotfilesAdminPhaseCommand {
+    $path = Get-WindowsSetupScriptPath
+    if ($path) {
+        return "& `"$path`" -AdminPhase"
+    }
+    return "irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex; .\setup\windows.ps1 -AdminPhase"
+}
+
+function Start-DotfilesAdminPhaseElevated {
+    $path = Get-WindowsSetupScriptPath
+    if (-not $path) {
+        $path = Join-Path (Get-DotfilesRoot) "setup\windows.ps1"
+        if (-not (Test-Path $path)) {
+            Write-Host "[!] Could not resolve setup\windows.ps1 for elevation." -ForegroundColor Red
+            return 1
+        }
+        $path = (Resolve-Path $path).Path
+    }
+    Write-Host "[+] Starting elevated admin phase (one UAC prompt)..." -ForegroundColor Yellow
+    $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $path, "-AdminPhase"
+    ) -Wait -PassThru
+    if ($null -eq $proc) {
+        Write-Host "[!] Admin phase elevation was cancelled." -ForegroundColor Yellow
+        return 1
+    }
+    return $proc.ExitCode
+}
+
+function Register-DotfilesAdminPhaseTask {
+    $path = Get-WindowsSetupScriptPath
+    if (-not $path) {
+        Write-Host "[!] Cannot schedule admin phase; setup\windows.ps1 not found." -ForegroundColor Yellow
+        return $false
+    }
+    try {
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$path`"", "-AdminPhase"
+        )
+        $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+        $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+        Register-ScheduledTask -TaskName $script:DotfilesAdminTaskName -Action $action -Trigger $trigger `
+            -Settings $settings -Principal $principal -Force | Out-Null
+        Write-Host "[+] Scheduled one-shot admin phase at next logon: $script:DotfilesAdminTaskName" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "[!] Could not register admin phase task: $_" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+function Unregister-DotfilesAdminPhaseTask {
+    Unregister-ScheduledTask -TaskName $script:DotfilesAdminTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+}
+
+function Start-DotfilesUserPhaseNonElevated {
+    param([switch]$Wait)
+    $path = Get-WindowsSetupScriptPath
+    if (-not $path) {
+        Write-Host "[!] Cannot chain user phase; setup\windows.ps1 not found." -ForegroundColor Yellow
+        Write-Host "    Normal PS: irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex" -ForegroundColor Cyan
+        return 1
+    }
+    Unregister-ScheduledTask -TaskName $script:DotfilesUserTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    try {
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$path`"", "-UserPhase", "-SkipAutoAdmin"
+        )
+        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(1)
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+        $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+        Register-ScheduledTask -TaskName $script:DotfilesUserTaskName -Action $action -Trigger $trigger `
+            -Settings $settings -Principal $principal -Force | Out-Null
+        Start-ScheduledTask -TaskName $script:DotfilesUserTaskName
+        if ($Wait) {
+            do { Start-Sleep -Seconds 3 } while ((Get-ScheduledTask -TaskName $script:DotfilesUserTaskName).State -eq "Running")
+            Unregister-ScheduledTask -TaskName $script:DotfilesUserTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        }
+        return 0
+    } catch {
+        Write-Host "[!] Could not start non-elevated user phase: $_" -ForegroundColor Yellow
+        Write-Host "    Normal PS: irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex" -ForegroundColor Cyan
+        return 1
+    }
+}
+
+function Initialize-DotfilesSetupPhase {
+    if ($AdminPhase) { $script:RunAdminPhase = $true; return }
+    if ($UserPhase) { $script:RunUserPhase = $true; return }
+    if (Test-IsAdmin) {
+        $script:RunAdminPhase = $true
+        if (-not $SkipAutoAdmin) { $script:ChainUserPhase = $true }
+    } else {
+        $script:RunUserPhase = $true
+        if (-not $SkipAutoAdmin) { $script:ChainAdminPhase = $true }
+    }
+}
+
+function Test-DotfilesRunAdminPhase {
+    return $AdminPhase -or $script:RunAdminPhase
+}
+
+function Test-DotfilesRunUserPhase {
+    return $UserPhase -or $script:RunUserPhase
+}
+
+function Write-DotfilesAdminPhaseNextSteps {
+    if (-not $script:AdminPhasePending) { return }
+    $path = Get-WindowsSetupScriptPath
+    Write-Host ""
+    Write-Host "Admin phase still needed (WSL host, HKLM defaults, DisplayLink, firewall):" -ForegroundColor Yellow
+    Write-Host "  $(Get-DotfilesAdminPhaseCommand)" -ForegroundColor Cyan
+    if ($path) {
+        Write-Host "Or one UAC prompt now:" -ForegroundColor Yellow
+        Write-Host "  Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File `"$path`" -AdminPhase'" -ForegroundColor Cyan
+    }
+    Write-Host "Or schedule at next logon (one UAC at logon):" -ForegroundColor Yellow
+    Write-Host "  .\setup\windows.ps1 -UserPhase -ScheduleAdminPhase" -ForegroundColor Cyan
 }
 
 function Test-WingetExit1603 {
@@ -400,8 +570,8 @@ function Initialize-TrafficMonitor {
     }
 }
 
-function Set-WindowsHostDefaults {
-    Write-Host "Applying Windows defaults..." -ForegroundColor Cyan
+function Set-WindowsHostUserDefaults {
+    Write-Host "Applying Windows user defaults..." -ForegroundColor Cyan
 
     $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
     Set-ItemProperty -Path $adv -Name HideFileExt -Type DWord -Value 0 -ErrorAction SilentlyContinue
@@ -459,18 +629,6 @@ function Set-WindowsHostDefaults {
     $appHost = "HKCU:\Software\Microsoft\Windows\CurrentVersion\AppHost"
     if (!(Test-Path $appHost)) { New-Item -Path $appHost -Force | Out-Null }
     Set-ItemProperty -Path $appHost -Name EnableWebContentEvaluation -Type DWord -Value 1
-    try {
-        $sac = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy"
-        if (Test-Path $sac) {
-            Set-ItemProperty -Path $sac -Name VerifiedAndReputablePolicyState -Type DWord -Value 0 -ErrorAction Stop
-        }
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Type String -Value "Warn" -ErrorAction Stop
-        if (Get-Command Set-MpPreference -ErrorAction SilentlyContinue) {
-            Set-MpPreference -PUAProtection 1 -ErrorAction Stop
-        }
-    } catch {
-        Write-Host "[!] Smart App Control Off / SmartScreen HKLM skipped (needs elevation)." -ForegroundColor Yellow
-    }
 
     $shots = Join-Path $HOME "Screenshots"
     New-Item -ItemType Directory -Path $shots -Force | Out-Null
@@ -486,35 +644,6 @@ function Set-WindowsHostDefaults {
         Set-ItemProperty -Path $ptp -Name TapAndDrag -Type DWord -Value 0 -ErrorAction SilentlyContinue
         Set-ItemProperty -Path $ptp -Name ThreeFingerSlideEnabled -Type DWord -Value 0
         Set-ItemProperty -Path $ptp -Name ThreeFingerTapEnabled -Type DWord -Value 0
-    }
-
-    powercfg /hibernate on 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[!] Hibernate skipped (needs an elevated PowerShell)." -ForegroundColor Yellow
-    } else {
-        try {
-            $fly = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"
-            if (!(Test-Path $fly)) { New-Item -Path $fly -Force -ErrorAction Stop | Out-Null }
-            Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1 -ErrorAction Stop
-            Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1 -ErrorAction Stop
-            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1 -ErrorAction Stop
-            $dsh = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
-            if (!(Test-Path $dsh)) { New-Item -Path $dsh -Force -ErrorAction Stop | Out-Null }
-            Set-ItemProperty -Path $dsh -Name AllowNewsAndInterests -Type DWord -Value 0 -ErrorAction Stop
-            $winFeeds = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
-            if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force -ErrorAction Stop | Out-Null }
-            Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0 -ErrorAction Stop
-            $cloud = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
-            if (!(Test-Path $cloud)) { New-Item -Path $cloud -Force -ErrorAction Stop | Out-Null }
-            Set-ItemProperty -Path $cloud -Name DisableWindowsConsumerFeatures -Type DWord -Value 1 -ErrorAction Stop
-            # Hide Start's Recommended section without IsEducationEnvironment,
-            # which also turns off Spotlight wallpaper.
-            $startPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
-            if (!(Test-Path $startPolicy)) { New-Item -Path $startPolicy -Force -ErrorAction Stop | Out-Null }
-            Set-ItemProperty -Path $startPolicy -Name HideRecommendedSection -Type DWord -Value 1 -ErrorAction Stop
-        } catch {
-            Write-Host "[!] Hibernate power-menu / long paths / Widgets / Start policy skipped (needs elevation)." -ForegroundColor Yellow
-        }
     }
 
     try {
@@ -570,6 +699,123 @@ function Set-WindowsHostDefaults {
     } catch {}
 
     Set-WindowsStartupApps
+}
+
+function Set-WindowsHostAdminDefaults {
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[!] HKLM defaults skipped (run -AdminPhase elevated)." -ForegroundColor Yellow
+        $script:AdminPhasePending = $true
+        return
+    }
+    Write-Host "Applying Windows admin defaults..." -ForegroundColor Cyan
+    try {
+        $sac = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy"
+        if (Test-Path $sac) {
+            Set-ItemProperty -Path $sac -Name VerifiedAndReputablePolicyState -Type DWord -Value 0 -ErrorAction Stop
+        }
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name SmartScreenEnabled -Type String -Value "Warn" -ErrorAction Stop
+        if (Get-Command Set-MpPreference -ErrorAction SilentlyContinue) {
+            Set-MpPreference -PUAProtection 1 -ErrorAction Stop
+        }
+    } catch {
+        Write-Host "[!] Smart App Control Off / SmartScreen HKLM failed: $_" -ForegroundColor Yellow
+    }
+
+    powercfg /hibernate on 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Hibernate enable failed." -ForegroundColor Yellow
+    }
+    try {
+        $fly = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FlyoutMenuSettings"
+        if (!(Test-Path $fly)) { New-Item -Path $fly -Force -ErrorAction Stop | Out-Null }
+        Set-ItemProperty -Path $fly -Name ShowHibernateOption -Type DWord -Value 1 -ErrorAction Stop
+        Set-ItemProperty -Path $fly -Name ShowSleepOption -Type DWord -Value 1 -ErrorAction Stop
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Type DWord -Value 1 -ErrorAction Stop
+        $dsh = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
+        if (!(Test-Path $dsh)) { New-Item -Path $dsh -Force -ErrorAction Stop | Out-Null }
+        Set-ItemProperty -Path $dsh -Name AllowNewsAndInterests -Type DWord -Value 0 -ErrorAction Stop
+        $winFeeds = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
+        if (!(Test-Path $winFeeds)) { New-Item -Path $winFeeds -Force -ErrorAction Stop | Out-Null }
+        Set-ItemProperty -Path $winFeeds -Name EnableFeeds -Type DWord -Value 0 -ErrorAction Stop
+        $cloud = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
+        if (!(Test-Path $cloud)) { New-Item -Path $cloud -Force -ErrorAction Stop | Out-Null }
+        Set-ItemProperty -Path $cloud -Name DisableWindowsConsumerFeatures -Type DWord -Value 1 -ErrorAction Stop
+        $startPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
+        if (!(Test-Path $startPolicy)) { New-Item -Path $startPolicy -Force -ErrorAction Stop | Out-Null }
+        Set-ItemProperty -Path $startPolicy -Name HideRecommendedSection -Type DWord -Value 1 -ErrorAction Stop
+    } catch {
+        Write-Host "[!] Hibernate power-menu / long paths / Widgets / Start policy failed: $_" -ForegroundColor Yellow
+    }
+}
+
+function Install-DeskflowFirewallRule {
+    Write-Host "Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
+    $dfRule = "Deskflow Inbound (TCP 24800)"
+    try {
+        if (!(Get-NetFirewallRule -DisplayName $dfRule -ErrorAction SilentlyContinue)) {
+            New-NetFirewallRule -DisplayName $dfRule -Direction Inbound -LocalPort 24800 -Protocol TCP -Action Allow -Description "Deskflow KVM" -ErrorAction Stop | Out-Null
+        }
+    } catch {
+        if (-not (Test-IsAdmin)) {
+            Write-Host "[!] Deskflow firewall rule skipped (run -AdminPhase elevated)." -ForegroundColor Yellow
+            $script:AdminPhasePending = $true
+        } else {
+            Write-Host "[!] Deskflow firewall rule failed: $_" -ForegroundColor Yellow
+        }
+    }
+}
+
+function Install-WingetApps {
+    param(
+        [string[]]$Apps,
+        [switch]$AdminOnly,
+        [switch]$UserOnly
+    )
+    foreach ($app in $Apps) {
+        if ($UserOnly -and (Test-IsAdmin)) {
+            Write-Host "[-] $app deferred (installer refuses elevated session)." -ForegroundColor Gray
+            Add-SetupResult Skipped $app
+            continue
+        }
+        if ($AdminOnly -and -not (Test-IsAdmin)) {
+            Write-Host "[-] $app skipped (needs -AdminPhase)." -ForegroundColor Gray
+            $script:AdminPhasePending = $true
+            continue
+        }
+        $check = winget list --id $app --source winget 2>$null
+        $checkText = @($check | ForEach-Object { "$_" }) -join "`n"
+        if ([string]::IsNullOrWhiteSpace($checkText) -or (Test-WingetNoChange $checkText)) {
+            Write-Host "[+] Installing $app..." -ForegroundColor Cyan
+            $wingetLines = @()
+            winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
+            $wingetText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
+            $wingetCode = $LASTEXITCODE
+            $installSucceeded = $wingetCode -eq 0
+            if (Test-WingetExit1603 $wingetText $wingetCode) {
+                if ($app -eq "Deskflow.Deskflow") {
+                    Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
+                } elseif ($AdminOnly) {
+                    Write-Host "[!] $app installer failed (exit 1603). Reboot, then re-run -AdminPhase." -ForegroundColor Yellow
+                } else {
+                    Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Run -AdminPhase." -ForegroundColor Yellow
+                    $script:AdminPhasePending = $true
+                }
+            } elseif (Test-WingetAdminContext $wingetText) {
+                Write-Host "[!] $app refuses an elevated session. Re-run -UserPhase." -ForegroundColor Yellow
+                Add-SetupResult Skipped $app
+                continue
+            } elseif (Test-WingetHashMismatch $wingetText) {
+                Write-Host "[!] $app Winget manifest/installer hash mismatch. Skipping; retry later." -ForegroundColor Yellow
+            } elseif ($wingetCode -ne 0) {
+                Write-Host "[!] Exact Winget install failed for $app. Skipping." -ForegroundColor Yellow
+            }
+            if ($installSucceeded) { Add-SetupResult Installed $app }
+            else { Add-SetupResult Failed $app }
+        } else {
+            Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped $app
+        }
+    }
 }
 
 function Set-StartupApproved {
@@ -712,6 +958,14 @@ function Install-GitHubKnownHosts {
     }
 }
 
+Initialize-DotfilesSetupPhase
+
+if ((Test-DotfilesRunAdminPhase) -and -not (Test-IsAdmin)) {
+    exit (Start-DotfilesAdminPhaseElevated)
+}
+
+if (Test-DotfilesRunUserPhase) {
+
 if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Host "Installing Scoop..." -ForegroundColor Yellow
     irm get.scoop.sh | iex
@@ -827,42 +1081,11 @@ $wingetApps = @(
     "Valve.Steam",
     "ElectronicArts.EADesktop",
     "RiotGames.Valorant.AP",
-    "DisplayLink.GraphicsDriver",
     "seerge.g-helper",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
 )
 
-foreach ($app in $wingetApps) {
-    $check = winget list --id $app --source winget 2>$null
-    $checkText = @($check | ForEach-Object { "$_" }) -join "`n"
-    if ([string]::IsNullOrWhiteSpace($checkText) -or (Test-WingetNoChange $checkText)) {
-        Write-Host "[+] Installing $app..." -ForegroundColor Cyan
-        $wingetLines = @()
-        winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
-        $wingetText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
-        $wingetCode = $LASTEXITCODE
-        $installSucceeded = $wingetCode -eq 0
-        if (Test-WingetExit1603 $wingetText $wingetCode) {
-            if ($app -eq "Deskflow.Deskflow") {
-                Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
-            } else {
-                Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Skipping retry." -ForegroundColor Yellow
-            }
-        } elseif (Test-WingetAdminContext $wingetText) {
-            Write-Host "[!] $app installer refuses an elevated session. Skipping retry." -ForegroundColor Yellow
-        } elseif (Test-WingetHashMismatch $wingetText) {
-            Write-Host "[!] $app Winget manifest/installer hash mismatch. Skipping; retry later." -ForegroundColor Yellow
-        } elseif ($wingetCode -ne 0) {
-            Write-Host "[!] Exact Winget install failed for $app. Skipping." -ForegroundColor Yellow
-        }
-        if ($installSucceeded) { Add-SetupResult Installed $app }
-        else { Add-SetupResult Failed $app }
-    } else {
-        # Already installed: do not winget-upgrade on every setup re-run.
-        Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped $app
-    }
-}
+Install-WingetApps -Apps $wingetApps -UserOnly
 
 $uniGetUiExe = Join-Path $env:LOCALAPPDATA "Programs\UniGetUI\UniGetUI.exe"
 New-StartMenuShortcut -Name "UniGetUI" -Target $uniGetUiExe
@@ -888,6 +1111,11 @@ $msStoreApps = @(
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
         Write-Host "[-] $($app.Label) already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped $app.Label
+        continue
+    }
+    if ((Test-IsAdmin) -and $app.Label -eq "Spotify") {
+        Write-Host "[-] $($app.Label) deferred (installer refuses elevated session). Re-run -UserPhase." -ForegroundColor Gray
         Add-SetupResult Skipped $app.Label
         continue
     }
@@ -1008,17 +1236,6 @@ git config --global include.path (Join-Path $dotfiles "git\gitconfig")
 git config --global core.hooksPath (Join-Path $dotfiles "git\hooks")
 # Git for Windows ships its own ssh.exe, which cannot use the 1Password SSH agent.
 git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
-
-# --- 7. Deskflow Firewall Rule ---
-Write-Host "Opening Port 24800 for Deskflow..." -ForegroundColor Cyan
-$dfRule = "Deskflow Inbound (TCP 24800)"
-try {
-    if (!(Get-NetFirewallRule -DisplayName $dfRule -ErrorAction SilentlyContinue)) {
-        New-NetFirewallRule -DisplayName $dfRule -Direction Inbound -LocalPort 24800 -Protocol TCP -Action Allow -Description "Deskflow KVM" -ErrorAction Stop | Out-Null
-    }
-} catch {
-    Write-Host "[!] Deskflow firewall rule skipped (needs an elevated PowerShell)." -ForegroundColor Yellow
-}
 
 # --- 8. Window Switcher (sigoden/window-switcher) ---
 Write-Host "Checking Alt-Backtick Switcher (sigoden)..." -ForegroundColor Cyan
@@ -1270,11 +1487,10 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
     }
 }
 
+} # end UserPhase
+
 # --- 11. WSL host provisioning ---
 Write-Host "Checking WSL..." -ForegroundColor Cyan
-
-$wslDistro = "Ubuntu-24.04"
-$wslPackageId = "Canonical.Ubuntu.2404"
 
 function Get-WslLinuxSetupCommand {
     $root = Get-DotfilesRoot
@@ -1305,12 +1521,6 @@ function Ensure-WslHostReady {
     }
     Add-SetupResult Skipped "WSL host"
     return $true
-}
-
-function Test-IsAdmin {
-    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $p = [Security.Principal.WindowsPrincipal]::new($id)
-    return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 function Get-WslListRaw {
@@ -1377,38 +1587,21 @@ function Write-WslManualVmPlatform {
 
 function Enable-WslOptionalFeature {
     param([string]$FeatureName)
-    $safeName = $FeatureName -replace '[^A-Za-z0-9-]', '-'
-    $helper = Join-Path $env:TEMP "dotfiles-enable-$safeName.ps1"
-    @"
-`$ErrorActionPreference = 'Stop'
-try {
-    `$feature = Get-WindowsOptionalFeature -Online -FeatureName '$FeatureName'
-    if (`$feature.State -eq 'Enabled') { exit 0 }
-    `$result = Enable-WindowsOptionalFeature -Online -FeatureName '$FeatureName' -All -NoRestart
-    if (`$result.RestartNeeded) { exit 3010 }
-    if ((Get-WindowsOptionalFeature -Online -FeatureName '$FeatureName').State -eq 'Enabled') { exit 0 }
-    exit 1
-} catch {
-    Write-Error `$_
-    exit 1
-}
-"@ | Set-Content -Path $helper -Encoding UTF8
-
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[!] ${FeatureName} needs -AdminPhase (elevated)." -ForegroundColor Yellow
+        $script:AdminPhasePending = $true
+        return 1
+    }
     try {
-        if (Test-IsAdmin) {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
-            return $LASTEXITCODE
-        }
-        $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @(
-            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper
-        ) -Wait -PassThru
-        if ($null -eq $proc) { throw "elevation returned no process" }
-        return $proc.ExitCode
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName $FeatureName
+        if ($feature.State -eq 'Enabled') { return 0 }
+        $result = Enable-WindowsOptionalFeature -Online -FeatureName $FeatureName -All -NoRestart
+        if ($result.RestartNeeded) { return 3010 }
+        if ((Get-WindowsOptionalFeature -Online -FeatureName $FeatureName).State -eq 'Enabled') { return 0 }
+        return 1
     } catch {
         Write-Host "[!] Could not enable ${FeatureName}: $_" -ForegroundColor Yellow
         return 1
-    } finally {
-        Remove-Item -LiteralPath $helper -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -1420,7 +1613,7 @@ function Ensure-WslVmPlatform {
         return $false
     }
 
-    Write-Host "[+] Enabling Virtual Machine Platform (UAC prompt may appear)..." -ForegroundColor Yellow
+    Write-Host "[+] Enabling Virtual Machine Platform..." -ForegroundColor Yellow
     $code = Enable-WslOptionalFeature "VirtualMachinePlatform"
     if ($code -eq 3010 -or (Get-WslFeatureState "VirtualMachinePlatform") -eq "EnablePending") {
         Write-WslRebootNeeded
@@ -1525,22 +1718,14 @@ fi
 function Set-HypervisorLaunchAuto {
     $enum = (& bcdedit.exe /enum "{current}" 2>&1 | Out-String)
     if ($enum -match "hypervisorlaunchtype\s+Auto") { return $true }
-    Write-Host "[+] Setting hypervisorlaunchtype Auto (needed for WSL2)..." -ForegroundColor Yellow
-    $helper = Join-Path $env:TEMP "dotfiles-hv-launch.ps1"
-    "bcdedit.exe /set '{current}' hypervisorlaunchtype Auto; exit `$LASTEXITCODE" | Set-Content -Path $helper -Encoding ASCII
-    try {
-        if (Test-IsAdmin) {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
-            return ($LASTEXITCODE -eq 0)
-        }
-        $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
-        if ($null -eq $proc) { throw "elevation returned no process" }
-        return ($proc.ExitCode -eq 0)
-    } catch {
-        Write-Host "[!] Could not set hypervisorlaunchtype Auto: $_" -ForegroundColor Yellow
-        Write-Host "    Elevated: bcdedit /set `{current`} hypervisorlaunchtype Auto" -ForegroundColor Cyan
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[!] hypervisorlaunchtype Auto needs -AdminPhase (elevated)." -ForegroundColor Yellow
+        $script:AdminPhasePending = $true
         return $false
     }
+    Write-Host "[+] Setting hypervisorlaunchtype Auto (needed for WSL2)..." -ForegroundColor Yellow
+    & bcdedit.exe /set '{current}' hypervisorlaunchtype Auto
+    return ($LASTEXITCODE -eq 0)
 }
 
 function Get-WslMsiUrl {
@@ -1559,44 +1744,38 @@ function Get-WslMsiUrl {
 # GitHub wsl.msi as admin is the usual repair; UAC is required.
 function Invoke-WslMsiRepair {
     param([string]$Distro)
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[!] WSL repair needs -AdminPhase (elevated)." -ForegroundColor Yellow
+        $script:AdminPhasePending = $true
+        return $false
+    }
     $url = Get-WslMsiUrl
     if (-not $url) {
         Write-Host "[!] Could not resolve official wsl.msi from GitHub releases." -ForegroundColor Yellow
         return $false
     }
 
-    Write-Host "[+] WSL COM is broken. Installing official wsl.msi (UAC prompt)..." -ForegroundColor Yellow
+    Write-Host "[+] WSL COM is broken. Installing official wsl.msi..." -ForegroundColor Yellow
     $msi = Join-Path $env:TEMP "wsl-setup.msi"
     if (-not (Save-RemoteFile $url $msi)) {
         Write-Host "[!] Failed to download wsl.msi after retries. Re-run, or install from https://github.com/microsoft/WSL/releases" -ForegroundColor Yellow
         return $false
     }
 
-    $helper = Join-Path $env:TEMP "dotfiles-wsl-repair.ps1"
     $log = Join-Path $env:TEMP "dotfiles-wsl-msi.log"
-    @"
-`$ErrorActionPreference = 'Continue'
-Write-Host 'Enabling WSL Windows features (no reboot yet)...'
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-Write-Host 'Installing wsl.msi...'
-`$p = Start-Process msiexec.exe -ArgumentList @('/i', '$($msi -replace "'", "''")', '/qn', '/norestart', '/L*v', '$($log -replace "'", "''")') -Wait -PassThru
-Write-Host ("msiexec exit " + `$p.ExitCode)
-if (`$p.ExitCode -notin 0, 1641, 3010) { exit `$p.ExitCode }
-Write-Host 'Installing distro $Distro...'
-wsl.exe --install -d '$($Distro -replace "'", "''")' --no-launch
-exit `$LASTEXITCODE
-"@ | Set-Content -Path $helper -Encoding UTF8
-
     try {
-        if (Test-IsAdmin) {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
-        } else {
-            $proc = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $helper) -Wait -PassThru
-            if ($null -eq $proc) { throw "elevation returned no process" }
-        }
+        Write-Host 'Enabling WSL Windows features (no reboot yet)...'
+        & dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+        & dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+        Write-Host 'Installing wsl.msi...'
+        $p = Start-Process msiexec.exe -ArgumentList @('/i', $msi, '/qn', '/norestart', '/L*v', $log) -Wait -PassThru
+        Write-Host ("msiexec exit " + $p.ExitCode)
+        if ($p.ExitCode -notin 0, 1641, 3010) { return $false }
+        Write-Host "Installing distro $Distro..."
+        & wsl.exe --install -d $Distro --no-launch
+        if ($LASTEXITCODE -ne 0) { return $false }
     } catch {
-        Write-Host "[!] WSL repair elevation cancelled or failed: $_" -ForegroundColor Yellow
+        Write-Host "[!] WSL repair failed: $_" -ForegroundColor Yellow
         Write-Host "    Manual: msiexec /i $msi ; wsl --install -d $Distro" -ForegroundColor DarkGray
         return $false
     }
@@ -1605,7 +1784,7 @@ exit `$LASTEXITCODE
     $raw = Get-WslListRaw
     if (Test-WslComBroken $raw) {
         $script:WslBroken = $true
-        Write-Host "[!] WSL still reports CLASSNOTREG. Reboot, then re-run setup." -ForegroundColor Yellow
+        Write-Host "[!] WSL still reports CLASSNOTREG. Reboot, then re-run -AdminPhase." -ForegroundColor Yellow
         Write-Host "    MSI log: $log" -ForegroundColor DarkGray
         Write-Host "    If it persists after reboot, Windows repair install is the remaining fix." -ForegroundColor DarkGray
         return $false
@@ -1613,74 +1792,132 @@ exit `$LASTEXITCODE
     return $true
 }
 
-$script:WslBroken = $false
-$wslInstalled = Test-WslDistroInstalled $wslDistro
-if (-not (Test-WslHypervisorReady)) {
-    [void](Set-HypervisorLaunchAuto)
-}
-
-$wslVmReady = Test-WslVmPlatformReady
-if (-not $wslVmReady) {
-    $wslVmReady = Ensure-WslVmPlatform
-}
-
-if ($wslVmReady -and $script:WslBroken) {
-    [void](Invoke-WslMsiRepair $wslDistro)
+function Invoke-DotfilesWslAdminProvisioning {
+    $script:WslBroken = $false
     $wslInstalled = Test-WslDistroInstalled $wslDistro
+    if (-not (Test-WslHypervisorReady)) {
+        [void](Set-HypervisorLaunchAuto)
+    }
+
+    $wslVmReady = Test-WslVmPlatformReady
+    if (-not $wslVmReady) {
+        $wslVmReady = Ensure-WslVmPlatform
+    }
+
+    if ($wslVmReady -and $script:WslBroken) {
+        [void](Invoke-WslMsiRepair $wslDistro)
+        $wslInstalled = Test-WslDistroInstalled $wslDistro
+    }
+
+    if ($wslInstalled) {
+        Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
+        if ($wslVmReady) {
+            if (Ensure-WslHostReady) { Write-WslLinuxSetupNextStep }
+        } else {
+            Write-WslRebootNeeded
+        }
+    } elseif ($wslVmReady) {
+        Write-Host "[+] Installing $wslDistro via Winget..." -ForegroundColor Yellow
+        winget install -e --id $wslPackageId --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
+        $repaired = (Test-WslDistroInstalled $wslDistro)
+        if (-not $repaired) {
+            $repaired = Install-UbuntuViaLauncher
+        }
+        if ($repaired) {
+            if (Ensure-WslHostReady) { Write-WslLinuxSetupNextStep }
+        } elseif (-not (Test-WslVmPlatformReady)) {
+            Write-WslRebootNeeded
+        } else {
+            Write-Host "[!] Ubuntu did not register a WSL distro." -ForegroundColor Yellow
+            Write-Host "    Do not Store-install Ubuntu. After the WSL host is ready: re-run -AdminPhase." -ForegroundColor Yellow
+        }
+    }
 }
 
-if ($wslInstalled) {
-    Write-Host "[-] WSL $wslDistro is already installed." -ForegroundColor Gray
-    if ($wslVmReady) {
+function Invoke-DotfilesUserPhaseWslCheck {
+    if (Test-WslDistroInstalled $wslDistro) {
         if (Ensure-WslHostReady) { Write-WslLinuxSetupNextStep }
-    } else {
-        Write-WslRebootNeeded
+        return
     }
-} elseif ($wslVmReady) {
-    # The generic Canonical.Ubuntu package still resolves to 22.04. Pin 24.04.
-    # The package can be "installed" in Winget while wsl -l is still empty.
-    # wsl --install -d Ubuntu re-runs DISM and never registers the distro.
-    Write-Host "[+] Installing $wslDistro via Winget..." -ForegroundColor Yellow
-    winget install -e --id $wslPackageId --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Out-Host
-    $repaired = (Test-WslDistroInstalled $wslDistro)
-    if (-not $repaired) {
-        $repaired = Install-UbuntuViaLauncher
+    if (-not (Test-WslVmPlatformReady) -or -not (Test-WslHypervisorReady)) {
+        Write-Host "[!] WSL host features are not ready. Run -AdminPhase (elevated)." -ForegroundColor Yellow
+        $script:AdminPhasePending = $true
+        return
     }
-    if ($repaired) {
-        if (Ensure-WslHostReady) { Write-WslLinuxSetupNextStep }
-    } elseif (-not (Test-WslVmPlatformReady)) {
-        Write-WslRebootNeeded
-    } else {
-        Write-Host "[!] Ubuntu did not register a WSL distro." -ForegroundColor Yellow
-        Write-Host "    Do not Store-install Ubuntu. After the WSL host is ready: re-run setup." -ForegroundColor Yellow
-    }
+    Write-Host "[!] Ubuntu is not registered yet. Run -AdminPhase (elevated)." -ForegroundColor Yellow
+    $script:AdminPhasePending = $true
+}
+
+function Invoke-DotfilesAdminPhase {
+    Write-Host "==> Dotfiles admin phase (elevated)" -ForegroundColor Cyan
+    Set-WindowsHostAdminDefaults
+    Install-DeskflowFirewallRule
+    Install-WingetApps -Apps $script:WingetAdminApps -AdminOnly
+    Invoke-DotfilesWslAdminProvisioning
+    Unregister-DotfilesAdminPhaseTask
 }
 
 # --- 12. Final Polish ---
-Set-WindowsHostDefaults
-scoop cleanup *
+if (Test-DotfilesRunAdminPhase) {
+    Invoke-DotfilesAdminPhase
+    if ($script:SetupResults.Failed -eq 0) {
+        Write-Host "ADMIN PHASE COMPLETE." -ForegroundColor Green
+    } else {
+        Write-Host "ADMIN PHASE FINISHED WITH FAILURES." -ForegroundColor Yellow
+    }
+    Write-SetupSummary
+    if ($script:ChainUserPhase) {
+        Write-Host ""
+        Write-Host "[+] Starting user phase (non-elevated)..." -ForegroundColor Cyan
+        Start-DotfilesUserPhaseNonElevated -Wait | Out-Null
+    } else {
+        Write-Host ""
+        Write-Host "Next: reboot if WSL reported a pending feature change, then start WSL Linux setup." -ForegroundColor Yellow
+        Write-Host "  $(Get-WslLinuxSetupCommand)" -ForegroundColor Cyan
+    }
+    exit 0
+}
+
+Invoke-DotfilesUserPhaseWslCheck
+Set-WindowsHostUserDefaults
+if (Test-DotfilesRunUserPhase) { scoop cleanup * }
 if ($script:SetupResults.Failed -eq 0) {
     Write-Host "SETUP COMPLETE." -ForegroundColor Green
 } else {
     Write-Host "SETUP FINISHED WITH FAILURES." -ForegroundColor Yellow
 }
 Write-SetupSummary
+if ($script:ChainAdminPhase -and $script:AdminPhasePending) {
+    Write-Host ""
+    Write-Host "[+] Admin phase required. Elevating (one UAC)..." -ForegroundColor Yellow
+    $adminCode = Start-DotfilesAdminPhaseElevated
+    if ($adminCode -ne 0) {
+        Write-Host "[!] Admin phase did not complete (exit $adminCode)." -ForegroundColor Yellow
+        Write-DotfilesAdminPhaseNextSteps
+    }
+} elseif ($script:AdminPhasePending) {
+    Write-DotfilesAdminPhaseNextSteps
+    if ($ScheduleAdminPhase) {
+        Register-DotfilesAdminPhaseTask
+    }
+}
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. WSL Linux stack (in Ubuntu):" -ForegroundColor Yellow
+Write-Host "  1. Reboot if WSL host reported a pending feature change" -ForegroundColor Yellow
+Write-Host "  2. WSL Linux stack (in Ubuntu):" -ForegroundColor Yellow
 Write-Host "     $(Get-WslLinuxSetupCommand)" -ForegroundColor Cyan
-Write-Host "  2. Sign into 1Password, then:" -ForegroundColor Yellow
+Write-Host "  3. Sign into 1Password, then:" -ForegroundColor Yellow
 Write-Host "     irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex" -ForegroundColor Cyan
-Write-Host "  3. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor Yellow
+Write-Host "  4. Bitbucket repo sync (after SSH agent ready):" -ForegroundColor Yellow
 Write-Host "     `$s=`$env:TEMP\post-setup.ps1; irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile `$s; & `$s -SyncBitbucket" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
-Write-Host "  - DisplayLink: reboot, then re-run elevated if Winget still reports 1603"
+Write-Host "  - DisplayLink: reboot after -AdminPhase if Winget still reports 1603"
 Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
-Write-Host "  - WSL host: setup enables Virtual Machine Platform automatically; reboot and re-run Windows setup if Windows reports a pending feature change"
-Write-Host "  - Hibernate / long paths / Smart App Control Off: re-run an elevated PowerShell if those were skipped"
+Write-Host "  - WSL host: -AdminPhase enables Virtual Machine Platform; reboot before Linux setup if Windows reports a pending feature change"
+Write-Host "  - Hibernate / long paths / Smart App Control Off: applied by -AdminPhase"
 Write-Host "  - ThreeFingerDrag: log off once if three-finger still opens Task View"
 Write-Host "  - Wavlink: install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
 Write-Host "  - C920: disable HD Pro Webcam C920 under Sound, video and game controllers if Windows Audio dies (leave the Cameras entry on)"
