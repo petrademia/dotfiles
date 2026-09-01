@@ -378,7 +378,9 @@ package-manager builds.
 - If DisplayLink returns Winget error 1603 on Windows, reboot and re-run that
   package ID with elevation.
 - Deskflow error 1603 usually means an old VC++ runtime. Setup upgrades
-  `Microsoft.VCRedist.2015+.x64` before installing it.
+  `Microsoft.VCRedist.2015+.x64` and `.x86` before installing other packages.
+- VC++ redists in setup: 2015+ x64/x86 and 2013 x64/x86, plus `Microsoft.DirectX`
+  for legacy game prerequisites (e.g. UE4).
 
 ### Windows utilities
 

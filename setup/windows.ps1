@@ -44,6 +44,10 @@ $script:UserPhaseTranscriptStarted = $false
 $script:WingetApps = @(
     "DisplayLink.GraphicsDriver",
     "Microsoft.VCRedist.2015+.x64",
+    "Microsoft.VCRedist.2015+.x86",
+    "Microsoft.VCRedist.2013.x64",
+    "Microsoft.VCRedist.2013.x86",
+    "Microsoft.DirectX",
     "Microsoft.DotNet.DesktopRuntime.10",
     "PatchMyPC.PatchMyPC",
     "CodecGuide.K-LiteCodecPack.Full",
@@ -2365,8 +2369,13 @@ function Invoke-DotfilesAdminPhase {
     Set-WindowsHostAdminDefaults
     Install-DeskflowFirewallRule
     Remove-Item -LiteralPath $script:WingetDeferFile -Force -ErrorAction SilentlyContinue
-    Write-Host "[+] Upgrading Microsoft.VCRedist.2015+.x64 if a newer build exists..." -ForegroundColor Cyan
-    winget upgrade -e --id Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements --silent --source winget
+    foreach ($vcRedist in @(
+            "Microsoft.VCRedist.2015+.x64"
+            "Microsoft.VCRedist.2015+.x86"
+        )) {
+        Write-Host "[+] Upgrading $vcRedist if a newer build exists..." -ForegroundColor Cyan
+        winget upgrade -e --id $vcRedist --accept-package-agreements --accept-source-agreements --silent --source winget
+    }
     $adminWinget = Get-DotfilesWingetAdminApps
     Write-Host "[+] Installing Winget apps in admin phase ($($adminWinget.Count) packages, denylist $($script:WingetDenylist.Count))..." -ForegroundColor Cyan
     Install-WingetApps -Apps $adminWinget -AdminOnly
@@ -2435,7 +2444,7 @@ Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - NVIDIA App: reboot after GFE uninstall, re-run -AdminPhase, then update Game Ready in the app"
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot after -AdminPhase if Winget still reports 1603"
-Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64 first"
+Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64/.x86 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
 Write-Host "  - WSL host: -AdminPhase enables Virtual Machine Platform; reboot before Linux setup if Windows reports a pending feature change"
 Write-Host "  - Hibernate / long paths / Smart App Control Off: applied by -AdminPhase"
