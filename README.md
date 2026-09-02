@@ -62,7 +62,7 @@ denylist IDs, runtime deferrals, Store apps, and Scoop. **WSL Linux setup**
 ```powershell
 # PowerShell as Administrator (recommended - walk away after this)
 curl.exe -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 -o $env:TEMP\windows.ps1
-& $env:TEMP\windows.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:TEMP\windows.ps1
 ```
 
 One UAC when you open the admin window. Winget uses a single `$WingetApps` list;
@@ -75,7 +75,7 @@ Alternatively (user phase first, then one UAC for admin):
 
 ```powershell
 # Normal PowerShell
-irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1 | iex"
 ```
 
 This runs the user phase first (denylist/deferred only) and then elevates for
@@ -97,8 +97,9 @@ Opt out of auto-chaining with `-SkipAutoAdmin`. Run one phase only with `-UserPh
 
 The bootstrap uses process-scoped `Bypass` for the running session. After the user
 phase installs the PowerShell profile, it sets `CurrentUser` to `RemoteSigned`
-when needed so profile scripts load in new sessions. If `irm | iex` is blocked,
-run:
+when needed so profile scripts load in new sessions. Fresh machines often block
+`& $env:TEMP\windows.ps1` until policy is relaxed; use `-ExecutionPolicy Bypass`
+on the first run (see commands above). To set policy manually instead:
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
