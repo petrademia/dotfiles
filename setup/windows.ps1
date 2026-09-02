@@ -1496,7 +1496,7 @@ if (!(Get-Command git -ErrorAction SilentlyContinue)) {
 }
 Install-GitHubKnownHosts
 
-Write-Host "Updating Scoop Manifests..." -ForegroundColor Cyan
+Write-Host "Updating Scoop manifests..." -ForegroundColor Cyan
 Protect-ScoopGit { scoop update | Out-Host }
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
@@ -1611,7 +1611,7 @@ foreach ($app in $msStoreApps) {
 }
 
 # --- 6. Go Environment (GoLand GOROOT Fix) ---
-Write-Host "Configuring Go Paths..." -ForegroundColor Cyan
+Write-Host "Configuring Go paths..." -ForegroundColor Cyan
 $goRootPath = "$env:USERPROFILE\scoop\apps\go\current"
 [System.Environment]::SetEnvironmentVariable("GOROOT", $goRootPath, "User")
 [System.Environment]::SetEnvironmentVariable("GOPATH", "$env:USERPROFILE\go", "User")
@@ -1792,7 +1792,7 @@ function Get-Keys {
     `$env:ZAI_API_KEY = op read "op://Private/ZAI/credential"
     `$env:ANTHROPIC_API_KEY = op read "op://Private/Anthropic/credential"
     `$env:GEMINI_API_KEY = op read "op://Private/Gemini/credential"
-    Write-Host "AI Keys Loaded from 1Password." -ForegroundColor Green
+    Write-Host "AI keys loaded from 1Password." -ForegroundColor Green
 }
 
 # Aliases
@@ -2391,9 +2391,9 @@ function Invoke-DotfilesAdminPhase {
 if (Test-DotfilesRunAdminPhase) {
     Invoke-DotfilesAdminPhase
     if ($script:SetupResults.Failed -eq 0) {
-        Write-Host "ADMIN PHASE COMPLETE." -ForegroundColor Green
+        Write-Host "Admin phase finished." -ForegroundColor Green
     } else {
-        Write-Host "ADMIN PHASE FINISHED WITH FAILURES." -ForegroundColor Yellow
+        Write-Host "Admin phase finished with failures." -ForegroundColor Yellow
     }
     Write-SetupSummary
     if ($script:ChainUserPhase) {
@@ -2411,9 +2411,9 @@ Invoke-DotfilesUserPhaseWslCheck
 Set-WindowsHostUserDefaults
 if (Test-DotfilesRunUserPhase) { scoop cleanup * }
 if ($script:SetupResults.Failed -eq 0) {
-    Write-Host "SETUP PHASE FINISHED." -ForegroundColor Green
+    Write-Host "Setup phase finished." -ForegroundColor Green
 } else {
-    Write-Host "SETUP PHASE FINISHED WITH FAILURES." -ForegroundColor Yellow
+    Write-Host "Setup phase finished with failures." -ForegroundColor Yellow
 }
 Write-SetupSummary
 if ($script:ChainAdminPhase -and $script:AdminPhasePending) {
