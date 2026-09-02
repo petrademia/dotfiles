@@ -86,7 +86,7 @@ sudo apt update
 APT_BASE_LOG="$(mktemp)"
 sudo apt install -y \
     build-essential curl wget git zip unzip cmake pkg-config gdb ninja-build \
-    jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 \
+    jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 kitty \
     llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev \
     | tee "$APT_BASE_LOG"
 if grep -q "0 newly installed" "$APT_BASE_LOG"; then record_result skipped
@@ -100,6 +100,15 @@ elif sudo apt install -y fastfetch 2>/dev/null; then
 else
     record_result skipped
     echo "[-] fastfetch not in apt; skipping"
+fi
+if dpkg -s ghostty >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] ghostty already present. Skipping..."
+elif sudo apt install -y ghostty 2>/dev/null; then
+    record_result installed
+else
+    record_result skipped
+    echo "[-] ghostty not in apt (Ubuntu 26.04+); skipping"
 fi
 
 echo "==> 1b) Zellij (terminal multiplexer)"

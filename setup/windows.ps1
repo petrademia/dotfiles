@@ -68,7 +68,7 @@ $script:WingetApps = @(
     "Google.GoogleDrive", "Microsoft.OneDrive",
     "Google.Antigravity", "Google.AntigravityCLI",
     "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman",
-    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper",
+    "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper", "AmanThanvi.winghostty",
     "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR",
     "Vivaldi.Vivaldi", "Brave.Brave", "Opera.Opera", "Opera.OperaGX", "Opera.OperaAir", "Ablaze.Floorp",
     "LibreWolf.LibreWolf", "Waterfox.Waterfox", "MullvadVPN.MullvadBrowser",
