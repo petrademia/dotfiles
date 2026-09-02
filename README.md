@@ -385,6 +385,10 @@ package-manager builds.
 
 ### Windows utilities
 
+- **Terminals:** WezTerm, Alacritty, Tabby, Hyper, and Windows Terminal (Winget).
+  **winghostty** (`AmanThanvi.winghostty`) is the Windows Ghostty-engine terminal.
+  Kovid Goyal's **Kitty** has no native Windows build; use **kitty** in WSL
+  (`apt`) or another terminal on the Windows host.
 - NetSpeedTray and TrafficMonitor Lite provide taskbar network speed.
 - Setup adds a Start Menu shortcut and autostart for TrafficMonitor, and turns
   on its taskbar window.
