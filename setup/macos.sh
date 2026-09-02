@@ -425,9 +425,9 @@ zed --version || true
 
 echo
 if [ "$FAILED_COUNT" -eq 0 ]; then
-  echo "SETUP FINISHED"
+  echo "Setup finished"
 else
-  echo "SETUP FINISHED WITH FAILURES"
+  echo "Setup finished with failures"
 fi
 echo
 echo "Setup summary"

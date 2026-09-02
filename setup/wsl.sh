@@ -620,9 +620,9 @@ claude --version 2>/dev/null || true
 
 echo
 if [ "$FAILED_COUNT" -eq 0 ]; then
-    echo "SETUP FINISHED: WSL setup"
+    echo "Setup finished: WSL setup"
 else
-    echo "SETUP FINISHED WITH FAILURES: WSL setup"
+    echo "Setup finished with failures: WSL setup"
 fi
 echo
 echo "Setup summary"
