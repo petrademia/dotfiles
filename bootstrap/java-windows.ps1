@@ -1,4 +1,4 @@
-# Windows Java matrix via Scoop - mirrors java-macos.sh / java-wsl.sh
+# Windows Java package set via Scoop.
 # Usage: irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1 | iex
 
 $ErrorActionPreference = 'Continue'

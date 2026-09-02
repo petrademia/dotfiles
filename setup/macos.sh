@@ -252,7 +252,7 @@ eval "$(fnm env --use-on-cd)"
 fnm use --install-if-missing lts-latest
 fnm default lts-latest
 
-# Skip when the CLI is already on PATH so re-runs stay mostly skipped / Failed: 0.
+# Skip when the CLI is already on PATH so re-runs stay mostly skipped.
 run_npm_global() {
   local package=$1
   local cmd=$2
@@ -424,7 +424,11 @@ hx --version || true
 zed --version || true
 
 echo
-echo "SETUP COMPLETE"
+if [ "$FAILED_COUNT" -eq 0 ]; then
+  echo "SETUP FINISHED"
+else
+  echo "SETUP FINISHED WITH FAILURES"
+fi
 echo
 echo "Setup summary"
 echo "  Installed: $INSTALLED_COUNT"
