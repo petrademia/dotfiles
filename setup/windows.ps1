@@ -1,4 +1,4 @@
-# Windows setup - mirrors the macOS/WSL tool stack via Scoop + Winget.
+# Windows setup - installs Windows tools and prepares the WSL host via Scoop + Winget.
 #
 # Default (no flags): one bootstrap runs both phases (admin is required).
 #   Elevated PowerShell (recommended) -> admin phase installs all Winget IDs except
@@ -2411,9 +2411,9 @@ Invoke-DotfilesUserPhaseWslCheck
 Set-WindowsHostUserDefaults
 if (Test-DotfilesRunUserPhase) { scoop cleanup * }
 if ($script:SetupResults.Failed -eq 0) {
-    Write-Host "SETUP COMPLETE." -ForegroundColor Green
+    Write-Host "SETUP PHASE FINISHED." -ForegroundColor Green
 } else {
-    Write-Host "SETUP FINISHED WITH FAILURES." -ForegroundColor Yellow
+    Write-Host "SETUP PHASE FINISHED WITH FAILURES." -ForegroundColor Yellow
 }
 Write-SetupSummary
 if ($script:ChainAdminPhase -and $script:AdminPhasePending) {

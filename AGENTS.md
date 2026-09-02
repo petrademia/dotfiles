@@ -4,7 +4,7 @@ Global personal standards (in `~/AGENTS.md`) also apply here. This file adds rul
 
 ## What this repo is
 
-Reproducible macOS/Windows/WSL setup via Homebrew, Scoop/Winget, copies or symlinks, and bootstrap scripts.
+Cross-platform macOS/Windows/WSL setup via Homebrew, Scoop/Winget, copies or symlinks, and bootstrap scripts.
 
 - `setup.sh`, `setup/` - package install (`macos.sh`, `windows.ps1`, `wsl.sh`).
 - `install.sh` - symlinks dotfiles into `$HOME` on macOS/WSL. Windows copies the same files from `setup/windows.ps1`.

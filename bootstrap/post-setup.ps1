@@ -143,7 +143,7 @@ function Show-ManualChecklist {
     Write-Host "  - Obsidian / notes: configure sync separately"
     Write-Host "  - Ollama: pull a model (e.g. ollama pull llama3.2)"
     Write-Host "  - Kubernetes: kind create cluster / k3d cluster create when Podman is running"
-    Write-Host "  - Java: jv temurin21-jdk  (windows.ps1 installs the full matrix)"
+    Write-Host "  - Java: jv temurin21-jdk  (windows.ps1 installs the listed Java packages)"
 }
 
 Write-Host "==> Post-setup" -ForegroundColor Cyan

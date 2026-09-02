@@ -10,7 +10,7 @@ Each platform prints an install/update/skip/failure summary.
 - **Skipped** - already present; setup did not reinstall or upgrade it.
 - **Updated** - rare; only when a helper still needs a real version bump
   (for example Warp/EjectLens when the installed build differs).
-- **Failed: 0** - everything required is present or was installed successfully.
+- **Failed: 0** - no setup step recorded a failure.
 
 Setup is provision-first, not a daily updater. Use `brew upgrade` on macOS,
 UniGetUI, `scoop update *`, or `winget upgrade` when you want package upgrades.
@@ -29,7 +29,7 @@ Apply macOS defaults and login items with:
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
 
-The macOS bootstrap ensures a small login-item allowlist:
+The macOS bootstrap applies a small login-item allowlist for installed apps:
 
 - 1Password
 - Rectangle
@@ -53,7 +53,7 @@ To make Raycast replace Spotlight for `⌘Space`:
 
 ### Windows
 
-**Recommended: run from an elevated PowerShell** for an unattended Windows sweep.
+**Recommended: run from an elevated PowerShell** for the Windows setup.
 The bootstrap runs the admin phase first (almost all Winget minus denylist, HKLM,
 WSL host, firewall), then auto-chains a short non-elevated user phase for
 denylist IDs, runtime deferrals, Store apps, and Scoop. **WSL Linux setup**
@@ -105,8 +105,8 @@ on the first run (see commands above). To set policy manually instead:
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 ```
 
-`setup/windows.ps1` applies the Windows equivalent of
-`bootstrap/macos.sh`:
+`setup/windows.ps1` applies these Windows-specific preferences and host
+integrations:
 
 - **Files and input:** show file extensions and hidden files, open File
   Explorer to This PC (not Home), enable End Task on the taskbar, create
@@ -174,10 +174,10 @@ Windows directory-backed dotfiles are merged without deleting extra user files.
 
 ### WSL
 
-The Windows **admin phase** installs or reconciles Ubuntu 24.04 with Winget
-`Canonical.Ubuntu.2404` and `ubuntu2404.exe install --root`, then creates a
-normal WSL user matching the Windows username. It does **not** run the Linux
-package/AI stack; that stays a separate step so Windows re-runs stay fast.
+The Windows **admin phase** attempts to install or reconcile Ubuntu 24.04 with
+Winget `Canonical.Ubuntu.2404` and `ubuntu2404.exe install --root`, then creates
+a normal WSL user matching the Windows username. It does **not** run the Linux
+package/AI stack; that stays a separate step.
 
 Run `.\setup\windows.ps1 -AdminPhase` (elevated) on a fresh machine. Reboot
 and re-run `-UserPhase` if Windows reports a pending feature change. If `wsl`
@@ -227,14 +227,17 @@ Then run the platform-specific setup again:
 
 ## Java
 
-Supported JDK vendors and versions:
+Java setup uses platform-specific package sources and availability:
 
-- Temurin, Zulu, Corretto, and Liberica: versions 8–25
-- Microsoft: versions 11–25
+- macOS: Temurin, Zulu, Corretto, and Liberica versions 8, 11, 17, 21, and 25;
+  Microsoft versions 11, 17, 21, and 25.
+- WSL: SDKMAN builds for those vendor/version combinations when available;
+  Microsoft Java 8 is skipped because the script excludes it.
+- Windows: Temurin, Zulu, Corretto, and Liberica versions 8, 11, 17, 21, and
+  25; Microsoft versions 11, 17, and 21, plus Scoop's `microsoft-jdk` package.
 
-Windows installs this matrix through `bootstrap/java-windows.ps1`.
-The script is idempotent. macOS and WSL use standalone scripts that are not
-part of `setup.sh`.
+The Windows setup invokes `bootstrap/java-windows.ps1`. macOS and WSL use
+standalone scripts that are not part of `setup.sh`.
 
 macOS (download then run; a TTY is needed for sudo `.pkg` passwords):
 
@@ -336,8 +339,8 @@ Installed agent clients include:
 - Antigravity CLI (`agy`)
 - [Goose](https://github.com/aaif-goose/goose)
 
-Antigravity desktop (2.0) and Goose desktop are installed on macOS and
-Windows. WSL uses the CLI agents (`agy`, `goose`) and reuses the Windows
+The macOS and Windows setup scripts include Antigravity and Goose desktop
+apps. WSL setup includes their CLI agents (`agy`, `goose`) and uses the Windows
 desktop apps.
 
 Antigravity skills are linked into `~/.gemini/config/skills/`, which works in

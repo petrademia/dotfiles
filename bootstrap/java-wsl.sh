@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WSL Java matrix via SDKMAN - mirrors the macOS java-macos.sh vendor/version set.
+# WSL Java setup via SDKMAN; installs matching builds when available.
 set -uo pipefail
 
 if [ ! -d "$HOME/.sdkman" ]; then

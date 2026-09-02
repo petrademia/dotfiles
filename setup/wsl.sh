@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WSL setup - mirrors the macOS stack, adapted for Ubuntu/WSL.
+# WSL setup - installs Linux development and AI tools for Ubuntu/WSL.
 set -euo pipefail
 
 BASHRC="${HOME}/.bashrc"
@@ -375,7 +375,7 @@ else
     fi
 fi
 
-# Skip when the CLI is already on PATH so re-runs stay mostly skipped / Failed: 0.
+# Skip when the CLI is already on PATH so re-runs stay mostly skipped.
 run_npm_global() {
     local package=$1
     local cmd=$2
@@ -619,7 +619,11 @@ crush --version 2>/dev/null || true
 claude --version 2>/dev/null || true
 
 echo
-echo "SETUP COMPLETE: WSL stack deployed (macOS parity)"
+if [ "$FAILED_COUNT" -eq 0 ]; then
+    echo "SETUP FINISHED: WSL setup"
+else
+    echo "SETUP FINISHED WITH FAILURES: WSL setup"
+fi
 echo
 echo "Setup summary"
 echo "  Installed: $INSTALLED_COUNT"
