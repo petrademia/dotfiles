@@ -327,6 +327,13 @@ Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbaka
 The Impeccable design skills are available globally for Claude, Codex, Cursor,
 Gemini, OpenCode, and Pi.
 
+Setup also installs the Cursor pstack plugin as a local plugin from the
+[Cursor plugins repository](https://github.com/cursor/plugins). It is kept in
+`~/.local/share/pstack-cursor` and exposed through
+`~/.cursor/plugins/local/pstack`, so a fresh machine gets it automatically when
+running the normal setup command.
+Restart Cursor or run **Developer: Reload Window** after setup.
+
 Installed agent clients include:
 
 - Hermes Agent

@@ -33,6 +33,49 @@ link "$DOTFILES/go/env" "$GO_ENV_DIR/env"
 mkdir -p "$HOME/.cursor"
 link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
 
+# Cursor's pstack plugin is distributed from the cursor/plugins monorepo. Keep
+# the checkout outside dotfiles and expose only the pstack plugin through
+# Cursor's supported local-plugin directory. This makes setup reproducible
+# without vendoring a third-party plugin into this repository.
+install_cursor_pstack() {
+  local checkout="$HOME/.local/share/pstack-cursor"
+  local local_plugin="$HOME/.cursor/plugins/local/pstack"
+  local repo="https://github.com/cursor/plugins.git"
+
+  mkdir -p "$HOME/.cursor/plugins/local" "$HOME/.local/share"
+
+  if [ -e "$local_plugin" ] || [ -L "$local_plugin" ]; then
+    echo "[-] Cursor pstack plugin already present. Skipping..."
+    return 0
+  fi
+
+  if [ ! -d "$checkout/.git" ]; then
+    echo "==> Installing Cursor pstack plugin"
+    if ! git clone --depth 1 --filter=blob:none --sparse "$repo" "$checkout"; then
+      echo "[!] Cursor pstack install failed; install it from Cursor's Customize page"
+      return 0
+    fi
+  fi
+
+  if ! git -C "$checkout" sparse-checkout set pstack; then
+    echo "[!] Cursor pstack checkout failed; install it from Cursor's Customize page"
+    return 0
+  fi
+
+  if [ ! -f "$checkout/pstack/.cursor-plugin/plugin.json" ]; then
+    echo "[!] Cursor pstack manifest not found; install it from Cursor's Customize page"
+    return 0
+  fi
+
+  if ln -s "$checkout/pstack" "$local_plugin"; then
+    echo "[+] Cursor pstack plugin installed"
+  else
+    echo "[!] Could not link Cursor pstack plugin; install it from Cursor's Customize page"
+  fi
+}
+
+install_cursor_pstack
+
 mkdir -p "$HOME/.cursor/commands"
 mkdir -p "$HOME/.claude/commands"
 mkdir -p "$HOME/.zai/commands"
