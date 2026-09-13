@@ -1677,6 +1677,52 @@ Sync-Dotfile (Join-Path $dotfiles "config\nvim") (Join-Path $env:LOCALAPPDATA "n
 Sync-Dotfile (Join-Path $dotfiles "config\zellij") (Join-Path $HOME ".config\zellij")
 Sync-Dotfile (Join-Path $dotfiles "cursor\cli-config.json") (Join-Path $HOME ".cursor\cli-config.json")
 
+function Install-CursorPstackPlugin {
+    $checkout = Join-Path $HOME ".local\share\pstack-cursor"
+    $localRoot = Join-Path $HOME ".cursor\plugins\local"
+    $localPlugin = Join-Path $localRoot "pstack"
+    $repo = "https://github.com/cursor/plugins.git"
+
+    New-Item -ItemType Directory -Path $localRoot -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $HOME ".local\share") -Force | Out-Null
+
+    if (Test-Path -LiteralPath $localPlugin) {
+        Write-Host "[-] Cursor pstack plugin already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped $localPlugin
+        return
+    }
+
+    Write-Host "==> Installing Cursor pstack plugin" -ForegroundColor Cyan
+    if (!(Test-Path -LiteralPath (Join-Path $checkout ".git"))) {
+        & git clone --depth 1 --filter=blob:none --sparse $repo $checkout
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[!] Cursor pstack install failed; install it from Cursor's Customize page" -ForegroundColor Yellow
+            Add-SetupResult Failed "Cursor pstack"
+            return
+        }
+    }
+
+    & git -C $checkout sparse-checkout set pstack
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Cursor pstack checkout failed; install it from Cursor's Customize page" -ForegroundColor Yellow
+        Add-SetupResult Failed "Cursor pstack"
+        return
+    }
+
+    $source = Join-Path $checkout "pstack"
+    if (!(Test-Path -LiteralPath (Join-Path $source ".cursor-plugin\plugin.json"))) {
+        Write-Host "[!] Cursor pstack manifest not found; install it from Cursor's Customize page" -ForegroundColor Yellow
+        Add-SetupResult Failed "Cursor pstack"
+        return
+    }
+
+    Copy-Item -LiteralPath $source -Destination $localPlugin -Recurse
+    Write-Host "[+] Cursor pstack plugin installed" -ForegroundColor Green
+    Add-SetupResult Installed $localPlugin
+}
+
+Install-CursorPstackPlugin
+
 # Podman docker shims for Make/cmd (aliases are PowerShell-only).
 if (Get-Command podman -ErrorAction SilentlyContinue) {
     $localBin = Join-Path $HOME ".local\bin"
