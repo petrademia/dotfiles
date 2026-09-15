@@ -7,13 +7,16 @@ Each platform prints an install/update/skip/failure summary.
 **What the summary means**
 
 - **Installed** - newly provisioned on this run.
-- **Skipped** - already present; setup did not reinstall or upgrade it.
-- **Updated** - rare; only when a helper still needs a real version bump
-  (for example Warp/EjectLens when the installed build differs).
+- **Skipped** - already current, or managed by a direct installer without a
+  reliable version check.
+- **Updated** - an outdated repo-managed package or tool was upgraded.
 - **Failed: 0** - no setup step recorded a failure.
 
-Setup is provision-first, not a daily updater. Use `brew upgrade` on macOS,
-UniGetUI, `scoop update *`, or `winget upgrade` when you want package upgrades.
+On macOS, rerunning setup updates outdated Homebrew formulas and casks, npm
+global tools, Rust stable, and uv tools. Direct vendor installers are only run
+when their tool is missing. Windows and WSL keep their platform-specific
+package-manager update behavior; use `winget upgrade`, `scoop update *`, or
+`apt upgrade` when you want to update everything outside the setup manifest.
 Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
 separately inside Ubuntu.
 
@@ -28,6 +31,9 @@ Apply macOS defaults and login items with:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
+
+Rerunning the macOS setup is update-aware: outdated Homebrew packages and
+casks, npm globals, Rust stable, and uv tools are upgraded automatically.
 
 The macOS bootstrap applies a small login-item allowlist for installed apps:
 
