@@ -47,5 +47,6 @@ Desktop app unlocked; **Settings > Developer**: turn on **Integrate with 1Passwo
 
 **API tokens (not SSH)** - Amartha scopes are per app:
 
-- Jira: `op://Personal/Amartha Jira API` (`username` + `password`)
-- Bitbucket API / PR review: `op://Personal/Amartha Bitbucket PR Review` (`username` + `credential`)
+- Jira: retrieve the password from the macOS Login Keychain with `/usr/bin/security find-generic-password -s "amartha-jira-api" -a "petrus.wiyadi@amartha.com" -w` at point of use.
+- Bitbucket API / PR review: retrieve the credential from the macOS Login Keychain with `/usr/bin/security find-generic-password -s "amartha-bitbucket-api" -a "petrus.wiyadi@amartha.com" -w` at point of use.
+- Never print, log, persist, or place these credential values in environment files. Perform Keychain lookups in the same shell invocation as the API command. If an item is unavailable, ask the user to create or unlock it rather than exposing or inventing a credential.
