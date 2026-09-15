@@ -79,12 +79,17 @@ FORMULAS=(
   omar16100/atlassian-cli/atlassian-cli
 )
 
-# Repo-managed brew formulas: install when missing; skip when already present.
-# Upgrades are left to `brew upgrade` so re-runs stay mostly Skipped.
+# Repo-managed brew formulas: install when missing and upgrade when outdated.
 for formula in "${FORMULAS[@]}"; do
   if brew_formula_installed "$formula"; then
-    echo "[-] $formula already present. Skipping..."
-    record_result skipped
+    if [ -n "$(brew outdated --formula --quiet "$formula" 2>/dev/null)" ]; then
+      echo "==> Updating formula: $formula"
+      if brew upgrade --formula --no-ask "$formula"; then record_result updated
+      else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
+    else
+      echo "[-] $formula is current. Skipping..."
+      record_result skipped
+    fi
   else
     echo "==> Installing formula: $formula"
     if brew install "$formula"; then record_result installed
@@ -188,8 +193,14 @@ CASKS=(
 
 for cask in "${CASKS[@]}"; do
   if brew_cask_installed "$cask"; then
-    echo "[-] $cask already present. Skipping..."
-    record_result skipped
+    if [ -n "$(brew outdated --cask --quiet "$cask" 2>/dev/null)" ]; then
+      echo "==> Updating cask: $cask"
+      if brew upgrade --cask --no-ask "$cask"; then record_result updated
+      else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
+    else
+      echo "[-] $cask is current. Skipping..."
+      record_result skipped
+    fi
   else
     echo "==> Installing cask: $cask"
     if brew install --cask "$cask"; then record_result installed
@@ -241,12 +252,14 @@ export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export JAVA_HOME="/opt/homebrew/opt/openjdk"
 
-if command -v rustc >/dev/null 2>&1; then
-  echo "[-] rustc already present. Skipping..."
-  record_result skipped
-else
-  rustup update stable || echo "Warning: rustup update stable failed"
-  rustup default stable || echo "Warning: rustup default stable failed"
+if command -v rustup >/dev/null 2>&1; then
+  echo "==> Updating Rust stable toolchain"
+  if rustup update stable && rustup default stable; then
+    record_result updated
+  else
+    record_result failed
+    echo "Warning: Rust stable toolchain update failed"
+  fi
 fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
@@ -254,26 +267,28 @@ eval "$(fnm env --use-on-cd)"
 fnm use --install-if-missing lts-latest
 fnm default lts-latest
 
-# Skip when the CLI is already on PATH so re-runs stay mostly skipped.
+# Install or update npm global tools on every setup run.
 run_npm_global() {
   local package=$1
   local cmd=$2
   local ignore_scripts=${3:-}
+  local result=installed
   if [ -n "$cmd" ] && command -v "$cmd" >/dev/null 2>&1; then
-    record_result skipped
-    echo "[-] $cmd already present. Skipping..."
-    return 0
+    echo "==> Updating npm package: $package"
+    result=updated
+  else
+    echo "==> Installing npm package: $package"
   fi
   if [ "$ignore_scripts" = "--ignore-scripts" ]; then
     if npm install -g --ignore-scripts "$package" --silent; then
-      record_result installed
+      record_result "$result"
     else
       record_result failed
       echo "[-] npm install failed: $package"
     fi
   else
     if npm install -g "$package" --silent; then
-      record_result installed
+      record_result "$result"
     else
       record_result failed
       echo "[-] npm install failed: $package"
@@ -289,12 +304,7 @@ run_npm_global wrangler wrangler
 run_npm_global openclaw@latest openclaw
 run_npm_global impeccable impeccable
 run_npm_global playwright playwright
-if find "$HOME/.cache/ms-playwright" -maxdepth 1 -type d -name 'chromium*' 2>/dev/null | grep -q .; then
-  record_result skipped
-  echo "[-] Playwright Chromium already installed. Skipping..."
-else
-  npx playwright install chromium || true
-fi
+npx playwright install chromium || true
 
 if ! smart_check "claude" "$HOME/.local/bin/claude"; then
   curl -fsSL https://claude.ai/install.sh | bash
@@ -313,18 +323,9 @@ else
   npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force \
     || echo "Note: impeccable skills install failed"
 fi
-if command -v zai >/dev/null 2>&1; then
-  record_result skipped
-  echo "[-] zai already present. Skipping..."
-else
-  uv tool install --upgrade zai-cli --python 3 || true
-fi
-if command -v graphify >/dev/null 2>&1; then
-  record_result skipped
-  echo "[-] graphify already present. Skipping..."
-else
-  uv tool install --upgrade graphifyy --python 3 || true
-fi
+echo "==> Updating uv tools"
+uv tool install --upgrade zai-cli --python 3 || true
+uv tool install --upgrade graphifyy --python 3 || true
 
 # copilot comes from the copilot-cli cask (GitHub Copilot CLI).
 # Do not install github/gh-copilot; that retired extension collides with gh.
