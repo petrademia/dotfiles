@@ -49,4 +49,5 @@ Desktop app unlocked; **Settings > Developer**: turn on **Integrate with 1Passwo
 
 - Jira: retrieve the password from the macOS Login Keychain with `/usr/bin/security find-generic-password -s "amartha-jira-api" -a "petrus.wiyadi@amartha.com" -w` at point of use.
 - Bitbucket API / PR review: retrieve the credential from the macOS Login Keychain with `/usr/bin/security find-generic-password -s "amartha-bitbucket-api" -a "petrus.wiyadi@amartha.com" -w` at point of use.
+- Confluence API / page editing: retrieve the scoped token from the macOS Login Keychain with `/usr/bin/security find-generic-password -s "amartha-confluence-api" -a "petrus.wiyadi@amartha.com" -w` at point of use. Use Bearer authentication through `https://api.atlassian.com/ex/confluence/21a8b407-9cb0-4f10-92cc-5858fcfb7019`; do not use the direct `amartha-confluence.atlassian.net` URL with this scoped token.
 - Never print, log, persist, or place these credential values in environment files. Perform Keychain lookups in the same shell invocation as the API command. If an item is unavailable, ask the user to create or unlock it rather than exposing or inventing a credential.
