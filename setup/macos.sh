@@ -43,7 +43,9 @@ smart_check() {
 
 xcode-select -p >/dev/null 2>&1 || xcode-select --install
 
-if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
+# Check translation support directly; oahd is not always running when Rosetta
+# is installed.
+if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
   softwareupdate --install-rosetta --agree-to-license || true
 fi
 

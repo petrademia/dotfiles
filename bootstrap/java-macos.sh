@@ -19,8 +19,9 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_ENV_HINTS=1
 
-# JDK 8 Intel-only casks need Rosetta on Apple Silicon
-if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
+# JDK 8 Intel-only casks need Rosetta on Apple Silicon. Check translation
+# support directly; oahd is not always running when Rosetta is installed.
+if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1; then
   softwareupdate --install-rosetta --agree-to-license || true
 fi
 
