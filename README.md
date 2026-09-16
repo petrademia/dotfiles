@@ -352,6 +352,10 @@ Installed agent clients include:
 - Antigravity CLI (`agy`)
 - [Goose](https://github.com/aaif-goose/goose)
 
+The GitHub Copilot desktop app is installed on macOS through the
+`github-copilot-app` Homebrew cask. The separate GitHub Copilot CLI is also
+installed: Homebrew on macOS, Winget on Windows, and npm in WSL.
+
 The macOS and Windows setup scripts include Antigravity and Goose desktop
 apps. WSL setup includes their CLI agents (`agy`, `goose`) and uses the Windows
 desktop apps.

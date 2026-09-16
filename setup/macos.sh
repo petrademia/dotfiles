@@ -111,6 +111,7 @@ CASKS=(
   chatgpt
   codex-app
   copilot-cli
+  github-copilot-app
   coteditor
   cursor
   kimi
@@ -203,7 +204,10 @@ for cask in "${CASKS[@]}"; do
     fi
   else
     echo "==> Installing cask: $cask"
-    if brew install --cask "$cask"; then record_result installed
+    if [ "$cask" = "github-copilot-app" ]; then
+      if brew install --cask --appdir="$HOME/Applications" --adopt "$cask"; then record_result installed
+      else record_result failed; echo "Warning: cask install failed: $cask"; fi
+    elif brew install --cask "$cask"; then record_result installed
     else record_result failed; echo "Warning: cask install failed: $cask"; fi
   fi
 done
