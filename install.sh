@@ -34,20 +34,14 @@ mkdir -p "$HOME/.cursor"
 link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
 
 # Cursor's pstack plugin is distributed from the cursor/plugins monorepo. Keep
-# the checkout outside dotfiles and expose only the pstack plugin through
-# Cursor's supported local-plugin directory. This makes setup reproducible
-# without vendoring a third-party plugin into this repository.
+# the checkout outside dotfiles and copy the plugin into Cursor's user-level
+# local-plugin directory. Cursor does not register the old symlink install.
 install_cursor_pstack() {
   local checkout="$HOME/.local/share/pstack-cursor"
   local local_plugin="$HOME/.cursor/plugins/local/pstack"
   local repo="https://github.com/cursor/plugins.git"
 
   mkdir -p "$HOME/.cursor/plugins/local" "$HOME/.local/share"
-
-  if [ -e "$local_plugin" ] || [ -L "$local_plugin" ]; then
-    echo "[-] Cursor pstack plugin already present. Skipping..."
-    return 0
-  fi
 
   if [ ! -d "$checkout/.git" ]; then
     echo "==> Installing Cursor pstack plugin"
@@ -67,14 +61,105 @@ install_cursor_pstack() {
     return 0
   fi
 
-  if ln -s "$checkout/pstack" "$local_plugin"; then
+  if [ -L "$local_plugin" ]; then
+    if [ "$(readlink "$local_plugin")" = "$checkout/pstack" ]; then
+      rm "$local_plugin"
+    else
+      echo "[-] Cursor pstack path is managed elsewhere. Skipping..."
+      return 0
+    fi
+  elif [ -e "$local_plugin" ]; then
+    echo "[-] Cursor pstack plugin already present. Skipping..."
+    return 0
+  fi
+
+  if cp -R "$checkout/pstack" "$local_plugin"; then
     echo "[+] Cursor pstack plugin installed"
   else
-    echo "[!] Could not link Cursor pstack plugin; install it from Cursor's Customize page"
+    echo "[!] Could not copy Cursor pstack plugin; install it from Cursor's Customize page"
   fi
 }
 
 install_cursor_pstack
+
+remove_duplicate_cursor_pstack_skills() {
+  local plugin_root="$HOME/.cursor/plugins/local/pstack"
+  local source_root="$HOME/.local/share/pstack-cursor/pstack/skills"
+  local source_skill plugin_skill global_skill
+  local skill_name
+
+  if [ -L "$plugin_root" ]; then
+    return 0
+  fi
+
+  for source_skill in "$source_root"/*; do
+    [ -f "$source_skill/SKILL.md" ] || continue
+    skill_name="${source_skill##*/}"
+    plugin_skill="$plugin_root/skills/$skill_name/SKILL.md"
+    global_skill="$HOME/.agents/skills/$skill_name"
+    [ -f "$plugin_skill" ] || continue
+
+    if [ -L "$global_skill" ] && [ "$(readlink "$global_skill")" = "$source_skill" ]; then
+      if rm "$plugin_skill"; then
+        echo "[-] Using the shared user-level pstack skill in Cursor: $skill_name"
+      fi
+    elif [ -f "$global_skill/SKILL.md" ] && cmp -s "$global_skill/SKILL.md" "$source_skill/SKILL.md"; then
+      if rm "$plugin_skill"; then
+        echo "[-] Using the shared user-level pstack skill in Cursor: $skill_name"
+      fi
+    fi
+  done
+}
+
+install_pstack_global_skills() {
+  local source_root="$HOME/.local/share/pstack-cursor/pstack/skills"
+  local source_skill
+  local skill_root
+  local destination
+  local skill_name
+  local installed=0
+  local preserved=0
+  local failed=0
+  local skill_roots=(
+    "$HOME/.agents/skills"
+    "$HOME/.claude/skills"
+    "$HOME/.gemini/skills"
+    "$HOME/.gemini/config/skills"
+    "$HOME/.gemini/antigravity/skills"
+    "$HOME/.gemini/antigravity-cli/skills"
+  )
+
+  if [ ! -d "$source_root" ]; then
+    echo "[!] pstack skills source missing; skipping other clients"
+    return 0
+  fi
+
+  for source_skill in "$source_root"/*; do
+    [ -f "$source_skill/SKILL.md" ] || continue
+    skill_name="${source_skill##*/}"
+    for skill_root in "${skill_roots[@]}"; do
+      mkdir -p "$skill_root"
+      destination="$skill_root/$skill_name"
+      if [ -L "$destination" ] && [ "$(readlink "$destination")" = "$source_skill" ]; then
+        continue
+      fi
+      if [ -e "$destination" ] || [ -L "$destination" ]; then
+        preserved=$((preserved + 1))
+        continue
+      fi
+      if ln -s "$source_skill" "$destination"; then
+        installed=$((installed + 1))
+      else
+        echo "[!] Could not link pstack skill: $destination"
+        failed=$((failed + 1))
+      fi
+    done
+  done
+  echo "[+] pstack skills installed: $installed linked, $preserved existing paths preserved, $failed failed"
+}
+
+install_pstack_global_skills
+remove_duplicate_cursor_pstack_skills
 
 mkdir -p "$HOME/.cursor/commands"
 mkdir -p "$HOME/.claude/commands"

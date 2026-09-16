@@ -333,12 +333,21 @@ Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbaka
 The Impeccable design skills are available globally for Claude, Codex, Cursor,
 Gemini, OpenCode, and Pi.
 
-Setup also installs the Cursor pstack plugin as a local plugin from the
-[Cursor plugins repository](https://github.com/cursor/plugins). It is kept in
-`~/.local/share/pstack-cursor` and exposed through
-`~/.cursor/plugins/local/pstack`, so a fresh machine gets it automatically when
-running the normal setup command.
-Restart Cursor or run **Developer: Reload Window** after setup.
+Setup installs the Cursor pstack plugin and exposes every skill under its
+`skills/` directory in the global skill directories for Cursor, Codex,
+ChatGPT desktop, Claude Code, Gemini, and Antigravity. The source checkout is
+kept in `~/.local/share/pstack-cursor`. Cursor gets the plugin in
+`~/.cursor/plugins/local/pstack`; setup links or copies the individual skill
+folders into each client's user-level skill directory. Existing same-named
+skills are preserved. Duplicate Cursor entries are omitted when the shared copy
+is identical. ChatGPT desktop discovers skills from the shared user skill
+directory. This setup is local and does not publish skills to ChatGPT web or
+Claude.ai. Pstack's agent definitions, model routing, and Cursor-specific tool
+integrations remain Cursor-specific, so some skill instructions may need
+adaptation in other clients.
+
+Restart the relevant app if the skill does not appear. In Cursor, run
+**Developer: Reload Window**.
 
 Installed agent clients include:
 
@@ -364,8 +373,10 @@ Antigravity skills are linked into `~/.gemini/config/skills/`, which works in
 Desktop, CLI, and IDE. Product-specific roots (`antigravity/`,
 `antigravity-cli/`) are also populated.
 
-Skills with `disable-model-invocation` must be run as slash commands, such as
-`/grammar`, rather than auto-selected.
+Invoke any installed pstack skill by its name: `/skill-name` in Cursor, Claude
+Code, or Antigravity; `$skill-name` in Codex; or select it in ChatGPT desktop's
+Skills sidebar. Skills marked `disable-model-invocation` require explicit
+invocation.
 
 ## Local AI
 
