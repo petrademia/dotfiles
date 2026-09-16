@@ -1686,14 +1686,8 @@ function Install-CursorPstackPlugin {
     New-Item -ItemType Directory -Path $localRoot -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $HOME ".local\share") -Force | Out-Null
 
-    if (Test-Path -LiteralPath $localPlugin) {
-        Write-Host "[-] Cursor pstack plugin already present. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped $localPlugin
-        return
-    }
-
-    Write-Host "==> Installing Cursor pstack plugin" -ForegroundColor Cyan
     if (!(Test-Path -LiteralPath (Join-Path $checkout ".git"))) {
+        Write-Host "==> Installing Cursor pstack plugin" -ForegroundColor Cyan
         & git clone --depth 1 --filter=blob:none --sparse $repo $checkout
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[!] Cursor pstack install failed; install it from Cursor's Customize page" -ForegroundColor Yellow
@@ -1716,9 +1710,75 @@ function Install-CursorPstackPlugin {
         return
     }
 
-    Copy-Item -LiteralPath $source -Destination $localPlugin -Recurse
-    Write-Host "[+] Cursor pstack plugin installed" -ForegroundColor Green
-    Add-SetupResult Installed $localPlugin
+    if (Test-Path -LiteralPath $localPlugin) {
+        Write-Host "[-] Cursor pstack plugin already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped $localPlugin
+    } else {
+        Copy-Item -LiteralPath $source -Destination $localPlugin -Recurse
+        Write-Host "[+] Cursor pstack plugin installed" -ForegroundColor Green
+        Add-SetupResult Installed $localPlugin
+    }
+
+    $skillsSource = Join-Path $source "skills"
+    $skills = @(Get-ChildItem -LiteralPath $skillsSource -Directory | Where-Object {
+        Test-Path -LiteralPath (Join-Path $_.FullName "SKILL.md")
+    })
+    if ($skills.Count -eq 0) {
+        Write-Host "[!] No pstack skills found; skipping global skill installation" -ForegroundColor Yellow
+        Add-SetupResult Failed "pstack skills"
+        return
+    }
+
+    $skillRoots = @(
+        (Join-Path $HOME ".agents\skills"),
+        (Join-Path $HOME ".claude\skills"),
+        (Join-Path $HOME ".gemini\skills"),
+        (Join-Path $HOME ".gemini\config\skills"),
+        (Join-Path $HOME ".gemini\antigravity\skills"),
+        (Join-Path $HOME ".gemini\antigravity-cli\skills")
+    )
+
+    $installedCount = 0
+    $preservedCount = 0
+    $failedItems = [System.Collections.Generic.List[string]]::new()
+    foreach ($skillRoot in $skillRoots) {
+        New-Item -ItemType Directory -Path $skillRoot -Force | Out-Null
+        foreach ($skill in $skills) {
+            $destination = Join-Path $skillRoot $skill.Name
+            if (Test-Path -LiteralPath $destination) {
+                $preservedCount++
+                continue
+            }
+            try {
+                Copy-Item -LiteralPath $skill.FullName -Destination $destination -Recurse -ErrorAction Stop
+                $installedCount++
+            } catch {
+                $failedItems.Add($destination)
+                Write-Host "[!] Could not install pstack skill: $destination" -ForegroundColor Yellow
+            }
+        }
+    }
+
+    $cursorSkillRoot = Join-Path $HOME ".agents\skills"
+    foreach ($skill in $skills) {
+        $pluginSkillDoc = Join-Path $localPlugin "skills\$($skill.Name)\SKILL.md"
+        $globalSkillDoc = Join-Path (Join-Path $cursorSkillRoot $skill.Name) "SKILL.md"
+        if ((Test-Path -LiteralPath $pluginSkillDoc) -and (Test-Path -LiteralPath $globalSkillDoc)) {
+            if ((Get-FileHash -LiteralPath $pluginSkillDoc).Hash -eq (Get-FileHash -LiteralPath $globalSkillDoc).Hash) {
+                try {
+                    Remove-Item -LiteralPath $pluginSkillDoc -Force -ErrorAction Stop
+                    Write-Host "[-] Using the shared user-level pstack skill in Cursor: $($skill.Name)" -ForegroundColor Gray
+                } catch {
+                    Write-Host "[!] Could not remove duplicate Cursor skill: $($skill.Name)" -ForegroundColor Yellow
+                }
+            }
+        }
+    }
+
+    if ($installedCount -gt 0) { Add-SetupResult Installed "pstack skills ($installedCount folders)" }
+    if ($preservedCount -gt 0) { Add-SetupResult Skipped "existing skill paths ($preservedCount preserved)" }
+    foreach ($item in $failedItems) { Add-SetupResult Failed $item }
+    Write-Host "[+] pstack skills: $installedCount installed, $preservedCount existing paths preserved, $($failedItems.Count) failed" -ForegroundColor Green
 }
 
 Install-CursorPstackPlugin
