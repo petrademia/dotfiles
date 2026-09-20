@@ -22,6 +22,7 @@ link "$DOTFILES/config/nvim" "$HOME/.config/nvim"
 link "$DOTFILES/config/zellij" "$HOME/.config/zellij"
 link "$DOTFILES/global/AGENTS.md" "$HOME/AGENTS.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/.claude/CLAUDE.md"
+link "$DOTFILES/global/AGENTS.md" "$HOME/.codex/AGENTS.md"
 
 case "$(uname -s)" in
   Darwin) GO_ENV_DIR="$HOME/Library/Application Support/go" ;;
