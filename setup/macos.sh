@@ -271,15 +271,26 @@ eval "$(fnm env --use-on-cd)"
 fnm use --install-if-missing lts-latest
 fnm default lts-latest
 
-# Install or update npm global tools on every setup run.
+# Install missing npm global tools and update only when outdated.
 run_npm_global() {
   local package=$1
-  local cmd=$2
-  local ignore_scripts=${3:-}
+  local ignore_scripts=${2:-}
+  local installed_package=${package%@latest}
   local result=installed
-  if [ -n "$cmd" ] && command -v "$cmd" >/dev/null 2>&1; then
-    echo "==> Updating npm package: $package"
-    result=updated
+  if npm list --global --depth=0 "$installed_package" >/dev/null 2>&1; then
+    local outdated
+    if outdated=$(npm outdated --global --depth=0 "$installed_package" 2>/dev/null); then
+      echo "[-] $installed_package is current. Skipping..."
+      record_result skipped
+      return 0
+    elif [ -n "$outdated" ]; then
+      echo "==> Updating npm package: $package"
+      result=updated
+    else
+      record_result failed
+      echo "[-] Could not check npm package: $installed_package"
+      return 0
+    fi
   else
     echo "==> Installing npm package: $package"
   fi
@@ -300,14 +311,14 @@ run_npm_global() {
   fi
 }
 
-run_npm_global @z_ai/coding-helper coding-helper
-run_npm_global @earendil-works/pi-coding-agent pi --ignore-scripts
-run_npm_global reasonix reasonix
-run_npm_global @deepseek-ai/dsh dsh
-run_npm_global wrangler wrangler
-run_npm_global openclaw@latest openclaw
-run_npm_global impeccable impeccable
-run_npm_global playwright playwright
+run_npm_global @z_ai/coding-helper
+run_npm_global @earendil-works/pi-coding-agent --ignore-scripts
+run_npm_global reasonix
+run_npm_global @deepseek-ai/dsh
+run_npm_global wrangler
+run_npm_global openclaw@latest
+run_npm_global impeccable
+run_npm_global playwright
 npx playwright install chromium || true
 
 if ! smart_check "claude" "$HOME/.local/bin/claude"; then
