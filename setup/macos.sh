@@ -82,19 +82,20 @@ FORMULAS=(
 # Repo-managed brew formulas: install when missing and upgrade when outdated.
 for formula in "${FORMULAS[@]}"; do
   if brew_formula_installed "$formula"; then
-    if outdated=$(brew outdated --formula --quiet "$formula"); then
-      if [ -z "$outdated" ]; then
-        echo "[-] $formula is current. Skipping..."
-        record_result skipped
-        continue
-      fi
-      echo "==> Updating formula: $formula"
-      if brew upgrade --formula --no-ask "$formula"; then record_result updated
-      else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
-    else
+    outdated=""
+    if ! outdated=$(brew outdated --formula --quiet "$formula") && [ -z "$outdated" ]; then
       echo "Warning: could not check whether formula is outdated: $formula"
       record_result failed
+      continue
     fi
+    if [ -z "$outdated" ]; then
+      echo "[-] $formula is current. Skipping..."
+      record_result skipped
+      continue
+    fi
+    echo "==> Updating formula: $formula"
+    if brew upgrade --formula --no-ask "$formula"; then record_result updated
+    else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
   else
     echo "==> Installing formula: $formula"
     if brew install "$formula"; then record_result installed
@@ -199,19 +200,20 @@ CASKS=(
 
 for cask in "${CASKS[@]}"; do
   if brew_cask_installed "$cask"; then
-    if outdated=$(brew outdated --cask --quiet "$cask"); then
-      if [ -z "$outdated" ]; then
-        echo "[-] $cask is current. Skipping..."
-        record_result skipped
-        continue
-      fi
-      echo "==> Updating cask: $cask"
-      if brew upgrade --cask --no-ask "$cask"; then record_result updated
-      else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
-    else
+    outdated=""
+    if ! outdated=$(brew outdated --cask --quiet "$cask") && [ -z "$outdated" ]; then
       echo "Warning: could not check whether cask is outdated: $cask"
       record_result failed
+      continue
     fi
+    if [ -z "$outdated" ]; then
+      echo "[-] $cask is current. Skipping..."
+      record_result skipped
+      continue
+    fi
+    echo "==> Updating cask: $cask"
+    if brew upgrade --cask --no-ask "$cask"; then record_result updated
+    else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
   else
     echo "==> Installing cask: $cask"
     if [ "$cask" = "github-copilot-app" ]; then
