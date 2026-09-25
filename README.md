@@ -2,21 +2,27 @@
 
 ## Installation
 
-Each platform prints an install/update/skip/failure summary.
+The macOS setup prints an install/update/current/failure summary. Its target
+total is the sum of those four outcome counts.
 
 **What the summary means**
 
-- **Installed** - newly provisioned on this run.
-- **Skipped** - already current, or managed by a direct installer without a
-  reliable version check.
-- **Updated** - an outdated repo-managed package or tool was upgraded.
-- **Failed: 0** - no setup step recorded a failure.
+- **Installed** - newly installed version-managed target.
+- **Updated** - an existing target's version changed during setup.
+- **Current** - version check found no update, or the version stayed the same
+  after the target's updater ran.
+- **Failed** - setup or verification failed for a version-managed target.
 
-On macOS, rerunning setup updates outdated Homebrew formulas and casks, npm
-global tools, Rust stable, and uv tools. Direct vendor installers are only run
-when their tool is missing. Windows and WSL keep their platform-specific
-package-manager update behavior; use `winget upgrade`, `scoop update *`, or
-`apt upgrade` when you want to update everything outside the setup manifest.
+The macOS target total includes Homebrew formulas and casks, selected Mac App
+Store apps, Node LTS, Rust stable, npm globals, uv tools, Claude Code CLI,
+Hermes Agent, and Oh My Pi. It excludes transitive dependencies, plugins and
+skills, browser runtimes, dotfile links, and other unversioned setup actions.
+App Store checks need an interactive terminal. Hermes may prompt to migrate
+configuration when its update requires it.
+
+Windows and WSL keep their platform-specific package-manager update behavior;
+use `winget upgrade`, `scoop update *`, or `apt upgrade` for packages outside
+their setup manifests.
 Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
 separately inside Ubuntu.
 
@@ -32,8 +38,10 @@ Apply macOS defaults and login items with:
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/macos.sh | zsh
 ```
 
-Rerunning the macOS setup is update-aware: outdated Homebrew packages and
-casks, npm globals, Rust stable, and uv tools are upgraded automatically.
+Rerunning macOS setup updates outdated Homebrew packages and casks, selected
+Mac App Store apps, Node LTS, npm globals, Rust stable, uv tools, and the
+Claude Code, Hermes Agent, and Oh My Pi CLIs. Transitive dependencies are not
+counted as separate targets.
 
 The macOS bootstrap applies a small login-item allowlist for installed apps:
 

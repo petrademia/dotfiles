@@ -1,18 +1,54 @@
 #!/bin/zsh
 
-set -e
+set -e -o pipefail
+export PATH="$HOME/.local/bin:$PATH"
 INSTALLED_COUNT=0
 UPDATED_COUNT=0
-SKIPPED_COUNT=0
+CURRENT_COUNT=0
 FAILED_COUNT=0
+TARGET_COUNT=0
 
 record_result() {
+  TARGET_COUNT=$((TARGET_COUNT + 1))
   case "$1" in
     installed) INSTALLED_COUNT=$((INSTALLED_COUNT + 1)) ;;
     updated) UPDATED_COUNT=$((UPDATED_COUNT + 1)) ;;
-    skipped) SKIPPED_COUNT=$((SKIPPED_COUNT + 1)) ;;
+    current) CURRENT_COUNT=$((CURRENT_COUNT + 1)) ;;
     failed) FAILED_COUNT=$((FAILED_COUNT + 1)) ;;
+    *) FAILED_COUNT=$((FAILED_COUNT + 1)); echo "Warning: unknown setup result: $1" ;;
   esac
+}
+
+record_version_result() {
+  local before=$1
+  local after=$2
+  if [ -z "$after" ]; then
+    record_result failed
+    return 1
+  elif [ -z "$before" ]; then
+    record_result installed
+  elif [ "$before" = "$after" ]; then
+    record_result current
+  else
+    record_result updated
+  fi
+}
+
+record_update_result() {
+  local before=$1
+  local after=$2
+  if [ -z "$before" ] || [ -z "$after" ]; then
+    record_result failed
+    return 1
+  elif [ "$before" = "$after" ]; then
+    record_result current
+  else
+    record_result updated
+  fi
+}
+
+cli_version() {
+  "$1" --version 2>/dev/null | sed -n '1p' || true
 }
 
 brew_formula_installed() {
@@ -27,18 +63,6 @@ brew_cask_installed() {
   brew list --cask --versions "$pkg" >/dev/null 2>&1 && return 0
   local short="${pkg##*/}"
   [ "$short" != "$pkg" ] && brew list --cask --versions "$short" >/dev/null 2>&1
-}
-
-# Direct installers use this guard when they do not expose a safe version check.
-smart_check() {
-  local cmd=$1
-  local install_path=${2:-}
-  if command -v "$cmd" >/dev/null 2>&1 || { [ -n "$install_path" ] && { [ -d "$install_path" ] || [ -f "$install_path" ]; }; }; then
-    echo "[-] $cmd already present. Skipping..."
-    record_result skipped
-    return 0
-  fi
-  return 1
 }
 
 xcode-select -p >/dev/null 2>&1 || xcode-select --install
@@ -90,7 +114,7 @@ for formula in "${FORMULAS[@]}"; do
     fi
     if [ -z "$outdated" ]; then
       echo "[-] $formula is current. Skipping..."
-      record_result skipped
+      record_result current
       continue
     fi
     echo "==> Updating formula: $formula"
@@ -99,7 +123,7 @@ for formula in "${FORMULAS[@]}"; do
   else
     echo "==> Installing formula: $formula"
     if brew install "$formula"; then record_result installed
-    else record_result failed; exit 1; fi
+    else record_result failed; echo "Warning: formula install failed: $formula"; fi
   fi
 done
 
@@ -208,7 +232,7 @@ for cask in "${CASKS[@]}"; do
     fi
     if [ -z "$outdated" ]; then
       echo "[-] $cask is current. Skipping..."
-      record_result skipped
+      record_result current
       continue
     fi
     echo "==> Updating cask: $cask"
@@ -228,7 +252,6 @@ done
 COTEDITOR_COT="/Applications/CotEditor.app/Contents/SharedSupport/bin/cot"
 if [ -x /usr/local/bin/cot ]; then
   echo "[-] cot already present. Skipping..."
-  record_result skipped
 elif [ -x "$COTEDITOR_COT" ]; then
   echo "==> Linking cot CLI to /usr/local/bin/cot"
   sudo mkdir -p /usr/local/bin
@@ -242,25 +265,64 @@ MAS_APPS=(
   "1398373917 UpNote"
 )
 
-# mas 7 needs root. curl|bash has no TTY for sudo, so skip there.
-if command -v mas >/dev/null 2>&1; then
-  if [ -t 0 ]; then
-    for app in "${MAS_APPS[@]}"; do
-      app_id="${app%% *}"
-      app_name="${app#* }"
-      if mas list 2>/dev/null | grep -q "^${app_id}[[:space:]]"; then
-        echo "[-] $app_name already present. Skipping..."
-        record_result skipped
-      else
-        echo "==> Installing App Store app: $app_name"
-        sudo mas get "$app_id" || sudo mas install "$app_id" || echo "Warning: mas failed for $app_name ($app_id)"
-      fi
-    done
-  else
-    echo "==> Skipping App Store apps (mas 7 needs sudo on a TTY). Later run:"
-    echo "    sudo mas get 1284863847 1398373917"
+# App Store targets are version-checked and updated individually. mas requires
+# a TTY and root privileges for install/update operations.
+for app in "${MAS_APPS[@]}"; do
+  app_id="${app%% *}"
+  app_name="${app#* }"
+  if ! command -v mas >/dev/null 2>&1 || [ ! -t 0 ]; then
+    echo "Warning: cannot check App Store target in this non-interactive run: $app_name"
+    record_result failed
+    continue
   fi
-fi
+
+  if ! installed_apps=$(mas list 2>/dev/null); then
+    echo "Warning: could not list Mac App Store apps"
+    record_result failed
+    continue
+  fi
+  installed_version=$(printf '%s\n' "$installed_apps" | awk -v id="$app_id" '$1 == id { print $NF; exit }')
+  if [ -z "$installed_version" ]; then
+    echo "==> Installing App Store app: $app_name"
+    if sudo mas get "$app_id" || sudo mas install "$app_id"; then
+      installed_apps=$(mas list 2>/dev/null || true)
+      installed_version=$(printf '%s\n' "$installed_apps" | awk -v id="$app_id" '$1 == id { print $NF; exit }')
+      if [ -n "$installed_version" ]; then record_result installed
+      else record_result failed; echo "Warning: could not verify App Store install: $app_name"; fi
+    else
+      record_result failed
+      echo "Warning: App Store install failed: $app_name ($app_id)"
+    fi
+    continue
+  fi
+
+  if outdated=$(mas outdated "$app_id" 2>/dev/null); then
+    if [ -z "$outdated" ]; then
+      echo "[-] $app_name is current. Skipping..."
+      record_result current
+      continue
+    fi
+  else
+    echo "Warning: could not check App Store version: $app_name"
+    record_result failed
+    continue
+  fi
+
+  echo "==> Updating App Store app: $app_name"
+  if sudo mas update "$app_id"; then
+    installed_apps=$(mas list 2>/dev/null || true)
+    updated_version=$(printf '%s\n' "$installed_apps" | awk -v id="$app_id" '$1 == id { print $NF; exit }')
+    if [ -n "$updated_version" ] && [ "$updated_version" != "$installed_version" ]; then
+      record_result updated
+    else
+      record_result failed
+      echo "Warning: App Store update did not change the detected version: $app_name"
+    fi
+  else
+    record_result failed
+    echo "Warning: App Store update failed: $app_name ($app_id)"
+  fi
+done
 
 # Brew keg-only formulas - add to PATH for this script
 export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
@@ -273,24 +335,30 @@ if command -v rustup >/dev/null 2>&1; then
   rust_before=$(rustup run stable rustc --version 2>/dev/null || true)
   if rustup update stable && rustup default stable; then
     rust_after=$(rustup run stable rustc --version 2>/dev/null || true)
-    if [ -z "$rust_after" ]; then
-      record_result failed
-      echo "Warning: could not verify the Rust stable toolchain version"
-    elif [ "$rust_before" = "$rust_after" ]; then
-      record_result skipped
-    else
-      record_result updated
-    fi
+    record_version_result "$rust_before" "$rust_after" \
+      || echo "Warning: could not verify the Rust stable toolchain version"
   else
     record_result failed
     echo "Warning: Rust stable toolchain update failed"
   fi
+else
+  record_result failed
+  echo "Warning: rustup is unavailable; could not check Rust stable"
 fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-eval "$(fnm env --use-on-cd)"
-fnm use --install-if-missing lts-latest
-fnm default lts-latest
+node_before=$(node --version 2>/dev/null || true)
+if command -v fnm >/dev/null 2>&1 \
+  && eval "$(fnm env --use-on-cd)" \
+  && fnm install --lts --use \
+  && fnm default lts-latest; then
+  node_after=$(node --version 2>/dev/null || true)
+  record_version_result "$node_before" "$node_after" \
+    || echo "Warning: could not verify the Node.js LTS version"
+else
+  record_result failed
+  echo "Warning: could not install or select the latest Node.js LTS"
+fi
 
 # Install missing npm global tools and update only when outdated.
 run_npm_global() {
@@ -302,7 +370,7 @@ run_npm_global() {
     local outdated
     if outdated=$(npm outdated --global --depth=0 "$installed_package" 2>/dev/null); then
       echo "[-] $installed_package is current. Skipping..."
-      record_result skipped
+      record_result current
       return 0
     elif [ -n "$outdated" ]; then
       echo "==> Updating npm package: $package"
@@ -342,18 +410,102 @@ run_npm_global impeccable
 run_npm_global playwright
 npx playwright install chromium || true
 
-if ! smart_check "claude" "$HOME/.local/bin/claude"; then
-  curl -fsSL https://claude.ai/install.sh | bash
+claude_cmd=$(command -v claude 2>/dev/null || true)
+if [ -z "$claude_cmd" ] && [ -x "$HOME/.local/bin/claude" ]; then
+  claude_cmd="$HOME/.local/bin/claude"
 fi
-if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
-  curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
-    bash -s -- --skip-setup --non-interactive || true
+if [ -n "$claude_cmd" ]; then
+  claude_before=$(cli_version "$claude_cmd")
+  if "$claude_cmd" update; then
+    claude_after=$(cli_version "$claude_cmd")
+    record_update_result "$claude_before" "$claude_after" \
+      || echo "Warning: could not verify Claude Code CLI version"
+  else
+    record_result failed
+    echo "Warning: Claude Code CLI update failed"
+  fi
+else
+  echo "==> Installing Claude Code CLI"
+  if curl -fsSL https://claude.ai/install.sh | bash; then
+    claude_cmd=$(command -v claude 2>/dev/null || true)
+    if [ -z "$claude_cmd" ] && [ -x "$HOME/.local/bin/claude" ]; then
+      claude_cmd="$HOME/.local/bin/claude"
+    fi
+    claude_after=""
+    if [ -n "$claude_cmd" ]; then claude_after=$(cli_version "$claude_cmd"); fi
+    record_version_result "" "$claude_after" \
+      || echo "Warning: could not verify Claude Code CLI installation"
+  else
+    record_result failed
+    echo "Warning: Claude Code CLI install failed"
+  fi
 fi
-if ! smart_check "omp"; then
-  curl -fsSL https://omp.sh/install | sh || echo "Note: Oh My Pi (omp) install failed"
+
+if command -v hermes >/dev/null 2>&1; then
+  hermes_cmd=$(command -v hermes)
+  hermes_info=$("$hermes_cmd" --version 2>/dev/null || true)
+  hermes_before=$(printf '%s\n' "$hermes_info" | sed -n '1p')
+  hermes_dir=$(printf '%s\n' "$hermes_info" | sed -n 's/^Install directory: //p' | sed -n '1p')
+  hermes_worktree=""
+  hermes_ahead=""
+  if [ -n "$hermes_dir" ] && git -C "$hermes_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    hermes_worktree=$(git -C "$hermes_dir" status --porcelain --untracked-files=all \
+      -- . ':(exclude).install_method' 2>/dev/null || echo "unavailable")
+    hermes_ahead=$(git -C "$hermes_dir" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null \
+      | awk '{ print $2 }')
+  fi
+  if [ -n "$hermes_worktree" ] || { [ -n "$hermes_dir" ] && [ "$hermes_ahead" != "0" ]; }; then
+    record_result failed
+    echo "Warning: Hermes Agent has local changes or commits; update skipped to preserve them"
+  elif "$hermes_cmd" update; then
+    hermes_after=$(cli_version "$hermes_cmd")
+    record_update_result "$hermes_before" "$hermes_after" \
+      || echo "Warning: could not verify Hermes Agent version"
+  else
+    record_result failed
+    echo "Warning: Hermes Agent update failed"
+  fi
+else
+  echo "==> Installing Hermes Agent"
+  if curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
+    bash -s -- --skip-setup --non-interactive; then
+    hermes_after=""
+    if hermes_cmd=$(command -v hermes 2>/dev/null); then
+      hermes_after=$(cli_version "$hermes_cmd")
+    fi
+    record_version_result "" "$hermes_after" \
+      || echo "Warning: could not verify Hermes Agent installation"
+  else
+    record_result failed
+    echo "Warning: Hermes Agent install failed"
+  fi
+fi
+
+if command -v omp >/dev/null 2>&1; then
+  omp_before=$(cli_version "$(command -v omp)")
+  if omp update; then
+    omp_after=$(cli_version "$(command -v omp)")
+    record_update_result "$omp_before" "$omp_after" \
+      || echo "Warning: could not verify Oh My Pi version"
+  else
+    record_result failed
+    echo "Warning: Oh My Pi update failed"
+  fi
+else
+  echo "==> Installing Oh My Pi"
+  if curl -fsSL https://omp.sh/install | sh; then
+    omp_after=""
+    if omp_cmd=$(command -v omp 2>/dev/null); then
+      omp_after=$(cli_version "$omp_cmd")
+    fi
+    record_version_result "" "$omp_after" \
+      || echo "Warning: could not verify Oh My Pi installation"
+  else
+    record_result failed
+    echo "Warning: Oh My Pi install failed"
+  fi
 fi
 if [ -d "$HOME/.cursor/skills/impeccable" ] || [ -d "$HOME/.claude/skills/impeccable" ]; then
-  record_result skipped
   echo "[-] impeccable skills already present. Skipping..."
 else
   npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force \
@@ -386,11 +538,9 @@ if uv_before=$(uv tool list --show-version-specifiers); then
         record_result failed
         echo "Warning: could not verify the installed uv tool: $tool"
       elif [ -z "$before" ]; then
-        record_result installed
-      elif [ "$before" != "$after" ]; then
-        record_result updated
+        record_version_result "" "$after"
       else
-        record_result skipped
+        record_version_result "$before" "$after"
       fi
     else
       record_result failed
@@ -398,9 +548,16 @@ if uv_before=$(uv tool list --show-version-specifiers); then
     fi
   done
 else
-  echo "Warning: could not read installed uv tools; updating them without summary counts"
-  uv tool install --upgrade zai-cli --python 3 || true
-  uv tool install --upgrade graphifyy --python 3 || true
+  echo "Warning: could not read installed uv tools before updating"
+  for tool in zai-cli graphifyy; do
+    if [ "$tool" = "zai-cli" ]; then
+      uv tool install --upgrade zai-cli --python 3 || true
+    else
+      uv tool install --upgrade graphifyy --python 3 || true
+    fi
+    record_result failed
+    echo "Warning: could not classify the uv tool result: $tool"
+  done
 fi
 
 # copilot comes from the copilot-cli cask (GitHub Copilot CLI).
@@ -427,7 +584,6 @@ if codex_plugin_present caveman && codex_plugin_present ponytail; then
   CODEX_PLUGINS_OK=1
 fi
 if [ "$CLAUDE_PLUGINS_OK" -eq 1 ] && [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
-  record_result skipped
   echo "[-] caveman/ponytail plugins already present. Skipping..."
 else
   if command -v claude >/dev/null 2>&1 && [ "$CLAUDE_PLUGINS_OK" -eq 0 ]; then
@@ -509,10 +665,11 @@ else
   echo "Setup finished with failures"
 fi
 echo
-echo "Setup summary"
+echo "Version-managed target summary"
+echo "  Targets:   $TARGET_COUNT"
 echo "  Installed: $INSTALLED_COUNT"
 echo "  Updated:   $UPDATED_COUNT"
-echo "  Skipped:   $SKIPPED_COUNT"
+echo "  Current:   $CURRENT_COUNT"
 echo "  Failed:    $FAILED_COUNT"
 echo
 echo "Restart your terminal or run:"
