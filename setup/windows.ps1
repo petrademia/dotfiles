@@ -906,28 +906,6 @@ public class DotfilesDesktopNotify {
     [DotfilesDesktopNotify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
 }
 
-# Winget/Scoop dump a .lnk on Desktop and Public Desktop. Recycle Bin is a
-# CLSID, not a shortcut, and is left alone.
-function Clear-DesktopInstallerShortcuts {
-    $dirs = @(
-        [Environment]::GetFolderPath("Desktop"),
-        [Environment]::GetFolderPath("CommonDesktopDirectory")
-    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-    $removed = 0
-    foreach ($dir in $dirs) {
-        Get-ChildItem -LiteralPath $dir -Filter "*.lnk" -File -ErrorAction SilentlyContinue | ForEach-Object {
-            try {
-                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
-                $removed++
-            } catch {}
-        }
-    }
-    if ($removed -gt 0) {
-        Write-Host "[+] Removed $removed desktop shortcut(s)." -ForegroundColor Green
-        Invoke-DesktopShellRefresh
-    }
-}
-
 # Settings > Personalization > Background / Lock screen = Windows Spotlight (daily image).
 # Registry mode flags alone leave an OEM picture in place; SPI a Spotlight starter
 # image first so the Iris service can take over rotation.
@@ -1115,7 +1093,6 @@ function Set-WindowsHostUserDefaults {
     } catch {}
 
     Set-WindowsStartupApps
-    Clear-DesktopInstallerShortcuts
 }
 
 function Test-RegValueEquals {
@@ -1695,6 +1672,18 @@ function Install-CursorPstackPlugin {
             Add-SetupResult Failed "Cursor pstack"
             return
         }
+    } else {
+        $checkoutChanges = & git -C $checkout status --porcelain
+        if ($LASTEXITCODE -ne 0 -or $checkoutChanges) {
+            Write-Host "[!] Cursor pstack checkout has local changes; preserving it without updating" -ForegroundColor Yellow
+            Add-SetupResult Skipped "Cursor pstack checkout"
+        } else {
+            & git -C $checkout pull --ff-only
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[!] Cursor pstack checkout could not be updated; keeping its current version" -ForegroundColor Yellow
+                Add-SetupResult Failed "Cursor pstack checkout"
+            }
+        }
     }
 
     & git -C $checkout sparse-checkout set pstack
@@ -1944,17 +1933,33 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
     function Smart-NpmGlobal {
-        param([string]$Package, [string]$Command, [switch]$IgnoreScripts)
-        if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) {
-            Write-Host "[-] $Command already present. Skipping..." -ForegroundColor Gray
-            Add-SetupResult Skipped $Package
-            return $true
+        param([string]$Package, [switch]$IgnoreScripts)
+        $spec = $Package -replace '@latest$', ''
+        $isUpdate = $false
+        npm list --global --depth=0 $spec --silent *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $outdatedJson = npm outdated --global --depth=0 $spec --json 2>$null
+            $outdatedExit = $LASTEXITCODE
+            if ($outdatedExit -eq 0) {
+                Write-Host "[-] $Package is current. Skipping..." -ForegroundColor Gray
+                Add-SetupResult Skipped $Package
+                return $true
+            }
+            try { $outdated = $outdatedJson | ConvertFrom-Json -ErrorAction Stop } catch { $outdated = $null }
+            if (-not $outdated) {
+                Write-Host "[!] Could not check whether $Package is outdated." -ForegroundColor Yellow
+                Add-SetupResult Failed $Package
+                return $false
+            }
+            $isUpdate = $true
+            Write-Host "[+] Updating $Package..." -ForegroundColor Cyan
+        } else {
+            Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
         }
-        Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
         if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent | Out-Null }
         else { npm install -g $Package --silent | Out-Null }
         if ($LASTEXITCODE -eq 0) {
-            Add-SetupResult Installed $Package
+            Add-SetupResult $(if ($isUpdate) { "Updated" } else { "Installed" }) $Package
             return $true
         }
         Add-SetupResult Failed $Package
@@ -1962,14 +1967,14 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     }
     # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
     # OpenCode is Scoop; Copilot is built into gh; Z.ai is uv zai-cli.
-    [void](Smart-NpmGlobal "@earendil-works/pi-coding-agent" "pi" -IgnoreScripts)
-    [void](Smart-NpmGlobal "reasonix" "reasonix")
-    [void](Smart-NpmGlobal "@deepseek-ai/dsh" "dsh")
-    [void](Smart-NpmGlobal "wrangler" "wrangler")
-    [void](Smart-NpmGlobal "@openai/codex" "codex")
-    [void](Smart-NpmGlobal "openclaw@latest" "openclaw")
-    [void](Smart-NpmGlobal "impeccable" "impeccable")
-    [void](Smart-NpmGlobal "playwright" "playwright")
+    [void](Smart-NpmGlobal "@earendil-works/pi-coding-agent" -IgnoreScripts)
+    [void](Smart-NpmGlobal "reasonix")
+    [void](Smart-NpmGlobal "@deepseek-ai/dsh")
+    [void](Smart-NpmGlobal "wrangler")
+    [void](Smart-NpmGlobal "@openai/codex")
+    [void](Smart-NpmGlobal "openclaw@latest")
+    [void](Smart-NpmGlobal "impeccable")
+    [void](Smart-NpmGlobal "playwright")
     $pwBrowsers = Join-Path $env:LOCALAPPDATA "ms-playwright"
     $hasChromium = $false
     if (Test-Path $pwBrowsers) {
@@ -2489,7 +2494,6 @@ function Invoke-DotfilesAdminPhase {
     Install-VsBuildTools
     Uninstall-GeForceExperience
     Install-NvidiaApp
-    Clear-DesktopInstallerShortcuts
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask
 }
@@ -2523,7 +2527,7 @@ if ($script:SetupResults.Failed -eq 0) {
     Write-Host "Setup phase finished with failures." -ForegroundColor Yellow
 }
 Write-SetupSummary
-if ($script:ChainAdminPhase -and $script:AdminPhasePending) {
+if ($script:ChainAdminPhase) {
     Write-Host ""
     Write-Host "[+] Admin phase required. Elevating (one UAC)..." -ForegroundColor Yellow
     $adminCode = Start-DotfilesAdminPhaseElevated

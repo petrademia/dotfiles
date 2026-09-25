@@ -66,7 +66,18 @@ while [ -n "$URL" ]; do
     echo "Fetching page $PAGE..."
 
     RESPONSE_FILE=$(mktemp)
-    curl -s -u "$AUTH_CREDS" "$URL" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)))" > "$RESPONSE_FILE"
+    CURL_USER=${AUTH_CREDS//\\/\\\\}
+    CURL_USER=${CURL_USER//\"/\\\"}
+    if ! printf 'user = "%s"\n' "$CURL_USER" | curl -fsS --config - "$URL" -o "$RESPONSE_FILE"; then
+        echo "Bitbucket request failed while fetching page $PAGE."
+        rm -f "$RESPONSE_FILE"
+        exit 1
+    fi
+    if ! jq -e '.values | type == "array"' "$RESPONSE_FILE" >/dev/null; then
+        echo "Bitbucket returned an invalid repository page."
+        rm -f "$RESPONSE_FILE"
+        exit 1
+    fi
 
     jq -c '.values[]' < "$RESPONSE_FILE" | while read -r repo; do
         [ -z "$repo" ] || [ "$repo" = "null" ] && continue
@@ -114,8 +125,14 @@ while [ -n "$URL" ]; do
                         if git -C "$LOCAL_PATH" merge --ff-only "origin/$DEFAULT_BRANCH" &>/dev/null; then
                             UPDATED=1
                         fi
-                    elif git -C "$LOCAL_PATH" branch -f "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null; then
-                        UPDATED=1
+                    elif ! git -C "$LOCAL_PATH" show-ref --verify --quiet "refs/heads/$DEFAULT_BRANCH"; then
+                        if git -C "$LOCAL_PATH" branch "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null; then
+                            UPDATED=1
+                        fi
+                    elif git -C "$LOCAL_PATH" merge-base --is-ancestor "refs/heads/$DEFAULT_BRANCH" "refs/remotes/origin/$DEFAULT_BRANCH"; then
+                        if git -C "$LOCAL_PATH" branch -f "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH" &>/dev/null; then
+                            UPDATED=1
+                        fi
                     fi
 
                     if [ "$UPDATED" -eq 1 ]; then
@@ -124,7 +141,7 @@ while [ -n "$URL" ]; do
                             (cd "$LOCAL_PATH" && graphify . --backend claude --no-docs --no-viz &>/dev/null &)
                         fi
                     else
-                        echo "  Could not update local $DEFAULT_BRANCH (dirty tree or non-ff history?)"
+                        echo "  Could not fast-forward local $DEFAULT_BRANCH; local commits were preserved."
                     fi
                 fi
             fi

@@ -50,6 +50,10 @@ install_cursor_pstack() {
       echo "[!] Cursor pstack install failed; install it from Cursor's Customize page"
       return 0
     fi
+  elif [ -n "$(git -C "$checkout" status --porcelain)" ]; then
+    echo "[!] Cursor pstack checkout has local changes; preserving it without updating"
+  elif ! git -C "$checkout" pull --ff-only; then
+    echo "[!] Cursor pstack checkout could not be updated; keeping its current version"
   fi
 
   if ! git -C "$checkout" sparse-checkout set pstack; then
