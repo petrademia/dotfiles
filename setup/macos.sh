@@ -82,13 +82,18 @@ FORMULAS=(
 # Repo-managed brew formulas: install when missing and upgrade when outdated.
 for formula in "${FORMULAS[@]}"; do
   if brew_formula_installed "$formula"; then
-    if [ -n "$(brew outdated --formula --quiet "$formula" 2>/dev/null)" ]; then
+    if outdated=$(brew outdated --formula --quiet "$formula"); then
+      if [ -z "$outdated" ]; then
+        echo "[-] $formula is current. Skipping..."
+        record_result skipped
+        continue
+      fi
       echo "==> Updating formula: $formula"
       if brew upgrade --formula --no-ask "$formula"; then record_result updated
       else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
     else
-      echo "[-] $formula is current. Skipping..."
-      record_result skipped
+      echo "Warning: could not check whether formula is outdated: $formula"
+      record_result failed
     fi
   else
     echo "==> Installing formula: $formula"
@@ -194,13 +199,18 @@ CASKS=(
 
 for cask in "${CASKS[@]}"; do
   if brew_cask_installed "$cask"; then
-    if [ -n "$(brew outdated --cask --quiet "$cask" 2>/dev/null)" ]; then
+    if outdated=$(brew outdated --cask --quiet "$cask"); then
+      if [ -z "$outdated" ]; then
+        echo "[-] $cask is current. Skipping..."
+        record_result skipped
+        continue
+      fi
       echo "==> Updating cask: $cask"
       if brew upgrade --cask --no-ask "$cask"; then record_result updated
       else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
     else
-      echo "[-] $cask is current. Skipping..."
-      record_result skipped
+      echo "Warning: could not check whether cask is outdated: $cask"
+      record_result failed
     fi
   else
     echo "==> Installing cask: $cask"

@@ -420,8 +420,8 @@ if command -v graphify >/dev/null 2>&1; then
     echo "[-] graphify already present. Skipping..."
 else
     uv tool install --upgrade graphifyy --python 3 || true
-uv tool install --upgrade podman-compose --python 3 || true
 fi
+uv tool install --upgrade podman-compose --python 3 || true
 
 run_npm_global playwright playwright
 if [ -d "$HOME/.cache/ms-playwright" ] && compgen -G "$HOME/.cache/ms-playwright/chromium*" >/dev/null; then
