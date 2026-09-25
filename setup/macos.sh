@@ -270,8 +270,17 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk"
 
 if command -v rustup >/dev/null 2>&1; then
   echo "==> Updating Rust stable toolchain"
+  rust_before=$(rustup run stable rustc --version 2>/dev/null || true)
   if rustup update stable && rustup default stable; then
-    record_result updated
+    rust_after=$(rustup run stable rustc --version 2>/dev/null || true)
+    if [ -z "$rust_after" ]; then
+      record_result failed
+      echo "Warning: could not verify the Rust stable toolchain version"
+    elif [ "$rust_before" = "$rust_after" ]; then
+      record_result skipped
+    else
+      record_result updated
+    fi
   else
     record_result failed
     echo "Warning: Rust stable toolchain update failed"
@@ -351,8 +360,48 @@ else
     || echo "Note: impeccable skills install failed"
 fi
 echo "==> Updating uv tools"
-uv tool install --upgrade zai-cli --python 3 || true
-uv tool install --upgrade graphifyy --python 3 || true
+uv_tool_version() {
+  printf '%s\n' "$1" | awk -v tool="$2" '$1 == tool { print $2; exit }'
+}
+
+if uv_before=$(uv tool list --show-version-specifiers); then
+  for tool in zai-cli graphifyy; do
+    before=$(uv_tool_version "$uv_before" "$tool")
+    if [ "$tool" = "zai-cli" ]; then
+      if ! uv tool install --upgrade zai-cli --python 3; then
+        record_result failed
+        echo "Warning: uv tool install/upgrade failed: $tool"
+        continue
+      fi
+    else
+      if ! uv tool install --upgrade graphifyy --python 3; then
+        record_result failed
+        echo "Warning: uv tool install/upgrade failed: $tool"
+        continue
+      fi
+    fi
+    if uv_after=$(uv tool list --show-version-specifiers); then
+      after=$(uv_tool_version "$uv_after" "$tool")
+      if [ -z "$after" ]; then
+        record_result failed
+        echo "Warning: could not verify the installed uv tool: $tool"
+      elif [ -z "$before" ]; then
+        record_result installed
+      elif [ "$before" != "$after" ]; then
+        record_result updated
+      else
+        record_result skipped
+      fi
+    else
+      record_result failed
+      echo "Warning: could not check uv tool version after install: $tool"
+    fi
+  done
+else
+  echo "Warning: could not read installed uv tools; updating them without summary counts"
+  uv tool install --upgrade zai-cli --python 3 || true
+  uv tool install --upgrade graphifyy --python 3 || true
+fi
 
 # copilot comes from the copilot-cli cask (GitHub Copilot CLI).
 # Do not install github/gh-copilot; that retired extension collides with gh.
