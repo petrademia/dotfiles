@@ -74,14 +74,25 @@ install_cursor_pstack() {
       return 0
     fi
   elif [ -e "$local_plugin" ]; then
-    echo "[-] Cursor pstack plugin already present. Skipping..."
-    return 0
-  fi
-
-  if cp -R "$checkout/pstack" "$local_plugin"; then
-    echo "[+] Cursor pstack plugin installed"
+    if grep -Eq '"name"[[:space:]]*:[[:space:]]*"pstack"' "$local_plugin/.cursor-plugin/plugin.json" 2>/dev/null \
+      && grep -Eq '"repository"[[:space:]]*:[[:space:]]*"https://github\.com/cursor/plugins"' \
+        "$local_plugin/.cursor-plugin/plugin.json" 2>/dev/null; then
+      if cp -R "$checkout/pstack/." "$local_plugin/"; then
+        echo "[+] Cursor pstack plugin synced from checkout"
+      else
+        echo "[!] Could not update Cursor pstack plugin"
+        return 0
+      fi
+    else
+      echo "[-] Cursor pstack path is not a pstack plugin. Skipping..."
+      return 0
+    fi
   else
-    echo "[!] Could not copy Cursor pstack plugin; install it from Cursor's Customize page"
+    if cp -R "$checkout/pstack" "$local_plugin"; then
+      echo "[+] Cursor pstack plugin installed"
+    else
+      echo "[!] Could not copy Cursor pstack plugin; install it from Cursor's Customize page"
+    fi
   fi
 }
 

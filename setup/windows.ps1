@@ -1660,6 +1660,7 @@ function Install-CursorPstackPlugin {
     $localRoot = Join-Path $HOME ".cursor\plugins\local"
     $localPlugin = Join-Path $localRoot "pstack"
     $repo = "https://github.com/cursor/plugins.git"
+    $pluginRepository = "https://github.com/cursor/plugins"
 
     New-Item -ItemType Directory -Path $localRoot -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $HOME ".local\share") -Force | Out-Null
@@ -1699,10 +1700,33 @@ function Install-CursorPstackPlugin {
         Add-SetupResult Failed "Cursor pstack"
         return
     }
+    $sourceRevision = (& git -C $checkout rev-parse HEAD).Trim()
+    $sourceManifest = Get-Content -LiteralPath (Join-Path $source ".cursor-plugin\plugin.json") -Raw | ConvertFrom-Json
 
     if (Test-Path -LiteralPath $localPlugin) {
-        Write-Host "[-] Cursor pstack plugin already present. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped $localPlugin
+        $localManifestPath = Join-Path $localPlugin ".cursor-plugin\plugin.json"
+        $localManifest = $null
+        if (Test-Path -LiteralPath $localManifestPath) {
+            try { $localManifest = Get-Content -LiteralPath $localManifestPath -Raw | ConvertFrom-Json } catch {}
+        }
+        if ($localManifest -and $localManifest.name -eq "pstack" -and $localManifest.repository -eq $pluginRepository) {
+            try {
+                Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $localPlugin -Recurse -Force -ErrorAction Stop
+                if ($localManifest.version -ne $sourceManifest.version) {
+                    Write-Host "[+] Cursor pstack plugin updated" -ForegroundColor Green
+                    Add-SetupResult Updated "Cursor pstack plugin"
+                } else {
+                    Write-Host "[-] Cursor pstack plugin is current" -ForegroundColor Gray
+                    Add-SetupResult Skipped "Cursor pstack plugin"
+                }
+            } catch {
+                Write-Host "[!] Could not update Cursor pstack plugin: $_" -ForegroundColor Yellow
+                Add-SetupResult Failed "Cursor pstack plugin"
+            }
+        } else {
+            Write-Host "[-] Cursor pstack path is not a pstack plugin. Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped $localPlugin
+        }
     } else {
         Copy-Item -LiteralPath $source -Destination $localPlugin -Recurse
         Write-Host "[+] Cursor pstack plugin installed" -ForegroundColor Green
@@ -1728,7 +1752,19 @@ function Install-CursorPstackPlugin {
         (Join-Path $HOME ".gemini\antigravity-cli\skills")
     )
 
+    $managedSkillsPath = Join-Path (Split-Path -Parent $checkout) "pstack-managed-skills.txt"
+    $managedSkills = @{}
+    if (Test-Path -LiteralPath $managedSkillsPath) {
+        foreach ($managedPath in Get-Content -LiteralPath $managedSkillsPath) {
+            $managedEntry = $managedPath -split "`t", 2
+            if ($managedEntry.Count -eq 2 -and $managedEntry[0].Trim()) {
+                $managedSkills[[IO.Path]::GetFullPath($managedEntry[0].Trim())] = $managedEntry[1].Trim()
+            }
+        }
+    }
     $installedCount = 0
+    $updatedCount = 0
+    $currentCount = 0
     $preservedCount = 0
     $failedItems = [System.Collections.Generic.List[string]]::new()
     foreach ($skillRoot in $skillRoots) {
@@ -1736,11 +1772,28 @@ function Install-CursorPstackPlugin {
         foreach ($skill in $skills) {
             $destination = Join-Path $skillRoot $skill.Name
             if (Test-Path -LiteralPath $destination) {
-                $preservedCount++
+                $destination = [IO.Path]::GetFullPath($destination)
+                if ($managedSkills.ContainsKey($destination)) {
+                    if ($managedSkills[$destination] -eq $sourceRevision) {
+                        $currentCount++
+                    } else {
+                        try {
+                            Get-ChildItem -LiteralPath $skill.FullName -Force | Copy-Item -Destination $destination -Recurse -Force -ErrorAction Stop
+                            $managedSkills[$destination] = $sourceRevision
+                            $updatedCount++
+                        } catch {
+                            $failedItems.Add($destination)
+                            Write-Host "[!] Could not update pstack skill: $destination" -ForegroundColor Yellow
+                        }
+                    }
+                } else {
+                    $preservedCount++
+                }
                 continue
             }
             try {
                 Copy-Item -LiteralPath $skill.FullName -Destination $destination -Recurse -ErrorAction Stop
+                $managedSkills[[IO.Path]::GetFullPath($destination)] = $sourceRevision
                 $installedCount++
             } catch {
                 $failedItems.Add($destination)
@@ -1766,9 +1819,15 @@ function Install-CursorPstackPlugin {
     }
 
     if ($installedCount -gt 0) { Add-SetupResult Installed "pstack skills ($installedCount folders)" }
+    if ($updatedCount -gt 0) { Add-SetupResult Updated "pstack skills ($updatedCount folders)" }
+    if ($currentCount -gt 0) { Add-SetupResult Skipped "pstack skills ($currentCount current folders)" }
     if ($preservedCount -gt 0) { Add-SetupResult Skipped "existing skill paths ($preservedCount preserved)" }
     foreach ($item in $failedItems) { Add-SetupResult Failed $item }
-    Write-Host "[+] pstack skills: $installedCount installed, $preservedCount existing paths preserved, $($failedItems.Count) failed" -ForegroundColor Green
+    if ($managedSkills.Count -gt 0) {
+        $managedSkills.GetEnumerator() | Sort-Object Key | ForEach-Object { "$($_.Key)`t$($_.Value)" } |
+            Set-Content -LiteralPath $managedSkillsPath -Encoding utf8
+    }
+    Write-Host "[+] pstack skills: $installedCount installed, $updatedCount updated, $currentCount current, $preservedCount existing paths preserved, $($failedItems.Count) failed" -ForegroundColor Green
 }
 
 Install-CursorPstackPlugin
@@ -1985,10 +2044,10 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     } else {
         npx playwright install chromium
     }
-    if (Test-Path (Join-Path $HOME ".cursor\skills\impeccable")) {
-        Write-Host "[-] impeccable skills already installed. Skipping..." -ForegroundColor Gray
-    } else {
-        cmd /c "echo Y| npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force"
+    Write-Host "==> Updating Impeccable skills" -ForegroundColor Cyan
+    & npx --yes impeccable update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Impeccable skill update failed" -ForegroundColor Yellow
     }
 }
 
@@ -2112,6 +2171,20 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
         codex plugin marketplace add DietrichGebert/ponytail 2>$null
         codex plugin add caveman@caveman 2>$null
         codex plugin add ponytail@ponytail 2>$null
+    }
+    foreach ($marketplace in @("caveman", "ponytail")) {
+        Protect-ScoopGit { codex plugin marketplace upgrade $marketplace 2>$null }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[!] Could not update Codex plugin marketplace: $marketplace" -ForegroundColor Yellow
+        }
+    }
+}
+if (Get-Command claude -ErrorAction SilentlyContinue) {
+    foreach ($plugin in @("caveman@caveman", "ponytail@ponytail")) {
+        claude plugin update $plugin 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[!] Could not update Claude plugin: $plugin" -ForegroundColor Yellow
+        }
     }
 }
 

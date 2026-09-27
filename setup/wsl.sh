@@ -458,13 +458,9 @@ if ! smart_check "goose" "$HOME/.local/bin/goose"; then
         CONFIGURE=false bash || echo "[-] Goose CLI install skipped"
 fi
 
-if [ -d "$HOME/.cursor/skills/impeccable" ] || [ -d "$HOME/.claude/skills/impeccable" ]; then
-    record_result skipped
-    echo "[-] impeccable skills already present. Skipping..."
-else
-    npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force \
-        || echo "[-] impeccable skills install skipped"
-fi
+echo "==> Updating Impeccable skills"
+npx --yes impeccable update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks \
+    || echo "[!] Impeccable skill update failed"
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"
 # Codex marketplace clone uses SSH; ensure github.com is trusted non-interactively.
@@ -516,6 +512,19 @@ else
     elif [ "$CODEX_PLUGINS_OK" -eq 1 ]; then
         echo "[-] Codex caveman/ponytail already present. Skipping..."
     fi
+fi
+
+if command -v claude >/dev/null 2>&1; then
+    for plugin in caveman@caveman ponytail@ponytail; do
+        claude plugin update "$plugin" 2>/dev/null \
+            || echo "[!] Could not update Claude plugin: $plugin"
+    done
+fi
+if command -v codex >/dev/null 2>&1; then
+    for marketplace in caveman ponytail; do
+        codex plugin marketplace upgrade "$marketplace" 2>/dev/null \
+            || echo "[!] Could not update Codex plugin marketplace: $marketplace"
+    done
 fi
 
 echo "==> 10) Dotfiles"

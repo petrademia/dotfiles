@@ -340,6 +340,9 @@ Codex.
 Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbakaus/impeccable).
 The Impeccable design skills are available globally for Claude, Codex, Cursor,
 Gemini, OpenCode, and Pi.
+Re-running setup updates both the Impeccable CLI and its installed skills.
+It also updates Caveman and Ponytail through Claude Code's plugin updater and
+refreshes only their Codex marketplace sources.
 
 Setup installs the Cursor pstack plugin and exposes every skill under its
 `skills/` directory in the global skill directories for Cursor, Codex,
@@ -353,6 +356,9 @@ directory. This setup is local and does not publish skills to ChatGPT web or
 Claude.ai. Pstack's agent definitions, model routing, and Cursor-specific tool
 integrations remain Cursor-specific, so some skill instructions may need
 adaptation in other clients.
+Setup refreshes its pstack Cursor plugin and Windows skill copies on later runs.
+Windows tracks copies it installed; pre-existing unmanaged skill directories
+remain untouched.
 
 Restart the relevant app if the skill does not appear. In Cursor, run
 **Developer: Reload Window**.
