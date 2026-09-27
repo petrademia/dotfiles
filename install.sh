@@ -103,6 +103,7 @@ remove_duplicate_cursor_pstack_skills() {
   local source_root="$HOME/.local/share/pstack-cursor/pstack/skills"
   local source_skill plugin_skill global_skill
   local skill_name
+  local removed=0
 
   if [ -L "$plugin_root" ]; then
     return 0
@@ -117,14 +118,16 @@ remove_duplicate_cursor_pstack_skills() {
 
     if [ -L "$global_skill" ] && [ "$(readlink "$global_skill")" = "$source_skill" ]; then
       if rm "$plugin_skill"; then
-        echo "[-] Using the shared user-level pstack skill in Cursor: $skill_name"
+        removed=$((removed + 1))
       fi
     elif [ -f "$global_skill/SKILL.md" ] && cmp -s "$global_skill/SKILL.md" "$source_skill/SKILL.md"; then
       if rm "$plugin_skill"; then
-        echo "[-] Using the shared user-level pstack skill in Cursor: $skill_name"
+        removed=$((removed + 1))
       fi
     fi
   done
+
+  [ "$removed" -eq 0 ] || echo "[-] Using shared user-level pstack skills in Cursor ($removed duplicates removed)"
 }
 
 install_pstack_global_skills() {
