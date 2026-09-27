@@ -1803,6 +1803,7 @@ function Install-CursorPstackPlugin {
     }
 
     $cursorSkillRoot = Join-Path $HOME ".agents\skills"
+    $duplicatesRemoved = 0
     foreach ($skill in $skills) {
         $pluginSkillDoc = Join-Path $localPlugin "skills\$($skill.Name)\SKILL.md"
         $globalSkillDoc = Join-Path (Join-Path $cursorSkillRoot $skill.Name) "SKILL.md"
@@ -1810,12 +1811,15 @@ function Install-CursorPstackPlugin {
             if ((Get-FileHash -LiteralPath $pluginSkillDoc).Hash -eq (Get-FileHash -LiteralPath $globalSkillDoc).Hash) {
                 try {
                     Remove-Item -LiteralPath $pluginSkillDoc -Force -ErrorAction Stop
-                    Write-Host "[-] Using the shared user-level pstack skill in Cursor: $($skill.Name)" -ForegroundColor Gray
+                    $duplicatesRemoved++
                 } catch {
                     Write-Host "[!] Could not remove duplicate Cursor skill: $($skill.Name)" -ForegroundColor Yellow
                 }
             }
         }
+    }
+    if ($duplicatesRemoved -gt 0) {
+        Write-Host "[-] Using shared user-level pstack skills in Cursor ($duplicatesRemoved duplicates removed)" -ForegroundColor Gray
     }
 
     if ($installedCount -gt 0) { Add-SetupResult Installed "pstack skills ($installedCount folders)" }
