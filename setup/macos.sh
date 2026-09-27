@@ -505,12 +505,9 @@ else
     echo "Warning: Oh My Pi install failed"
   fi
 fi
-if [ -d "$HOME/.cursor/skills/impeccable" ] || [ -d "$HOME/.claude/skills/impeccable" ]; then
-  echo "[-] impeccable skills already present. Skipping..."
-else
-  npx --yes impeccable install --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --force \
-    || echo "Note: impeccable skills install failed"
-fi
+echo "==> Updating Impeccable skills"
+npx --yes impeccable update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks \
+  || echo "[!] Impeccable skill update failed"
 echo "==> Updating uv tools"
 uv_tool_version() {
   printf '%s\n' "$1" | awk -v tool="$2" '$1 == tool { print $2; exit }'
@@ -607,6 +604,19 @@ else
   else
     echo "==> Skipping Codex plugins; install codex cask first"
   fi
+fi
+
+if command -v claude >/dev/null 2>&1; then
+  for plugin in caveman@caveman ponytail@ponytail; do
+    claude plugin update "$plugin" 2>/dev/null \
+      || echo "[!] Could not update Claude plugin: $plugin"
+  done
+fi
+if command -v codex >/dev/null 2>&1; then
+  for marketplace in caveman ponytail; do
+    codex plugin marketplace upgrade "$marketplace" 2>/dev/null \
+      || echo "[!] Could not update Codex plugin marketplace: $marketplace"
+  done
 fi
 
 DOTFILES="$HOME/dotfiles"
