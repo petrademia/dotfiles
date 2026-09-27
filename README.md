@@ -29,8 +29,11 @@ separately inside Ubuntu.
 ### macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh -o setup.sh && bash setup.sh
+curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh | bash
 ```
+
+The dispatcher fetches the current platform script. When run from a pipe, it
+reconnects to the terminal for interactive checks such as Mac App Store apps.
 
 Apply macOS defaults and login items with:
 
