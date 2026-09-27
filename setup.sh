@@ -3,14 +3,16 @@
 set -euo pipefail
 
 SCRIPT_SOURCE="${BASH_SOURCE[0]-}"
+FETCH_REMOTE_SCRIPT=0
 if [ -n "$SCRIPT_SOURCE" ] && [ -f "$SCRIPT_SOURCE" ]; then
   SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 else
-  # A script piped into bash has no useful source path. Fall back to the clone.
+  # A script piped into bash has no useful source path.
   SCRIPT_DIR=""
 fi
 
 if [ ! -d "$SCRIPT_DIR/setup" ]; then
+  FETCH_REMOTE_SCRIPT=1
   DOTFILES="$HOME/dotfiles"
   [ -d "$DOTFILES" ] || git clone https://github.com/petrademia/dotfiles.git "$DOTFILES"
   SCRIPT_DIR="$DOTFILES"
@@ -35,22 +37,35 @@ case "$(uname -s)" in
     ;;
 esac
 
-# A piped setup script can outlive the clone it was originally fetched from.
-# Fetch the matching platform script directly so repeat runs do not execute a
-# stale local copy. Fall back to the clone if the network is unavailable.
+# Piped or downloaded dispatchers outside the repo can outlive the local
+# clone. Fetch the matching platform script instead of using a stale copy.
 SETUP_SCRIPT="$SCRIPT_DIR/setup/$PLATFORM_SCRIPT"
-if [ -z "$SCRIPT_SOURCE" ] && command -v curl >/dev/null 2>&1; then
+run_setup_script() {
+  if [ -t 0 ]; then
+    bash "$@"
+  elif { exec 3<>/dev/tty; } 2>/dev/null; then
+    bash "$@" <&3 3<&-
+  else
+    bash "$@"
+  fi
+}
+
+if [ "$FETCH_REMOTE_SCRIPT" -eq 1 ] && command -v curl >/dev/null 2>&1; then
   REMOTE_SCRIPT="$(mktemp)"
   cleanup_remote_script() {
     if [ -n "${REMOTE_SCRIPT:-}" ]; then rm -f "$REMOTE_SCRIPT"; fi
   }
   trap cleanup_remote_script EXIT
   if curl -fsSL "https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/$PLATFORM_SCRIPT" -o "$REMOTE_SCRIPT"; then
-    bash "$REMOTE_SCRIPT" "$@"
+    run_setup_script "$REMOTE_SCRIPT" "$@"
     exit $?
   fi
   rm -f "$REMOTE_SCRIPT"
   REMOTE_SCRIPT=""
 fi
 
-exec "$SETUP_SCRIPT" "$@"
+if [ "$FETCH_REMOTE_SCRIPT" -eq 1 ]; then
+  run_setup_script "$SETUP_SCRIPT" "$@"
+else
+  exec "$SETUP_SCRIPT" "$@"
+fi
