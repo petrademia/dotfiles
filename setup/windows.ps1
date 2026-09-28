@@ -2185,7 +2185,7 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
 }
 if (Get-Command claude -ErrorAction SilentlyContinue) {
     foreach ($plugin in @("caveman@caveman", "ponytail@ponytail")) {
-        claude plugin update $plugin 2>$null
+        claude plugin update $plugin
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[!] Could not update Claude plugin: $plugin" -ForegroundColor Yellow
         }
