@@ -608,7 +608,7 @@ fi
 
 if command -v claude >/dev/null 2>&1; then
   for plugin in caveman@caveman ponytail@ponytail; do
-    claude plugin update "$plugin" 2>/dev/null \
+    claude plugin update "$plugin" \
       || echo "[!] Could not update Claude plugin: $plugin"
   done
 fi
