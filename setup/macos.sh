@@ -406,7 +406,7 @@ run_npm_global reasonix
 run_npm_global @deepseek-ai/dsh
 run_npm_global wrangler
 run_npm_global openclaw@latest
-run_npm_global impeccable
+run_npm_global impeccable@latest
 run_npm_global playwright
 npx playwright install chromium || true
 
@@ -506,8 +506,29 @@ else
   fi
 fi
 echo "==> Updating Impeccable skills"
-npx --yes impeccable update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks \
-  || echo "[!] Impeccable skill update failed"
+if ! npx --yes impeccable@latest update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks; then
+  echo "==> Retrying with the signed Impeccable GitHub release bundle"
+  impeccable_release=$(curl -fsSL https://api.github.com/repos/pbakaus/impeccable/releases?per_page=100 \
+    | jq -r '[.[] | select(.tag_name | startswith("skill-v"))][0].tag_name // empty') || impeccable_release=""
+  if [ -n "$impeccable_release" ]; then
+    if impeccable_bundle_dir=$(mktemp -d "${TMPDIR:-/tmp}/impeccable-bundle.XXXXXX"); then
+      impeccable_release_url="https://github.com/pbakaus/impeccable/releases/download/$impeccable_release/universal.zip"
+      if curl -fsSL "$impeccable_release_url" -o "$impeccable_bundle_dir/universal.zip" \
+        && curl -fsSL "$impeccable_release_url.sig.json" -o "$impeccable_bundle_dir/universal.zip.sig.json" \
+        && IMPECCABLE_BUNDLE_PATH="$impeccable_bundle_dir/universal.zip" \
+          npx --yes impeccable@latest update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks; then
+        rm -rf -- "$impeccable_bundle_dir"
+      else
+        rm -rf -- "$impeccable_bundle_dir"
+        echo "[!] Impeccable skill update failed"
+      fi
+    else
+      echo "[!] Could not create a temporary directory for Impeccable"
+    fi
+  else
+    echo "[!] Could not find the latest Impeccable skill release"
+  fi
+fi
 echo "==> Updating uv tools"
 uv_tool_version() {
   printf '%s\n' "$1" | awk -v tool="$2" '$1 == tool { print $2; exit }'
@@ -608,7 +629,7 @@ fi
 
 if command -v claude >/dev/null 2>&1; then
   for plugin in caveman@caveman ponytail@ponytail; do
-    claude plugin update "$plugin" \
+    CI=1 claude plugin update "$plugin" \
       || echo "[!] Could not update Claude plugin: $plugin"
   done
 fi
