@@ -78,6 +78,21 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# Route GitHub SSH through port 443 for networks that block port 22.
+SSH_CONFIG="$HOME/.ssh/config"
+SSH_CONFIG_INCLUDE="Include \"$HOME/dotfiles/config/ssh/github.conf\""
+mkdir -p "$HOME/.ssh"
+touch "$SSH_CONFIG"
+if ! grep -Fqx "$SSH_CONFIG_INCLUDE" "$SSH_CONFIG"; then
+  SSH_CONFIG_TMP=$(mktemp "$HOME/.ssh/config.XXXXXX")
+  {
+    printf '%s\n' "$SSH_CONFIG_INCLUDE"
+    cat "$SSH_CONFIG"
+  } > "$SSH_CONFIG_TMP"
+  mv "$SSH_CONFIG_TMP" "$SSH_CONFIG"
+fi
+
 brew update
 
 brew tap charmbracelet/tap

@@ -321,6 +321,7 @@ Atlassian API tokens are per-app and scoped. Keep separate 1Password items:
 ## Git and SSH
 
 Git uses SSH via the 1Password SSH agent (`global/AGENTS.md`). `setup/windows.ps1` sets System OpenSSH and syncs `config/1password/ssh-agent.toml`.
+On macOS, setup routes GitHub SSH through port 443 for networks that block port 22.
 
 | 1Password SSH item | Host |
 |--------------------|------|
