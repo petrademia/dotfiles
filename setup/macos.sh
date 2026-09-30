@@ -473,6 +473,13 @@ if command -v hermes >/dev/null 2>&1; then
   if [ -n "$hermes_worktree" ] || { [ -n "$hermes_dir" ] && [ "$hermes_ahead" != "0" ]; }; then
     record_result failed
     echo "Warning: Hermes Agent has local changes or commits; update skipped to preserve them"
+  elif ! hermes_check=$("$hermes_cmd" update --check); then
+    record_result failed
+    printf '%s\n' "$hermes_check"
+    echo "Warning: Hermes Agent update check failed"
+  elif printf '%s\n' "$hermes_check" | grep -Eq '^✓ (Already up to date\.|Up to date with the latest release \()'; then
+    record_result current
+    echo "[-] Hermes Agent is current. Skipping..."
   elif "$hermes_cmd" update; then
     hermes_after=$(cli_version "$hermes_cmd")
     record_update_result "$hermes_before" "$hermes_after" \
