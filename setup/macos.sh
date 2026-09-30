@@ -1,6 +1,7 @@
 #!/bin/zsh
 
 set -e -o pipefail
+trap 'echo "Setup interrupted"; exit 130' INT
 export PATH="$HOME/.local/bin:$PATH"
 INSTALLED_COUNT=0
 UPDATED_COUNT=0
