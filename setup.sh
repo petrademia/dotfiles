@@ -41,12 +41,14 @@ esac
 # clone. Fetch the matching platform script instead of using a stale copy.
 SETUP_SCRIPT="$SCRIPT_DIR/setup/$PLATFORM_SCRIPT"
 run_setup_script() {
+  local terminal
   if [ -t 0 ]; then
     bash "$@"
-  elif { exec 3<>/dev/tty; } 2>/dev/null; then
-    bash "$@" <&3 3<&-
+  elif terminal=$({ [ -t 1 ] && tty <&1; } || { [ -t 2 ] && tty <&2; }); then
+    # macOS runtimes cannot reliably poll /dev/tty; use the terminal device.
+    bash "$@" <"$terminal"
   else
-    bash "$@"
+    bash "$@" </dev/null
   fi
 }
 
