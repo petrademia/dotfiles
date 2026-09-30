@@ -570,11 +570,16 @@ if uv_before=$(uv tool list --show-version-specifiers); then
       if [ -z "$after" ]; then
         record_result failed
         echo "Warning: could not verify the installed uv tool: $tool"
-      elif [ -z "$before" ]; then
-        record_version_result "" "$after"
-      else
-        record_version_result "$before" "$after"
+        continue
       fi
+      if [ -z "$before" ]; then
+        echo "[+] Installed uv tool $tool $after"
+      elif [ "$before" = "$after" ]; then
+        echo "[-] uv tool $tool is current ($after)"
+      else
+        echo "[+] Updated uv tool $tool: $before -> $after"
+      fi
+      record_version_result "$before" "$after"
     else
       record_result failed
       echo "Warning: could not check uv tool version after install: $tool"
