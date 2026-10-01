@@ -720,13 +720,19 @@ echo "Versions"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 version_line() {
-  local label=$1 output
+  local label=$1 output command_status first_line
   shift
-  output=$("$@" 2>/dev/null | sed -n '1p') || true
-  if [ -n "$output" ]; then
-    printf '  %-13s %s\n' "$label" "$output"
+  if output=$("$@" 2>&1); then
+    first_line=$(printf '%s\n' "$output" | awk 'NF { print; exit }')
+    if [ -n "$first_line" ]; then
+      printf '  %-13s %s\n' "$label" "$first_line"
+    else
+      printf '  %-13s unavailable\n' "$label"
+    fi
   else
-    printf '  %-13s unavailable\n' "$label"
+    command_status=$?
+    printf '  %-13s failed (exit %s)\n' "$label" "$command_status"
+    printf '%s\n' "$output" | sed 's/^/    /'
   fi
 }
 
