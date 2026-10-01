@@ -399,12 +399,12 @@ else
 fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-node_before=$(node --version 2>/dev/null || true)
+node_before=$(fnm current 2>/dev/null || true)
 if command -v fnm >/dev/null 2>&1 \
   && eval "$(fnm env --use-on-cd)" \
   && fnm install --lts --use \
   && fnm default lts-latest; then
-  node_after=$(node --version 2>/dev/null || true)
+  node_after=$(fnm current 2>/dev/null || true)
   record_version_result "$node_before" "$node_after" \
     || echo "Warning: could not verify the Node.js LTS version"
 else
