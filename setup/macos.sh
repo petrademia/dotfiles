@@ -715,43 +715,51 @@ echo "==> Installing dotfiles symlinks"
 "$DOTFILES/install.sh"
 
 echo
-echo "=== Versions ==="
+echo "Versions"
 
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-brew --version
-node --version
-python3 --version
-go version
-rustc --version || echo "Warning: rustc not found - run 'rustup default stable' to install Rust"
+version_line() {
+  local label=$1 output
+  shift
+  output=$("$@" 2>/dev/null | sed -n '1p') || true
+  if [ -n "$output" ]; then
+    printf '  %-13s %s\n' "$label" "$output"
+  else
+    printf '  %-13s unavailable\n' "$label"
+  fi
+}
 
-java --version || true
-javac --version || true
-mvn --version || true
-gradle --version || true
-
-git --version
-gh --version
-atlassian-cli --version || true
-
-op --version || true
-codex --version || true
-crush --version || true
-claude --version || true
-agy --version || true
-omp --version || true
-reasonix --version || true
-dsh --version || true
-wrangler --version || true
-impeccable --version || true
-goose --version || true
-kubectl version --client --short 2>/dev/null || kubectl version --client || true
-kind version || true
-k3d version || true
-tmux -V || true
-zellij --version || true
-hx --version || true
-zed --version || true
+version_line Homebrew brew --version
+version_line Node node --version
+version_line Python python3 --version
+version_line Go go version
+version_line Rust rustc --version
+version_line Java java --version
+version_line Javac javac --version
+version_line Maven mvn --version
+version_line Gradle gradle --version
+version_line Git git --version
+version_line gh gh --version
+version_line Atlassian atlassian-cli --version
+version_line 1Password op --version
+version_line Codex codex --version
+version_line Crush crush --version
+version_line Claude claude --version
+version_line Antigravity agy --version
+version_line OMP omp --version
+version_line Reasonix reasonix --version
+version_line DSH dsh --version
+version_line Wrangler wrangler --version
+version_line Impeccable impeccable --version
+version_line Goose goose --version
+version_line kubectl kubectl version --client
+version_line kind kind version
+version_line k3d k3d version
+version_line tmux tmux -V
+version_line Zellij zellij --version
+version_line Helix hx --version
+version_line Zed zed --version
 
 echo
 if [ "$FAILED_COUNT" -eq 0 ]; then
@@ -770,10 +778,7 @@ echo
 echo "Restart your terminal or run:"
 echo "source ~/.zshrc"
 echo
-echo "Manual follow-ups:"
-echo "  - DisplayLink: reboot so the driver takes effect"
-echo "  - Wavlink: no brew package - install drivers for your model from https://www.wavlink.com/en_us/Drivers.html"
-echo "  - Antigravity: open the desktop app or run \`agy\` and sign in with Google"
-echo "  - Goose: open Goose.app or run \`goose\` / \`goose configure\`"
-echo "  - Impeccable: in a project, run \`/impeccable init\` once for design context"
-echo "  - Kubernetes: create clusters yourself (e.g. \`kind create cluster\` / \`k3d cluster create\`); setup does not start one"
+echo "Manual follow-ups (if needed):"
+echo "  Reboot for DisplayLink; install Wavlink drivers: https://www.wavlink.com/en_us/Drivers.html"
+echo "  Sign in to Antigravity; configure Goose with \`goose configure\`."
+echo "  Run \`/impeccable init\` per project; create Kubernetes clusters with \`kind\` or \`k3d\`."
