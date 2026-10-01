@@ -4,6 +4,9 @@
 
 The macOS setup prints an install/update/current/failure summary. Its target
 total is the sum of those four outcome counts.
+Homebrew checks run in a batch, with current packages reported in two summary
+lines. Installs, upgrades, and failures still print individually. If a batch
+check fails or jq is unavailable, setup checks packages individually.
 
 **What the summary means**
 

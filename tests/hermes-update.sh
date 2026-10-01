@@ -21,7 +21,7 @@ chmod +x "$work/hermes"
 {
   echo 'set -e -o pipefail'
   echo 'TARGET_COUNT=0 INSTALLED_COUNT=0 UPDATED_COUNT=0 CURRENT_COUNT=0 FAILED_COUNT=0'
-  sed -n '/^record_result() {/,/^brew_formula_installed() {/p' "$root/setup/macos.sh" | sed '$d'
+  sed -n '/^record_result() {/,/^brew_package_state() {/p' "$root/setup/macos.sh" | sed '$d'
   sed -n '/^if command -v hermes /,/^if command -v omp /p' "$root/setup/macos.sh" | sed '$d'
   echo 'printf "%s %s %s\n" "$CURRENT_COUNT" "$UPDATED_COUNT" "$FAILED_COUNT"'
 } >"$work/run.zsh"

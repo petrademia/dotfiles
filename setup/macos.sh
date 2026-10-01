@@ -52,18 +52,52 @@ cli_version() {
   "$1" --version 2>/dev/null | sed -n '1p' || true
 }
 
-brew_formula_installed() {
-  local pkg=$1
-  brew list --formula --versions "$pkg" >/dev/null 2>&1 && return 0
+brew_package_state() {
+  local kind=$1 pkg=$2
+  if [ "${BREW_SNAPSHOT_READY:-0}" -eq 1 ]; then
+    printf '%s\n' "$BREW_SNAPSHOT" | awk -F '\t' -v key="$kind/$pkg" '
+      $1 == key { print $2; found=1; exit }
+      END { if (!found) print "missing" }'
+    return
+  fi
+  # First installs without jq, or failed batch checks, use individual checks.
   local short="${pkg##*/}"
-  [ "$short" != "$pkg" ] && brew list --formula --versions "$short" >/dev/null 2>&1
+  if ! brew list "--$kind" --versions "$pkg" >/dev/null 2>&1 \
+    && ! { [ "$short" != "$pkg" ] && brew list "--$kind" --versions "$short" >/dev/null 2>&1; }; then
+    echo missing
+    return
+  fi
+  local outdated=""
+  if ! outdated=$(brew outdated "--$kind" --quiet "$pkg") && [ -z "$outdated" ]; then
+    echo failed
+  elif [ -n "$outdated" ]; then
+    echo outdated
+  else
+    echo current
+  fi
 }
 
-brew_cask_installed() {
-  local pkg=$1
-  brew list --cask --versions "$pkg" >/dev/null 2>&1 && return 0
-  local short="${pkg##*/}"
-  [ "$short" != "$pkg" ] && brew list --cask --versions "$short" >/dev/null 2>&1
+load_brew_snapshot() {
+  BREW_SNAPSHOT_READY=0
+  command -v jq >/dev/null 2>&1 || return 0
+  local inventory outdated
+  if inventory=$(brew info --installed --json=v2) \
+    && outdated=$(brew outdated --json=v2) \
+    && BREW_SNAPSHOT=$(printf '%s\n%s\n' "$inventory" "$outdated" | jq -sr '
+      .[0] as $installed | .[1] as $outdated |
+      ($outdated.formulae | map({key: .name, value: true}) | from_entries) as $formulas |
+      ($outdated.casks | map({key: .name, value: true}) | from_entries) as $casks |
+      ($installed.formulae[] | . as $f |
+        ([.name, .full_name] + .aliases + .oldnames | unique)[] |
+        ["formula/" + ., (if $formulas[$f.full_name] then "outdated" else "current" end)] | @tsv),
+      ($installed.casks[] | . as $c |
+        ([.token, .full_token] + .old_tokens | unique)[] |
+        ["cask/" + ., (if $casks[$c.token] then "outdated" else "current" end)] | @tsv)
+    '); then
+    BREW_SNAPSHOT_READY=1
+  else
+    echo "Warning: Homebrew batch check failed; checking packages individually"
+  fi
 }
 
 xcode-select -p >/dev/null 2>&1 || xcode-select --install
@@ -108,6 +142,8 @@ brew trust opencoworkai/tap
 brew tap omar16100/atlassian-cli
 brew trust omar16100/atlassian-cli
 
+load_brew_snapshot
+
 FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
@@ -120,19 +156,17 @@ FORMULAS=(
 )
 
 # Repo-managed brew formulas: install when missing and upgrade when outdated.
+formula_current_before=$CURRENT_COUNT
 for formula in "${FORMULAS[@]}"; do
-  if brew_formula_installed "$formula"; then
-    outdated=""
-    if ! outdated=$(brew outdated --formula --quiet "$formula") && [ -z "$outdated" ]; then
-      echo "Warning: could not check whether formula is outdated: $formula"
-      record_result failed
-      continue
-    fi
-    if [ -z "$outdated" ]; then
-      echo "[-] $formula is current. Skipping..."
-      record_result current
-      continue
-    fi
+  package_state=$(brew_package_state formula "$formula")
+  if [ "$package_state" = failed ]; then
+    echo "Warning: could not check whether formula is outdated: $formula"
+    record_result failed
+    continue
+  elif [ "$package_state" = current ]; then
+    record_result current
+    continue
+  elif [ "$package_state" = outdated ]; then
     echo "==> Updating formula: $formula"
     if brew upgrade --formula --no-ask "$formula"; then record_result updated
     else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
@@ -141,7 +175,9 @@ for formula in "${FORMULAS[@]}"; do
     if brew install "$formula"; then record_result installed
     else record_result failed; echo "Warning: formula install failed: $formula"; fi
   fi
+  load_brew_snapshot
 done
+echo "[-] Homebrew formulas: $((CURRENT_COUNT - formula_current_before)) current"
 
 CASKS=(
   1password
@@ -238,19 +274,17 @@ CASKS=(
   font-jetbrains-mono-nerd-font
 )
 
+cask_current_before=$CURRENT_COUNT
 for cask in "${CASKS[@]}"; do
-  if brew_cask_installed "$cask"; then
-    outdated=""
-    if ! outdated=$(brew outdated --cask --quiet "$cask") && [ -z "$outdated" ]; then
-      echo "Warning: could not check whether cask is outdated: $cask"
-      record_result failed
-      continue
-    fi
-    if [ -z "$outdated" ]; then
-      echo "[-] $cask is current. Skipping..."
-      record_result current
-      continue
-    fi
+  package_state=$(brew_package_state cask "$cask")
+  if [ "$package_state" = failed ]; then
+    echo "Warning: could not check whether cask is outdated: $cask"
+    record_result failed
+    continue
+  elif [ "$package_state" = current ]; then
+    record_result current
+    continue
+  elif [ "$package_state" = outdated ]; then
     echo "==> Updating cask: $cask"
     if brew upgrade --cask --no-ask "$cask"; then record_result updated
     else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
@@ -262,7 +296,9 @@ for cask in "${CASKS[@]}"; do
     elif brew install --cask "$cask"; then record_result installed
     else record_result failed; echo "Warning: cask install failed: $cask"; fi
   fi
+  load_brew_snapshot
 done
+echo "[-] Homebrew casks: $((CURRENT_COUNT - cask_current_before)) current"
 
 # CotEditor cot CLI - https://coteditor.com/cot
 COTEDITOR_COT="/Applications/CotEditor.app/Contents/SharedSupport/bin/cot"
