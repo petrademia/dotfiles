@@ -723,7 +723,7 @@ version_line() {
   local label=$1 output command_status first_line
   shift
   if output=$("$@" 2>&1); then
-    first_line=$(printf '%s\n' "$output" | awk 'NF { print; exit }')
+    first_line=$(printf '%s\n' "$output" | awk 'NF && $0 !~ /^[[:space:]-]+$/ { print; exit }')
     if [ -n "$first_line" ]; then
       printf '  %-13s %s\n' "$label" "$first_line"
     else
