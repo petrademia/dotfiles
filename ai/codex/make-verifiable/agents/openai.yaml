@@ -1,0 +1,4 @@
+interface:
+  display_name: "Make Verifiable"
+  short_description: "Require evidence for AI completion claims"
+  default_prompt: "Use $make-verifiable to turn this engineering task into explicit acceptance criteria, independent checks, and an evidence-backed completion record."

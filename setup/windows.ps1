@@ -1863,6 +1863,11 @@ foreach ($command in @("grammar", "leetcode", "handoff")) {
     Sync-Dotfile $skillSrc (Join-Path $HOME ".gemini\skills\$command")
 }
 
+$makeVerifiableSkill = Join-Path $dotfiles "ai\codex\make-verifiable"
+foreach ($skillRoot in @(".agents\skills", ".codex\skills", ".claude\skills", ".gemini\config\skills", ".gemini\antigravity\skills", ".gemini\antigravity-cli\skills", ".gemini\skills")) {
+    Sync-Dotfile $makeVerifiableSkill (Join-Path $HOME (Join-Path $skillRoot "make-verifiable"))
+}
+
 foreach ($name in @("grill-with-docs", "grill-me", "grilling", "domain-modeling")) {
     $src = Join-Path $HOME ".agents\skills\$name"
     if (Test-Path $src) {
