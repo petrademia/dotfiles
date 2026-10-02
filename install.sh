@@ -214,6 +214,9 @@ for command in grammar leetcode handoff; do
   link_skill "$DOTFILES/ai/codex/${command}" "$command"
 done
 
+link_skill "$DOTFILES/ai/codex/make-verifiable" make-verifiable
+link "$DOTFILES/ai/codex/make-verifiable" "$HOME/.claude/skills/make-verifiable"
+
 # Matt Pocock / npx skills land in ~/.agents/skills; mirror the ones we use
 # into Antigravity global roots (Desktop/CLI do not share the same paths;
 # CLI does not reliably read ~/.agents/skills as global).

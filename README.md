@@ -352,6 +352,10 @@ Re-running setup updates both the Impeccable CLI and its installed skills.
 It also updates Caveman and Ponytail through Claude Code's plugin updater and
 refreshes only their Codex marketplace sources.
 
+Setup installs the repository's Make Verifiable skill for Codex, Claude Code,
+Cursor, and Gemini/Antigravity. Its Claude upload ZIP is refreshed with the
+other skill archives; uploading it to Claude.ai remains manual.
+
 Setup installs the Cursor pstack plugin and exposes every skill under its
 `skills/` directory in the global skill directories for Cursor, Codex,
 ChatGPT desktop, Claude Code, Gemini, and Antigravity. The source checkout is
