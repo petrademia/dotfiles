@@ -14,7 +14,7 @@
 
 ## Standards
 
-- Never use the em dash "-". Use plain dash "-" instead.
+- Never use the em dash (U+2014). Use a plain hyphen-minus (-) instead.
 - Never add AI or agent attribution anywhere: no co-author trailers in commits, and no "Generated with" or similar credits in PR or MR descriptions, issues, comments or docs.
 - Name Git branches by purpose, using prefixes such as `feat/`, `fix/`, `refactor/`, `docs/`, or `chore/`. Never use an AI tool, agent, model, or vendor name as a branch prefix (for example, `codex/`).
 - Never manually modify CHANGELOG.md files or any files that are marked as auto-generated.
