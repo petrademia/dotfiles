@@ -194,16 +194,27 @@ mkdir -p "$HOME/.agents/skills"
 mkdir -p "$HOME/.codex/skills"
 
 # Link a skill folder into every Antigravity-relevant global root (+ agents/codex).
+link_skill_path() {
+  local src="$1"
+  local dest="$2"
+
+  if [ -d "$dest" ] && [ ! -L "$dest" ]; then
+    echo "[-] Existing skill directory preserved: $dest"
+    return 0
+  fi
+  link "$src" "$dest"
+}
+
 link_skill() {
   local src="$1"
   local name="$2"
   [ -d "$src" ] || return 0
-  link "$src" "$HOME/.agents/skills/$name"
-  link "$src" "$HOME/.codex/skills/$name"
-  link "$src" "$HOME/.gemini/config/skills/$name"
-  link "$src" "$HOME/.gemini/antigravity/skills/$name"
-  link "$src" "$HOME/.gemini/antigravity-cli/skills/$name"
-  link "$src" "$HOME/.gemini/skills/$name"
+  link_skill_path "$src" "$HOME/.agents/skills/$name"
+  link_skill_path "$src" "$HOME/.codex/skills/$name"
+  link_skill_path "$src" "$HOME/.gemini/config/skills/$name"
+  link_skill_path "$src" "$HOME/.gemini/antigravity/skills/$name"
+  link_skill_path "$src" "$HOME/.gemini/antigravity-cli/skills/$name"
+  link_skill_path "$src" "$HOME/.gemini/skills/$name"
 }
 
 for command in grammar leetcode handoff; do
@@ -215,7 +226,7 @@ for command in grammar leetcode handoff; do
 done
 
 link_skill "$DOTFILES/ai/codex/make-verifiable" make-verifiable
-link "$DOTFILES/ai/codex/make-verifiable" "$HOME/.claude/skills/make-verifiable"
+link_skill_path "$DOTFILES/ai/codex/make-verifiable" "$HOME/.claude/skills/make-verifiable"
 
 # Matt Pocock / npx skills land in ~/.agents/skills; mirror the ones we use
 # into Antigravity global roots (Desktop/CLI do not share the same paths;
