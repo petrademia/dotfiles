@@ -459,6 +459,7 @@ run_npm_global @deepseek-ai/dsh
 run_npm_global wrangler
 run_npm_global openclaw@latest
 run_npm_global impeccable@latest
+run_npm_global pnpm@latest
 run_npm_global playwright
 npx playwright install chromium || true
 
@@ -743,6 +744,7 @@ version_line() {
 
 version_line Homebrew brew --version
 version_line Node node --version
+version_line pnpm pnpm --version
 version_line Python python3 --version
 version_line Go go version
 version_line Rust rustc --version
