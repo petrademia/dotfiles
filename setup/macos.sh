@@ -714,6 +714,11 @@ fi
 echo "==> Installing dotfiles symlinks"
 "$DOTFILES/install.sh"
 
+echo "==> Packaging skills for Claude account upload"
+if ! python3 "$DOTFILES/scripts/package-claude-skills.py"; then
+  echo "[!] Could not package every Claude skill; review the package output above"
+fi
+
 echo
 echo "Versions"
 
