@@ -360,7 +360,10 @@ folders into each client's user-level skill directory. Existing same-named
 skills are preserved. Duplicate Cursor entries are omitted when the shared copy
 is identical. ChatGPT desktop discovers skills from the shared user skill
 directory. This setup is local and does not publish skills to ChatGPT web or
-Claude.ai. Pstack's agent definitions, model routing, and Cursor-specific tool
+Claude.ai. Setup also refreshes individual Claude upload ZIPs in
+`~/.local/share/dotfiles/claude-skill-uploads`; upload each desired ZIP through
+Claude's Customize > Skills menu. ZIPs are not uploaded automatically. Pstack's
+agent definitions, model routing, and Cursor-specific tool
 integrations remain Cursor-specific, so some skill instructions may need
 adaptation in other clients.
 Setup refreshes its pstack Cursor plugin and Windows skill copies on later runs.
