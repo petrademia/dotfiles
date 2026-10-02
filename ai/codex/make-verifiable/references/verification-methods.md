@@ -1,6 +1,6 @@
 # Verification methods
 
-Use this guide when choosing checks for the verification triangle or deciding whether two methods are meaningfully independent.
+Use this guide when choosing checks for the verification triangle or deciding whether two methods provide independent evidence.
 
 ## Test independence
 
@@ -27,7 +27,7 @@ Examples of stronger combinations:
 
 ## Contract conflicts
 
-Potential contract sources include the current user instruction, ticket, formal specification, repository documentation, tests, API or schema definitions, and observed production behavior. They do not automatically have equal authority.
+Potential contract sources include the current user instruction, ticket, formal specification, repository documentation, tests, API or schema definitions, and observed production behavior. Determine which sources have authority for the requirement.
 
 When sources disagree:
 
@@ -36,7 +36,7 @@ When sources disagree:
 3. If the conflict changes the required outcome and no authorized rule resolves it, block the contract gate and request a decision.
 4. Preserve the conflict in the verification record.
 
-Do not infer precedence from whichever source makes the implementation easiest or supports the agent's current theory.
+Do not give a source precedence because it makes implementation easier or supports your current theory.
 
 ## Separate completion role from assurance
 
@@ -49,7 +49,7 @@ Classify each criterion twice:
 
 These dimensions answer different questions. A typo correction can be required for completion while remaining standard assurance. A payment-integrity claim can be required and elevated.
 
-The Contract gate applies to every material claim. A standard-assurance claim also needs the most direct applicable observation, normally Execution. Add or elevate to the Challenge gate when any of these conditions holds:
+The Contract gate applies to every material claim. A standard-assurance claim also needs the most direct applicable observation, normally Execution. Require the Challenge gate when any of these conditions holds:
 
 - the claim is costly or hard to reverse;
 - the implementation and primary check share assumptions;
@@ -90,19 +90,19 @@ A conflicting requirement is not counterevidence against either candidate contra
 
 Choose a challenge that can expose false confidence:
 
-- **Sensitivity:** remove, revert, or mutate the relevant change and confirm that the check detects the difference.
-- **Boundary:** exercise values immediately around a threshold or contract edge.
-- **Negative path:** provide invalid, unauthorized, missing, or conflicting input.
-- **Differential:** compare the same input across versions, configurations, or implementations.
-- **Invariant:** inspect the resulting state rather than trusting a success response.
-- **Independent source:** compare against an authoritative document, system of record, or separately collected observation.
-- **Fault injection:** force the error, timeout, retry, crash, or partial completion that the claim says is handled.
+- Sensitivity. Remove, revert, or mutate the relevant change and confirm that the check detects the difference.
+- Boundary. Exercise values immediately around a threshold or contract edge.
+- Negative path. Provide invalid, unauthorized, missing, or conflicting input.
+- Differential. Compare the same input across versions, configurations, or implementations.
+- Invariant. Inspect the resulting state rather than trusting a success response.
+- Independent source. Compare against an authoritative document, system of record, or separately collected observation.
+- Fault injection. Force the error, timeout, retry, crash, or partial completion that the claim says is handled.
 
 Do not run every pattern. Select the smallest one that can falsify the material claim.
 
 ## Safe challenges
 
-Challenge evidence is useful only when obtaining it stays within the task's authority and acceptable risk. Prefer:
+Keep challenges within the task's authorization and acceptable risk. Prefer:
 
 - an isolated worktree or disposable environment;
 - fixtures, copied data, or an ephemeral database;
@@ -110,7 +110,7 @@ Challenge evidence is useful only when obtaining it stays within the task's auth
 - a transaction or deployment that has a tested rollback;
 - a local mutation of the change or test rather than a live-system mutation.
 
-Before fault injection, rollback, destructive input, or an external write, resolve the exact target, expected effect, stopping condition, and recovery path. Do not test against production or mutate external state without explicit authorization. If safe execution is unavailable, mark the challenge gate blocked and state the exact check that remains.
+Before fault injection, rollback, destructive input, or an external write, identify the exact target, expected effect, stopping condition, and recovery path. Do not test against production or mutate external state without explicit authorization. If safe execution is unavailable, mark the challenge gate blocked and state the exact check that remains.
 
 ## Evidence record
 
