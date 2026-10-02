@@ -400,9 +400,10 @@ fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 node_before=$(fnm current 2>/dev/null || true)
+echo "==> Checking Node.js LTS"
 if command -v fnm >/dev/null 2>&1 \
   && eval "$(fnm env --use-on-cd)" \
-  && fnm install --lts --use \
+  && fnm install --lts --use --log-level error \
   && fnm default lts-latest; then
   node_after=$(fnm current 2>/dev/null || true)
   record_version_result "$node_before" "$node_after" \
