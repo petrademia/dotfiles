@@ -409,6 +409,7 @@ run_npm_global @deepseek-ai/dsh dsh
 run_npm_global wrangler wrangler
 run_npm_global openclaw@latest openclaw
 run_npm_global impeccable impeccable
+run_npm_global pnpm pnpm
 if command -v zai >/dev/null 2>&1; then
     record_result skipped
     echo "[-] zai already present. Skipping..."

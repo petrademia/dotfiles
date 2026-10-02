@@ -286,6 +286,7 @@ Setup includes:
 - `gh`
 - `atlassian-cli`
 - `wrangler` (Cloudflare Pages/Workers)
+- `pnpm` (installed globally through npm)
 
 Authenticate GitHub with 1Password (after `op vault list` works):
 

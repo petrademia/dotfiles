@@ -2037,6 +2037,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     [void](Smart-NpmGlobal "@openai/codex")
     [void](Smart-NpmGlobal "openclaw@latest")
     [void](Smart-NpmGlobal "impeccable")
+    [void](Smart-NpmGlobal "pnpm@latest")
     [void](Smart-NpmGlobal "playwright")
     $pwBrowsers = Join-Path $env:LOCALAPPDATA "ms-playwright"
     $hasChromium = $false
