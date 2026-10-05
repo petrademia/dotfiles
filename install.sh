@@ -210,7 +210,8 @@ link_skill() {
   local name="$2"
   [ -d "$src" ] || return 0
   link_skill_path "$src" "$HOME/.agents/skills/$name"
-  link_skill_path "$src" "$HOME/.codex/skills/$name"
+  # Codex discovers make-verifiable through the shared agents root.
+  [ "$name" = make-verifiable ] || link_skill_path "$src" "$HOME/.codex/skills/$name"
   link_skill_path "$src" "$HOME/.gemini/config/skills/$name"
   link_skill_path "$src" "$HOME/.gemini/antigravity/skills/$name"
   link_skill_path "$src" "$HOME/.gemini/antigravity-cli/skills/$name"
