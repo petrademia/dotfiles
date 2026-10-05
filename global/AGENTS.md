@@ -23,6 +23,13 @@
 - When end-to-end testing a product, be picky about the UI you see and be obsessed with pixel perfection. If something clearly looks off, even if it is not directly related to what you are doing, try to get it fixed along the way.
 - Apply that same high standard to engineering excellence: lint, test failures, and test flakiness. If you see one, even if it is not caused by what you are working on right now, still get it fixed.
 
+## Worktrees and subagents
+
+- For repository changes, use a separate Git worktree by default. Reuse a suitable worktree already attached to the current task.
+- Read-only investigation may use the current checkout.
+- When continuing existing uncommitted work, keep working in its checkout unless instructed otherwise. Never move or discard those changes automatically.
+- Before spawning subagents, explain the proposed delegation and obtain explicit user approval. Approval already given for the current task remains valid.
+
 ## Environment
 
 ### 1Password
