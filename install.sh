@@ -89,7 +89,7 @@ install_cursor_pstack() {
   fi
 
   local source_skill skill_name global_skill changes
-  local sync_options=(--recursive --links --perms --checksum --itemize-changes)
+  local sync_options=(--recursive --links --perms --times --omit-dir-times --checksum --itemize-changes)
   for source_skill in "$checkout/pstack/skills"/*; do
     [ -f "$source_skill/SKILL.md" ] || continue
     skill_name="${source_skill##*/}"
