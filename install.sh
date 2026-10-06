@@ -7,6 +7,10 @@ link() {
   local src="$1"
   local dest="$2"
 
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+    return 0
+  fi
+
   mkdir -p "$(dirname "$dest")"
   ln -sfn "$src" "$dest"
   echo "linked $dest -> $src"
@@ -77,22 +81,31 @@ install_cursor_pstack() {
     if grep -Eq '"name"[[:space:]]*:[[:space:]]*"pstack"' "$local_plugin/.cursor-plugin/plugin.json" 2>/dev/null \
       && grep -Eq '"repository"[[:space:]]*:[[:space:]]*"https://github\.com/cursor/plugins"' \
         "$local_plugin/.cursor-plugin/plugin.json" 2>/dev/null; then
-      if cp -R "$checkout/pstack/." "$local_plugin/"; then
-        echo "[+] Cursor pstack plugin synced from checkout"
-      else
-        echo "[!] Could not update Cursor pstack plugin"
-        return 0
-      fi
+      :
     else
       echo "[-] Cursor pstack path is not a pstack plugin. Skipping..."
       return 0
     fi
-  else
-    if cp -R "$checkout/pstack" "$local_plugin"; then
-      echo "[+] Cursor pstack plugin installed"
-    else
-      echo "[!] Could not copy Cursor pstack plugin; install it from Cursor's Customize page"
+  fi
+
+  local source_skill skill_name global_skill changes
+  local sync_options=(--recursive --links --perms --checksum --itemize-changes)
+  for source_skill in "$checkout/pstack/skills"/*; do
+    [ -f "$source_skill/SKILL.md" ] || continue
+    skill_name="${source_skill##*/}"
+    global_skill="$HOME/.agents/skills/$skill_name"
+    if { [ -L "$global_skill" ] && [ "$(readlink "$global_skill")" = "$source_skill" ]; } \
+      || { [ -f "$global_skill/SKILL.md" ] && cmp -s "$global_skill/SKILL.md" "$source_skill/SKILL.md"; }; then
+      sync_options+=("--exclude=/skills/$skill_name/SKILL.md")
     fi
+  done
+
+  if changes=$(rsync "${sync_options[@]}" "$checkout/pstack/" "$local_plugin/"); then
+    if [ -n "$changes" ]; then
+      echo "[+] Cursor pstack plugin synced from checkout"
+    fi
+  else
+    echo "[!] Could not update Cursor pstack plugin"
   fi
 }
 
