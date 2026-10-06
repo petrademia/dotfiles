@@ -14,6 +14,7 @@ printf '{"name":"pstack","repository":"https://github.com/cursor/plugins"}\n' > 
 printf 'shared\n' > "$checkout/pstack/skills/shared/SKILL.md"
 printf 'custom\n' > "$checkout/pstack/skills/custom/SKILL.md"
 printf 'original\n' > "$checkout/pstack/settings.json"
+touch -t 200001010000 "$checkout/pstack/settings.json"
 link "$checkout/pstack/skills/shared" "$test_home/.agents/skills/shared" >/dev/null
 install_cursor_pstack >/dev/null
 remove_duplicate_cursor_pstack_skills >/dev/null
