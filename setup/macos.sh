@@ -147,7 +147,7 @@ load_brew_snapshot
 FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
-  rustup fastfetch aria2 p7zip sqlite
+  rustup fastfetch aria2 p7zip sqlite redis
   gradle maven plantuml kafka tmux zellij helix ripgrep python neovim
   graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code
   block-goose-cli kind kubernetes-cli k3d podman-compose
