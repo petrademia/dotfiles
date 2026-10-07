@@ -143,8 +143,9 @@ remove_duplicate_cursor_pstack_skills() {
   [ "$removed" -eq 0 ] || echo "[-] Using shared user-level pstack skills in Cursor ($removed duplicates removed)"
 }
 
-install_pstack_global_skills() {
-  local source_root="$HOME/.local/share/pstack-cursor/pstack/skills"
+install_shared_global_skills() {
+  local source_root="$1"
+  local collection="$2"
   local source_skill
   local skill_root
   local destination
@@ -162,12 +163,12 @@ install_pstack_global_skills() {
   )
 
   if [ ! -d "$source_root" ]; then
-    echo "[!] pstack skills source missing; skipping other clients"
+    echo "[!] $collection skills source missing; skipping other clients"
     return 0
   fi
 
-  for source_skill in "$source_root"/*; do
-    [ -f "$source_skill/SKILL.md" ] || continue
+  while IFS= read -r -d '' source_skill; do
+    source_skill="${source_skill%/SKILL.md}"
     skill_name="${source_skill##*/}"
     for skill_root in "${skill_roots[@]}"; do
       mkdir -p "$skill_root"
@@ -182,16 +183,37 @@ install_pstack_global_skills() {
       if ln -s "$source_skill" "$destination"; then
         installed=$((installed + 1))
       else
-        echo "[!] Could not link pstack skill: $destination"
+        echo "[!] Could not link $collection skill: $destination"
         failed=$((failed + 1))
       fi
     done
-  done
-  echo "[+] pstack skills installed: $installed linked, $preserved existing paths preserved, $failed failed"
+  done < <(find "$source_root" -name SKILL.md -type f -print0)
+  echo "[+] $collection skills installed: $installed linked, $preserved existing paths preserved, $failed failed"
 }
 
-install_pstack_global_skills
+install_shared_global_skills "$HOME/.local/share/pstack-cursor/pstack/skills" pstack
 remove_duplicate_cursor_pstack_skills
+
+install_engineering_skills() {
+  local repo checkout name
+  for repo in addyosmani/agent-skills mattpocock/skills; do
+    name="${repo//\//-}"
+    checkout="$HOME/.local/share/$name"
+    if [ ! -d "$checkout/.git" ]; then
+      if ! git clone --depth 1 "https://github.com/$repo.git" "$checkout"; then
+        echo "[!] Could not install $repo skills"
+        continue
+      fi
+    elif [ -n "$(git -C "$checkout" status --porcelain)" ]; then
+      echo "[!] $repo checkout has local changes; preserving it without updating"
+    elif ! git -C "$checkout" pull --ff-only --quiet; then
+      echo "[!] Could not update $repo; keeping its current skills"
+    fi
+    install_shared_global_skills "$checkout/skills" "$repo"
+  done
+}
+
+install_engineering_skills
 
 mkdir -p "$HOME/.cursor/commands"
 mkdir -p "$HOME/.claude/commands"

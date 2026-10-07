@@ -1836,6 +1836,59 @@ function Install-CursorPstackPlugin {
 
 Install-CursorPstackPlugin
 
+# Junctions keep each skill attached to its full checkout, including shared references.
+foreach ($repo in @("addyosmani/agent-skills", "mattpocock/skills")) {
+    $name = $repo.Replace("/", "-")
+    $checkout = Join-Path $HOME ".local\share\$name"
+    if (-not (Test-Path -LiteralPath (Join-Path $checkout ".git"))) {
+        & git clone --depth 1 "https://github.com/$repo.git" $checkout
+        if ($LASTEXITCODE -ne 0) {
+            Add-SetupResult Failed "$repo skills"
+            continue
+        }
+    } else {
+        $changes = & git -C $checkout status --porcelain
+        if ($LASTEXITCODE -ne 0 -or $changes) {
+            Write-Host "[!] $repo checkout has local changes; preserving it without updating" -ForegroundColor Yellow
+        } else {
+            & git -C $checkout pull --ff-only --quiet
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[!] Could not update $repo; keeping its current skills" -ForegroundColor Yellow
+            }
+        }
+    }
+    $skillsSource = Join-Path $checkout "skills"
+    if (-not (Test-Path -LiteralPath $skillsSource)) {
+        Add-SetupResult Failed "$repo skills source"
+        continue
+    }
+    $installed = 0
+    $preserved = 0
+    foreach ($doc in Get-ChildItem -LiteralPath $skillsSource -Filter SKILL.md -File -Recurse) {
+        $source = $doc.DirectoryName
+        foreach ($relativeRoot in @(".agents\skills", ".claude\skills", ".gemini\skills", ".gemini\config\skills", ".gemini\antigravity\skills", ".gemini\antigravity-cli\skills")) {
+            $skillRoot = Join-Path $HOME $relativeRoot
+            New-Item -ItemType Directory -Path $skillRoot -Force | Out-Null
+            $destination = Join-Path $skillRoot $doc.Directory.Name
+            $existing = Get-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
+            if ($existing) {
+                if ($existing.LinkType -ne "Junction" -or $existing.Target -notcontains $source) { $preserved++ }
+                continue
+            }
+            try {
+                New-Item -ItemType Junction -Path $destination -Value $source -ErrorAction Stop | Out-Null
+                $installed++
+            } catch {
+                Write-Host "[!] Could not link $repo skill: $destination" -ForegroundColor Yellow
+                Add-SetupResult Failed $destination
+            }
+        }
+    }
+    if ($installed -gt 0) { Add-SetupResult Installed "$repo skills ($installed linked)" }
+    else { Add-SetupResult Skipped "$repo skills" }
+    Write-Host "[+] $repo skills: $installed linked, $preserved existing paths preserved" -ForegroundColor Green
+}
+
 # Podman docker shims for Make/cmd (aliases are PowerShell-only).
 if (Get-Command podman -ErrorAction SilentlyContinue) {
     $localBin = Join-Path $HOME ".local\bin"

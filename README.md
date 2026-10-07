@@ -376,6 +376,17 @@ Setup refreshes its pstack Cursor plugin and Windows skill copies on later runs.
 Windows tracks copies it installed; pre-existing unmanaged skill directories
 remain untouched.
 
+Setup also installs [Addy Osmani's agent-skills](https://github.com/addyosmani/agent-skills)
+and [Matt Pocock's skills](https://github.com/mattpocock/skills) in the same global
+skill directories. Full checkouts in `~/.local/share/addyosmani-agent-skills` and
+`~/.local/share/mattpocock-skills` retain their shared reference files. Setup
+refreshes clean checkouts on reruns, preserves locally modified checkouts, and
+leaves existing same-named skill folders untouched. Windows uses directory
+junctions for these collections, so clean-checkout updates are available without
+copying skill files. Run `/setup-matt-pocock-skills` once per project to configure
+Matt's workflows. These collections are not also installed as plugins, avoiding
+duplicate skill entries.
+
 Restart the relevant app if the skill does not appear. In Cursor, run
 **Developer: Reload Window**.
 
