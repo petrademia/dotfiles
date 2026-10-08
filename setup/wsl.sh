@@ -27,6 +27,18 @@ latest_github_tag() {
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])'
 }
 
+latest_structurizr_version() {
+    curl -fsSL "https://api.github.com/repos/structurizr/structurizr/releases?per_page=100" \
+        | python3 -c 'import json,re,sys; releases=json.load(sys.stdin); print(next(r["tag_name"][1:] for r in releases if not r.get("prerelease") and re.fullmatch(r"v\d{4}\.\d{2}\.\d{2}", r.get("tag_name", ""))))'
+}
+
+write_structurizr_launcher() {
+    mkdir -p "$HOME/.local/bin"
+    printf '#!/usr/bin/env bash\nexec java -jar "$HOME/.local/share/structurizr/structurizr.war" "$@"\n' \
+        > "$HOME/.local/bin/structurizr"
+    chmod +x "$HOME/.local/bin/structurizr"
+}
+
 # Direct installers use this guard when they do not expose a safe version check.
 smart_check() {
     local cmd=$1
@@ -87,7 +99,7 @@ APT_BASE_LOG="$(mktemp)"
 sudo apt install -y \
     build-essential curl wget git zip unzip cmake pkg-config gdb ninja-build \
     jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 kitty \
-    llvm clang z3 plantuml maven ca-certificates gnupg sqlite3 libsqlite3-dev \
+    llvm clang z3 plantuml maven openjdk-21-jre-headless ca-certificates gnupg sqlite3 libsqlite3-dev \
     | tee "$APT_BASE_LOG"
 if grep -q "0 newly installed" "$APT_BASE_LOG"; then record_result skipped
 else record_result updated; fi
@@ -274,6 +286,39 @@ else
 fi
 set -u
 echo "    (JDK matrix: run bootstrap/java-wsl.sh)"
+
+echo "==> Structurizr CLI"
+STRUCTURIZR_VERSION=$(latest_structurizr_version 2>/dev/null || true)
+STRUCTURIZR_HOME="$HOME/.local/share/structurizr"
+STRUCTURIZR_WAR="$STRUCTURIZR_HOME/structurizr.war"
+STRUCTURIZR_CURRENT=""
+if [ -f "$STRUCTURIZR_WAR" ] && command -v java >/dev/null 2>&1; then
+    STRUCTURIZR_CURRENT=$(java -jar "$STRUCTURIZR_WAR" version 2>/dev/null \
+        | awk '{ for (i=1; i<NF; i++) if ($i == "structurizr:") { print $(i+1); exit } }' || true)
+fi
+if [ -z "$STRUCTURIZR_VERSION" ]; then
+    record_result failed
+    echo "[-] Could not resolve the latest Structurizr release"
+elif [ "$STRUCTURIZR_CURRENT" = "$STRUCTURIZR_VERSION" ]; then
+    write_structurizr_launcher
+    record_result skipped
+    echo "[-] Structurizr $STRUCTURIZR_CURRENT is current"
+else
+    STRUCTURIZR_TMP="$STRUCTURIZR_HOME/structurizr.war.tmp"
+    mkdir -p "$STRUCTURIZR_HOME" "$HOME/.local/bin"
+    if curl -fsSL "https://download.structurizr.com/structurizr-${STRUCTURIZR_VERSION}.war" -o "$STRUCTURIZR_TMP" \
+        && java -jar "$STRUCTURIZR_TMP" version 2>/dev/null | grep -Fq "structurizr: $STRUCTURIZR_VERSION"; then
+        mv "$STRUCTURIZR_TMP" "$STRUCTURIZR_WAR"
+        write_structurizr_launcher
+        if [ -n "$STRUCTURIZR_CURRENT" ]; then record_result updated
+        else record_result installed; fi
+        echo "[+] Structurizr $STRUCTURIZR_VERSION installed"
+    else
+        rm -f "$STRUCTURIZR_TMP"
+        record_result failed
+        echo "[-] Structurizr download or verification failed"
+    fi
+fi
 
 if ! smart_check "xmake" "$HOME/.xmake/bin/xmake"; then
     curl -fsSL https://xmake.io/shget.text | bash

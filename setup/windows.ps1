@@ -564,6 +564,72 @@ function Install-EjectLens {
     }
 }
 
+function Install-Structurizr {
+    if (!(Get-Command java -ErrorAction SilentlyContinue)) {
+        Write-Host "[!] Java is required to run Structurizr." -ForegroundColor Yellow
+        Add-SetupResult Failed "Structurizr"
+        return
+    }
+
+    $root = Join-Path $env:LOCALAPPDATA "Programs\Structurizr"
+    $war = Join-Path $root "structurizr.war"
+    $current = $null
+    if (Test-Path $war) {
+        $output = & java -jar $war version 2>$null | Out-String
+        if ($output -match 'structurizr:\s*(\S+)') { $current = $Matches[1] }
+    }
+
+    try {
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/structurizr/structurizr/releases?per_page=100" -UseBasicParsing -ErrorAction Stop
+        $release = $releases | Where-Object { !$_.prerelease -and $_.tag_name -match '^v\d{4}\.\d{2}\.\d{2}$' } | Select-Object -First 1
+        if (!$release) { throw "No dated Structurizr application release found" }
+        $version = $release.tag_name.Substring(1)
+    } catch {
+        Write-Host "[!] Could not resolve the latest Structurizr release: $_" -ForegroundColor Yellow
+        Add-SetupResult Failed "Structurizr"
+        return
+    }
+
+    if ($current -eq $version) {
+        $launcher = @'
+@echo off
+java -jar "%~dp0structurizr.war" %*
+'@
+        Set-Content -Path (Join-Path $root "structurizr.cmd") -Encoding ASCII -Value $launcher
+        Write-Host "[-] Structurizr $current is current." -ForegroundColor Gray
+        Add-SetupResult Skipped "Structurizr"
+        Add-UserPath $root
+        return
+    }
+
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    $tempWar = Join-Path $root "structurizr.war.tmp"
+    $url = "https://download.structurizr.com/structurizr-$version.war"
+    if (!(Save-RemoteFile $url $tempWar)) {
+        Write-Host "[!] Structurizr download failed." -ForegroundColor Yellow
+        Add-SetupResult Failed "Structurizr"
+        return
+    }
+    $verify = & java -jar $tempWar version 2>$null | Out-String
+    if ($LASTEXITCODE -ne 0 -or $verify -notmatch "structurizr:\s+$([regex]::Escape($version))") {
+        Remove-Item $tempWar -ErrorAction SilentlyContinue
+        Write-Host "[!] Structurizr download did not pass version verification." -ForegroundColor Yellow
+        Add-SetupResult Failed "Structurizr"
+        return
+    }
+
+    Move-Item -Path $tempWar -Destination $war -Force
+    $launcher = @'
+@echo off
+java -jar "%~dp0structurizr.war" %*
+'@
+    Set-Content -Path (Join-Path $root "structurizr.cmd") -Encoding ASCII -Value $launcher
+    Add-UserPath $root
+    if ($current) { Add-SetupResult Updated "Structurizr" }
+    else { Add-SetupResult Installed "Structurizr" }
+    Write-Host "[+] Structurizr $version installed." -ForegroundColor Green
+}
+
 # rustup-msvc / UniGetUI cargo managers need link.exe + a Windows SDK.
 # Plain winget without --override only drops the VS installer, not the C++ workload.
 function Test-VsCToolsInstalled {
@@ -1536,6 +1602,7 @@ if ($javaLocal) {
 } else {
     Protect-ScoopGit { irm "https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1" | iex }
 }
+Install-Structurizr
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
 # Admin phase installs all Winget IDs except $WingetDenylist; refusals defer to user phase via temp file.
