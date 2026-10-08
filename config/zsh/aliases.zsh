@@ -22,6 +22,9 @@ claude-work() {
   CLAUDE_CONFIG_DIR="$HOME/.claude-work" command claude "$@"
 }
 # Codex CLI keeps work login, configuration, and sessions in a separate home.
+codex-personal() {
+  CODEX_HOME="$HOME/.codex" command codex "$@"
+}
 codex-work() {
   CODEX_HOME="$HOME/.codex-work" command codex "$@"
 }

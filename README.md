@@ -532,8 +532,11 @@ ai/ git/ go/ cursor/ shell/ bin/ (docker shims) config/ (nvim, zellij, zsh, cont
 
 ### Separate Claude work account (macOS)
 
-Setup creates `~/Applications/Claude Work.app` and the `claude-work` terminal
-command. Sign in with your company email in each. Claude Code uses
+Setup creates `~/Applications/Claude Personal.app`, `~/Applications/Claude Work.app`,
+and the `claude-work` terminal command. Use the named launchers in Finder to open
+either profile, regardless of which is already running. Claude Personal uses the
+existing personal data folder. Sign in with your company email in Claude Work
+and `claude-work`. Claude Code uses
 `~/.claude-work`; Desktop uses `~/.claude-profiles/work/desktop`. Personal login
 and history stay in their existing locations. The terminal work profile shares
 skills and global personal standards, while settings and plugins stay separate.
@@ -547,4 +550,5 @@ The command uses `~/.codex-work` for its login, configuration, and history.
 Setup shares skills and global personal standards with the personal profile;
 authentication, sessions, settings, and plugins remain separate. Run
 `codex-work login status` to check the work login. Regular `codex` and the desktop
-app continue using their existing profiles.
+app continue using their existing profiles. Use `codex-personal` to explicitly
+select the personal CLI profile, even in a terminal with a different `CODEX_HOME`.

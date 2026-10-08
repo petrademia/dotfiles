@@ -16,9 +16,15 @@ with tempfile.TemporaryDirectory() as temp:
     launcher = home / 'Applications/Claude Work.app/Contents/MacOS/Claude Work'
     assert 'CLAUDE_CONFIG_DIR="$HOME/.claude-work"' in launcher.read_text()
     assert '--user-data-dir="$HOME/.claude-profiles/work/desktop"' in launcher.read_text()
+    personal = home / 'Applications/Claude Personal.app/Contents/MacOS/Claude Personal'
+    assert 'CLAUDE_CONFIG_DIR="$HOME/.claude"' in personal.read_text()
+    assert '--user-data-dir="$HOME/Library/Application Support/Claude"' in personal.read_text()
+    assert '.claude-work' not in personal.read_text()
+    personal_before = personal.stat().st_mtime_ns
     before = launcher.stat().st_mtime_ns
     install(home, app)
     assert launcher.stat().st_mtime_ns == before
+    assert personal.stat().st_mtime_ns == personal_before
     plist = launcher.parent.parent / 'Info.plist'
     plist.write_bytes(plistlib.dumps({'CFBundleIdentifier': 'someone.else'}))
     launcher.write_text('unmanaged')

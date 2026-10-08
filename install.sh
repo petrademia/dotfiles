@@ -31,7 +31,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
   link "$DOTFILES/global/AGENTS.md" "$HOME/.claude-work/CLAUDE.md"
   link "$HOME/.claude/skills" "$HOME/.claude-work/skills"
   if ! python3 "$DOTFILES/bootstrap/claude-work.py"; then
-    echo "[!] Could not set up Claude Work launcher"
+    echo "[!] Could not set up Claude profile launchers"
   fi
   link "$DOTFILES/config/containers/containers.conf" "$HOME/.config/containers/containers.conf"
 fi
