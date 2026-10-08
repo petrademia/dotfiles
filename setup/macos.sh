@@ -149,7 +149,7 @@ FORMULAS=(
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
   rustup fastfetch aria2 p7zip sqlite redis
   gradle maven plantuml kafka tmux zellij helix ripgrep python neovim
-  graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code
+  graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code structurizr
   block-goose-cli kind kubernetes-cli k3d podman-compose
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
