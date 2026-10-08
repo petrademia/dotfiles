@@ -528,3 +528,22 @@ install.sh        symlinks (macOS/WSL; Windows copies via windows.ps1)
 bootstrap/        java-*, macos.sh, post-setup.ps1
 ai/ git/ go/ cursor/ shell/ bin/ (docker shims) config/ (nvim, zellij, zsh, containers) scripts/
 ```
+
+### Separate Claude work account (macOS)
+
+Setup creates `~/Applications/Claude Work.app` and the `claude-work` terminal
+command. Sign in with your company email in each. Claude Code uses
+`~/.claude-work`; Desktop uses `~/.claude-profiles/work/desktop`. Personal login
+and history stay in their existing locations. The terminal work profile shares
+skills and global personal standards, while settings and plugins stay separate.
+The Desktop launcher uses the app's `--user-data-dir` option; recheck isolation
+after major Claude updates because this is not a documented Desktop profile feature.
+
+### Separate Codex CLI work account
+
+Run `codex-work login` in a new terminal and sign in with your company account.
+The command uses `~/.codex-work` for its login, configuration, and history.
+Setup shares skills and global personal standards with the personal profile;
+authentication, sessions, settings, and plugins remain separate. Run
+`codex-work login status` to check the work login. Regular `codex` and the desktop
+app continue using their existing profiles.

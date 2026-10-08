@@ -16,9 +16,23 @@ link() {
   echo "linked $dest -> $src"
 }
 
+setup_codex_work() {
+  mkdir -p "$HOME/.codex-work"
+  chmod 700 "$HOME/.codex-work"
+  link "$DOTFILES/global/AGENTS.md" "$HOME/.codex-work/AGENTS.md"
+  link "$HOME/.codex/skills" "$HOME/.codex-work/skills"
+}
+
 if [ "$(uname -s)" = "Darwin" ]; then
   link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
   link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
+  mkdir -p "$HOME/.claude-work"
+  chmod 700 "$HOME/.claude-work"
+  link "$DOTFILES/global/AGENTS.md" "$HOME/.claude-work/CLAUDE.md"
+  link "$HOME/.claude/skills" "$HOME/.claude-work/skills"
+  if ! python3 "$DOTFILES/bootstrap/claude-work.py"; then
+    echo "[!] Could not set up Claude Work launcher"
+  fi
   link "$DOTFILES/config/containers/containers.conf" "$HOME/.config/containers/containers.conf"
 fi
 
@@ -27,6 +41,7 @@ link "$DOTFILES/config/zellij" "$HOME/.config/zellij"
 link "$DOTFILES/global/AGENTS.md" "$HOME/AGENTS.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/.codex/AGENTS.md"
+setup_codex_work
 
 case "$(uname -s)" in
   Darwin) GO_ENV_DIR="$HOME/Library/Application Support/go" ;;
