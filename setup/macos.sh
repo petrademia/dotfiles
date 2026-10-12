@@ -153,9 +153,9 @@ load_brew_snapshot
 FORMULAS=(
   dockutil
   git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
-  rustup fastfetch aria2 p7zip sqlite redis
-  gradle maven plantuml kafka tmux zellij helix ripgrep python neovim
-  graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code structurizr
+  rustup fastfetch aria2 p7zip sqlite
+  gradle maven plantuml tmux zellij helix ripgrep python neovim
+  graphviz z3 zstd mas opencode llama.cpp herdr kimi-code structurizr
   block-goose-cli kind kubernetes-cli k3d podman-compose
   coreutils golangci-lint libpq shellcheck
   helm k6 pandoc protobuf exiftool vips leetgo fd bat
