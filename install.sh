@@ -25,6 +25,7 @@ setup_codex_work() {
 
 if [ "$(uname -s)" = "Darwin" ]; then
   link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
+  link "$DOTFILES/shell/.zshenv" "$HOME/.zshenv"
   link "$DOTFILES/config/zsh" "$HOME/.config/zsh"
   mkdir -p "$HOME/.claude-work"
   chmod 700 "$HOME/.claude-work"
