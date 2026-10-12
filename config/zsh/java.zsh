@@ -42,4 +42,4 @@ java-use() {
 }
 
 # Default JDK, only when it is installed.
-[[ -d "$JAVA_JVM_DIR/temurin-21.jdk/Contents/Home" ]] && _java_set_home "$JAVA_JVM_DIR/temurin-21.jdk/Contents/Home"
+[[ -d "$JAVA_JVM_DIR/temurin-25.jdk/Contents/Home" ]] && _java_set_home "$JAVA_JVM_DIR/temurin-25.jdk/Contents/Home"
