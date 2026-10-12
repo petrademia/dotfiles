@@ -142,6 +142,12 @@ brew trust opencoworkai/tap
 brew tap omar16100/atlassian-cli
 brew trust omar16100/atlassian-cli
 
+brew tap netbirdio/tap
+brew trust netbirdio/tap
+
+brew tap jundot/omlx
+brew trust jundot/omlx
+
 load_brew_snapshot
 
 FORMULAS=(
@@ -152,6 +158,9 @@ FORMULAS=(
   graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code structurizr
   block-goose-cli kind kubernetes-cli k3d podman-compose
   coreutils temporal golangci-lint libpq shellcheck
+  helm k6 pandoc protobuf exiftool vips leetgo
+  buf golang-migrate protoc-gen-go protoc-gen-go-grpc
+  jundot/omlx/omlx
   charmbracelet/tap/crush
   omar16100/atlassian-cli/atlassian-cli
 )
@@ -644,6 +653,18 @@ else
     echo "Warning: could not classify the uv tool result: $tool"
   done
 fi
+
+# Go tools with no Homebrew formula. go install fetches the latest release, so a rerun updates them.
+# buf, golang-migrate, protoc-gen-go and protoc-gen-go-grpc come from Homebrew above.
+echo "==> Installing Go tools"
+GO_TOOLS=(
+  go.uber.org/mock/mockgen
+  github.com/go-gremlins/gremlins/cmd/gremlins
+)
+for tool in "${GO_TOOLS[@]}"; do
+  if go install "$tool@latest"; then record_result installed
+  else record_result failed; echo "Warning: go install failed: $tool"; fi
+done
 
 # copilot comes from the copilot-cli cask (GitHub Copilot CLI).
 # Do not install github/gh-copilot; that retired extension collides with gh.
