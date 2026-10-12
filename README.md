@@ -279,7 +279,6 @@ Setup includes:
 - `atlassian-cli`
 - `wrangler` (Cloudflare Pages/Workers)
 - `pnpm` (installed globally through npm)
-- `redis-cli` (macOS, provided by the Homebrew `redis` package)
 - `structurizr` (C4 architecture-model CLI; installed on macOS, Windows, and WSL)
 
 Authenticate GitHub with 1Password (after `op vault list` works):
