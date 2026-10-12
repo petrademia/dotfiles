@@ -1,0 +1,33 @@
+#!/bin/sh
+# Strip AI agent attribution from commit messages (defense in depth).
+# prepare-commit-msg runs early; commit-msg re-strips in case Cursor injects
+# trailers after prepare-commit-msg (known injection path).
+
+MSG_FILE="$1"
+[ -f "$MSG_FILE" ] || exit 0
+
+tmp="${MSG_FILE}.ai-strip.$$"
+# Drop any attribution line that mentions Cursor/Claude agents, including
+# Co-authored-by variants and Made-with trailers Cursor appends post-hook.
+grep -v -i -E \
+  -e 'cursoragent@cursor\.com' \
+  -e '^[[:space:]]*Co-authored-by:[[:space:]]*Cursor' \
+  -e '^[[:space:]]*Made-with:[[:space:]]*Cursor' \
+  -e '^[[:space:]]*Made with Cursor' \
+  -e '^[[:space:]]*Co-authored-by:[[:space:]]*Claude' \
+  -e 'Generated with \[Claude Code\]' \
+  -e '🤖 Generated with' \
+  "$MSG_FILE" > "$tmp" && mv "$tmp" "$MSG_FILE"
+
+# Collapse trailing blank lines left behind after stripping
+# (portable, no GNU sed -i)
+tmp2="${MSG_FILE}.ai-trim.$$"
+awk '
+  { lines[NR] = $0 }
+  END {
+    end = NR
+    while (end > 0 && lines[end] ~ /^[[:space:]]*$/) end--
+    for (i = 1; i <= end; i++) print lines[i]
+    if (end > 0) print ""
+  }
+' "$MSG_FILE" > "$tmp2" && mv "$tmp2" "$MSG_FILE"

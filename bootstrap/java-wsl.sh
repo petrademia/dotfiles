@@ -49,6 +49,9 @@ fi
 
 echo
 echo "Installed JDKs (~/.sdkman/candidates/java):"
-ls -1 "$HOME/.sdkman/candidates/java" 2>/dev/null | grep -v '^current$' || true
+for jdk in "$HOME/.sdkman/candidates/java"/*; do
+  [ -d "$jdk" ] || continue
+  [ "${jdk##*/}" = "current" ] || echo "${jdk##*/}"
+done
 echo
 echo "Switch with: java-use 21-temurin   (or: sdk use java <identifier>)"

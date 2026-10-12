@@ -296,7 +296,7 @@ git config --global include.path "$DOTFILES/git/gitconfig"
 # Git reads ~/.config/git/ignore as the global ignore file without any config.
 link "$DOTFILES/git/ignore" "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
 
-chmod +x "$DOTFILES/git/hooks/prepare-commit-msg" "$DOTFILES/git/hooks/commit-msg"
+chmod +x "$DOTFILES/git/hooks/prepare-commit-msg" "$DOTFILES/git/hooks/commit-msg" "$DOTFILES/git/hooks/strip-ai-attribution"
 git config --global core.hooksPath "$DOTFILES/git/hooks"
 
 # Podman docker shims: Make/scripts need a real PATH binary (aliases are shell-only).
