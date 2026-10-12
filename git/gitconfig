@@ -10,3 +10,41 @@
 
 [includeIf "gitdir:~/Amartha/"]
 	path = amartha.gitconfig
+
+[rerere]
+	# Reuse a conflict resolution when the same conflict comes back, which a rebase of a
+	# long branch does repeatedly.
+	enabled = true
+
+[rebase]
+	autoSquash = true
+	autoStash = true
+	updateRefs = true
+
+[merge]
+	# Shows the common ancestor inside conflict markers.
+	conflictStyle = zdiff3
+
+[pull]
+	# Never create a surprise merge commit: fail when the branches diverged and choose.
+	ff = only
+
+[push]
+	autoSetupRemote = true
+
+[fetch]
+	prune = true
+
+[diff]
+	algorithm = histogram
+
+[branch]
+	sort = -committerdate
+
+[worktree]
+	guessRemote = true
+
+[alias]
+	# Refuses to overwrite commits you have not fetched. Prefer the pinned form
+	# `--force-with-lease=<branch>:<expected-sha>` when rewriting a shared branch.
+	pushf = push --force-with-lease --force-if-includes

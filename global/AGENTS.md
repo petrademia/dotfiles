@@ -30,6 +30,14 @@
 - When continuing existing uncommitted work, keep working in its checkout unless instructed otherwise. Never move or discard those changes automatically.
 - Before spawning subagents, explain the proposed delegation and obtain explicit user approval. Approval already given for the current task remains valid.
 
+## Shell and tooling
+
+- The login shell is zsh. Unquoted variables are not word-split (`set -- $var`, `for x in $list`), an unmatched glob is an error (`grep --include=*.go`), and a word starting with `=` expands. Write scripts in bash with a `#!/usr/bin/env bash` shebang and quote globs.
+- Do not edit a shell script while it runs: bash reads it as it goes and the run breaks.
+- macOS has no `timeout`. `~/.local/bin/timeout` shims Homebrew `gtimeout`.
+- Under Podman, Testcontainers' reaper (Ryuk) cannot run, so test containers leak. Run integration tests one run at a time, one `go test` process per run, from a runner that records and removes only the containers it created. Check VM memory first (`podman-health`). Never delete containers you did not create without asking.
+- Before pushing rewritten history: fetch and compare first, because someone may have rebased the branch since. Record the old tips and use `--force-with-lease=<branch>:<expected-sha>`, never a plain `--force`.
+
 ## Environment
 
 ### 1Password
