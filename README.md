@@ -402,7 +402,6 @@ Installed agent clients include:
 - [Reasonix](https://github.com/esengine/DeepSeek-Reasonix) (`reasonix`)
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`; needs Node 22.19+ or 24+)
 - OpenClaw
-- Kimi Code CLI
 - Antigravity CLI (`agy`)
 - [Goose](https://github.com/aaif-goose/goose)
 
