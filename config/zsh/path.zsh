@@ -1,5 +1,5 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
-eval "$(fnm env --use-on-cd)"
+[ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+command -v fnm >/dev/null 2>&1 && eval "$(fnm env --use-on-cd)"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && . "$HOME/.sdkman/bin/sdkman-init.sh"
 
