@@ -269,6 +269,10 @@ irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-wi
 Switch versions with:
 
 - macOS/WSL: `java-use 21-temurin`
+- macOS per project: a `.java-version` (`17`, `21-temurin`) or a `java` line in `.tool-versions`
+  (`java adoptopenjdk-17.0.12+7`) selects the JDK when you `cd` into the project, and the default
+  (Temurin 25) returns when you leave. A bare version prefers Temurin. A manual `java-use` stays until
+  you move to a different project.
 - Windows: `jv temurin21-jdk`
 
 ## CLIs
