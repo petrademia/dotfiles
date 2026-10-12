@@ -286,6 +286,8 @@ for name in grill-with-docs grill-me grilling domain-modeling; do
 done
 
 git config --global include.path "$DOTFILES/git/gitconfig"
+# Git reads ~/.config/git/ignore as the global ignore file without any config.
+link "$DOTFILES/git/ignore" "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
 
 chmod +x "$DOTFILES/git/hooks/prepare-commit-msg" "$DOTFILES/git/hooks/commit-msg"
 git config --global core.hooksPath "$DOTFILES/git/hooks"
@@ -296,6 +298,13 @@ if command -v podman >/dev/null 2>&1; then
   chmod +x "$DOTFILES/bin/docker" "$DOTFILES/bin/docker-compose"
   link "$DOTFILES/bin/docker" "$HOME/.local/bin/docker"
   link "$DOTFILES/bin/docker-compose" "$HOME/.local/bin/docker-compose"
+fi
+
+# macOS has no `timeout`; Homebrew coreutils provides gtimeout, so shim it for scripts and agent shells.
+if [ "$(uname -s)" = "Darwin" ]; then
+  mkdir -p "$HOME/.local/bin"
+  chmod +x "$DOTFILES/bin/timeout"
+  link "$DOTFILES/bin/timeout" "$HOME/.local/bin/timeout"
 fi
 
 echo "dotfiles installed"

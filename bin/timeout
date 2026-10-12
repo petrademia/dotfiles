@@ -1,0 +1,8 @@
+#!/bin/sh
+# PATH shim: macOS has no `timeout`, and scripts and agent tool shells call it by name.
+# Homebrew coreutils installs it as `gtimeout`.
+if ! command -v gtimeout >/dev/null 2>&1; then
+  echo "timeout: gtimeout not found (brew install coreutils)" >&2
+  exit 127
+fi
+exec gtimeout "$@"
