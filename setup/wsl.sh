@@ -98,7 +98,7 @@ sudo apt update
 APT_BASE_LOG="$(mktemp)"
 sudo apt install -y \
     build-essential curl wget git zip unzip cmake pkg-config gdb ninja-build \
-    jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 kitty \
+    jq socat ripgrep fzf tmux neovim graphviz zstd p7zip-full aria2 kitty shellcheck \
     llvm clang z3 plantuml maven openjdk-21-jre-headless ca-certificates gnupg sqlite3 libsqlite3-dev \
     | tee "$APT_BASE_LOG"
 if grep -q "0 newly installed" "$APT_BASE_LOG"; then record_result skipped
