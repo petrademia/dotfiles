@@ -220,7 +220,6 @@ FORMULAS=(
   # AI tools
   block-goose-cli
   charmbracelet/tap/crush
-  kimi-code
   llama.cpp
   jundot/omlx/omlx
   opencode
@@ -292,7 +291,6 @@ CASKS=(
   codex-app
   copilot-cli
   github-copilot-app
-  kimi
   lm-studio
   ollama-app
   opencoworkai/tap/open-codesign
