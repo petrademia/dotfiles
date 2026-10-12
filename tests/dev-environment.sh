@@ -70,6 +70,25 @@ grep -q '^-f old1$' "$work/removed" && grep -q '^-f dead1$' "$work/removed" || f
 grep -q fresh1 "$work/removed" && fail "tc-clean removed a container younger than 10 minutes"
 PATH="$work/stub:$PATH" zsh -fc "source '$repo/config/zsh/podman.zsh'; tc-clean --bogus" >/dev/null 2>&1 && fail "tc-clean accepted an unknown flag"
 
+# get-keys: exports nothing unless every read succeeds, and says which one failed
+mkdir -p "$work/op"
+cat > "$work/op/op" <<'STUB'
+#!/bin/sh
+[ "$1" = whoami ] && exit 0
+[ "$1" = read ] || exit 1
+case "$2" in *Gemini*) [ -n "$FAIL_GEMINI" ] && exit 1 ;; esac
+echo "value-for-$2"
+STUB
+chmod +x "$work/op/op"
+out=$(PATH="$work/op:$PATH" zsh -fc "source '$repo/config/zsh/ai.zsh'; get-keys && echo \"\$ANTHROPIC_API_KEY\"" 2>&1)
+case "$out" in *'value-for-op://Private/Anthropic/credential'*) ;; *) fail "get-keys did not export the keys: $out" ;; esac
+out=$(FAIL_GEMINI=1 PATH="$work/op:$PATH" zsh -fc "source '$repo/config/zsh/ai.zsh'; get-keys; echo \"rc=\$? set=\${ANTHROPIC_API_KEY:+yes}\"" 2>&1)
+case "$out" in *'could not read: Gemini'*'rc=1 set=') ;; *) fail "get-keys did not fail cleanly on a missing item: $out" ;; esac
+
+# .zshrc keeps PATH free of duplicates
+dups=$(zsh -fc 'PATH=/a:/b:/a; source "$1"; print -r -- "$PATH"' _ "$repo/shell/.zshrc" 2>/dev/null | tr ':' '\n' | sort | uniq -d)
+[ -z "$dups" ] || fail "PATH has duplicates after sourcing .zshrc: $dups"
+
 # agent instructions
 grep -q '^## Shell and tooling' "$repo/global/AGENTS.md" || fail "global/AGENTS.md lacks the Shell and tooling section"
 if grep -q $'\xe2\x80\x94' "$repo/global/AGENTS.md"; then fail "global/AGENTS.md contains an em dash"; fi
