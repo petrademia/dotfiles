@@ -40,7 +40,7 @@ printf '#!/bin/sh\necho "gtimeout $*"\n' > "$work/stub/gtimeout"; chmod +x "$wor
 
 # VM sizing and packages
 grep -q '^memory = 12288' "$repo/config/containers/containers.conf" || fail "containers.conf does not size new machines"
-for f in coreutils temporal golangci-lint libpq; do grep -qw "$f" "$repo/setup/macos.sh" || fail "setup/macos.sh does not install $f"; done
+for f in coreutils golangci-lint libpq; do grep -qw "$f" "$repo/setup/macos.sh" || fail "setup/macos.sh does not install $f"; done
 
 # tc-clean: stub podman with one old and one fresh running container, plus a dead one that must survive
 now=$(date +%s)

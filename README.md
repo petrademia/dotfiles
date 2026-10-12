@@ -510,7 +510,7 @@ per run, from a runner that cleans up after itself.
 - `git/ignore`, linked to `~/.config/git/ignore` on macOS and WSL: `.DS_Store`, merge leftovers
   (`*.orig`, `*.rej`) and local tool state.
 - macOS has no `timeout`; setup installs Homebrew `coreutils` and links a `~/.local/bin/timeout`
-  shim to `gtimeout`. It also installs `temporal`, `golangci-lint` and `libpq` (`psql`, `pg_dump`).
+  shim to `gtimeout`. It also installs `golangci-lint` and `libpq` (`psql`, `pg_dump`). Temporal is not installed on the host: run its server in a container when needed.
 
 ### Kubernetes
 
