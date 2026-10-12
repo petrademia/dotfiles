@@ -20,8 +20,13 @@ The macOS target total includes Homebrew formulas and casks, selected Mac App
 Store apps, Node LTS, Rust stable, npm globals, uv tools, Claude Code CLI,
 Hermes Agent, and Oh My Pi. It excludes transitive dependencies, plugins and
 skills, browser runtimes, dotfile links, and other unversioned setup actions.
-App Store checks need an interactive terminal. Hermes may prompt to migrate
-configuration when its update requires it.
+App Store checks need an interactive terminal. Hermes is updated by
+`scripts/hermes-update.sh` (macOS and WSL): it checks first, skips the update when the
+install has local changes or commits, and runs `hermes update --yes`, which accepts
+config migrations without prompting. It follows the `stable` channel; set
+`HERMES_CHANNEL=main` to follow the branch tip. It does not force a pre-update backup because a
+full backup zips the whole Hermes home (several GB); enable `updates.pre_update_backup` in Hermes's
+config if you want one.
 
 Windows and WSL keep their platform-specific package-manager update behavior;
 use `winget upgrade`, `scoop update *`, or `apt upgrade` for packages outside

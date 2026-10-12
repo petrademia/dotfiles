@@ -482,11 +482,6 @@ run_npm_global @openai/codex codex
 # GitHub Copilot CLI is npm @github/copilot (`copilot`).
 # Do not install github/gh-copilot; that retired extension collides with gh.
 
-if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
-    curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
-        bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"
-fi
-
 if ! smart_check "agy" "$HOME/.local/bin/agy"; then
     curl -fsSL https://antigravity.google/cli/install.sh | bash || echo "[-] Antigravity CLI (agy) install skipped"
 fi
@@ -575,6 +570,19 @@ echo "==> Installing shared dotfiles"
 # Always invoke via bash: the Windows checkout may have CRLF shebangs that
 # Linux cannot exec directly ("required file not found").
 bash "$DOTFILES/install.sh"
+
+if [ -x "$HOME/.local/bin/hermes" ] || command -v hermes >/dev/null 2>&1; then
+    hermes_rc=0
+    PATH="$HOME/.local/bin:$PATH" bash "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
+    case "$hermes_rc" in
+        10) record_result updated ;;
+        0) record_result skipped ;;
+        *) record_result failed ;;
+    esac
+else
+    curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
+        bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"
+fi
 
 echo "==> 12) Injecting WSL shell bridge"
 WIN_USER="$(detect_win_user)"
