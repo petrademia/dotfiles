@@ -151,17 +151,81 @@ brew trust jundot/omlx
 load_brew_snapshot
 
 FORMULAS=(
+  # Core CLI
+  aria2
+  bat
+  coreutils
   dockutil
-  git gh go fnm uv xmake jq socat dust fzf cmake ninja llvm gcc
-  rustup fastfetch aria2 p7zip sqlite
-  gradle maven plantuml tmux zellij helix ripgrep python neovim
-  graphviz z3 zstd mas opencode llama.cpp herdr kimi-code structurizr
-  block-goose-cli kind kubernetes-cli k3d podman-compose
-  coreutils golangci-lint libpq shellcheck
-  helm k6 pandoc protobuf exiftool vips leetgo fd bat
-  buf golang-migrate protoc-gen-go protoc-gen-go-grpc
-  jundot/omlx/omlx
+  dust
+  exiftool
+  fastfetch
+  fd
+  fzf
+  gh
+  git
+  helix
+  herdr
+  jq
+  mas
+  neovim
+  p7zip
+  pandoc
+  ripgrep
+  socat
+  tmux
+  vips
+  zellij
+
+  # Languages and build tools
+  cmake
+  fnm
+  gcc
+  go
+  gradle
+  llvm
+  maven
+  ninja
+  python
+  rustup
+  uv
+  xmake
+
+  # Data, libraries and diagrams
+  graphviz
+  libpq
+  plantuml
+  sqlite
+  structurizr
+  z3
+  zstd
+
+  # API, testing and dev tools
+  buf
+  golang-migrate
+  golangci-lint
+  k6
+  leetgo
+  protobuf
+  protoc-gen-go
+  protoc-gen-go-grpc
+  shellcheck
+
+  # Containers and Kubernetes
+  helm
+  k3d
+  kind
+  kubernetes-cli
+  podman-compose
+
+  # AI tools
+  block-goose-cli
   charmbracelet/tap/crush
+  kimi-code
+  llama.cpp
+  jundot/omlx/omlx
+  opencode
+
+  # Work tools
   omar16100/atlassian-cli/atlassian-cli
 )
 
@@ -190,101 +254,124 @@ done
 echo "[-] Homebrew formulas: $((CURRENT_COUNT - formula_current_before)) current"
 
 CASKS=(
+  # Passwords and launchers
   1password
   1password-cli
-  alacritty
   alfred
-  antigravity
-  antigravity-cli
-  appcleaner
-  block-goose
-  claude
-  codex
-  chatgpt
-  codex-app
-  copilot-cli
-  github-copilot-app
-  coteditor
-  cursor
-  kimi
-  deskflow
-  displaylink
-  dockdoor
+  raycast
+
+  # Terminals
+  alacritty
   cmux
   ghostty
-  helium-browser
   hyper
   iterm2
   kitty
-  keka
-  lapce
-  librewolf
-  libreoffice
-  lm-studio
-  neovide-app
-  notesnook
-  ngrok
-  obsidian
-  ollama-app
-  osaurus
-  openvpn-connect
-  opencode-desktop
-  opencoworkai/tap/open-codesign
-  postman
-  qbittorrent
   rio
-  slack
-  transmission
-  surfshark
   tabby
-  trae
-  ungoogled-chromium
-  vlc
   warp
-  whatsapp
   wezterm
+
+  # Editors and IDEs
+  antigravity
+  coteditor
+  cursor
+  jetbrains-toolbox
+  lapce
+  neovide-app
+  trae
+  visual-studio-code
+  zed
+
+  # AI apps and CLIs
+  antigravity-cli
+  block-goose
+  chatgpt
+  claude
+  codex
+  codex-app
+  copilot-cli
+  github-copilot-app
+  kimi
+  lm-studio
+  ollama-app
+  opencoworkai/tap/open-codesign
+  opencode-desktop
+  osaurus
   wispr-flow
-  discord
-  stremio
-  localsend
-  macpacker
+
+  # Browsers
   brave-browser
+  firefox
   firefox@developer-edition
   floorp
-  free-download-manager
   google-chrome
   google-chrome@beta
   google-chrome@canary
-  google-drive
+  helium-browser
+  librewolf
   microsoft-edge
   mullvad-browser
-  onedrive
+  opera
   orion
   sigmaos
-  simplenote
-  standard-notes
+  ungoogled-chromium
   vivaldi
   vivaldi@snapshot
   waterfox
   zen
-  opera
-  visual-studio-code
-  jetbrains-toolbox
+
+  # Containers and dev services
+  ngrok
   podman-desktop
-  spotify
-  monitorcontrol
-  rectangle
-  raycast
-  scroll-reverser
-  iina
+  postman
+
+  # Notes and documents
   joplin
-  zed
-  grandperspective
-  omnidisksweeper
-  font-jetbrains-mono-nerd-font
-  netbirdio/tap/netbird-ui
+  libreoffice
+  notesnook
+  obsidian
+  simplenote
+  standard-notes
+
+  # Chat, media and entertainment
+  discord
+  iina
+  slack
+  spotify
+  stremio
+  vlc
+  whatsapp
+
+  # Files, archives and downloads
+  free-download-manager
+  google-drive
+  keka
+  localsend
+  macpacker
+  onedrive
   progressive-downloader
-  firefox
+  qbittorrent
+  transmission
+
+  # Network and VPN
+  netbirdio/tap/netbird-ui
+  openvpn-connect
+  surfshark
+
+  # macOS utilities and hardware
+  appcleaner
+  deskflow
+  displaylink
+  dockdoor
+  grandperspective
+  monitorcontrol
+  omnidisksweeper
+  rectangle
+  scroll-reverser
+
+  # Fonts
+  font-jetbrains-mono-nerd-font
 )
 
 cask_current_before=$CURRENT_COUNT
