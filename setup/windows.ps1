@@ -59,7 +59,7 @@ $script:WingetApps = @(
     "SoftDeluxe.FreeDownloadManager",
     "seerge.g-helper",
     "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
-    "Anysphere.Cursor", "Anthropic.Claude", "MoonshotAI.Kimi", "GitHub.Copilot",
+    "Anysphere.Cursor", "Anthropic.Claude", "GitHub.Copilot",
     "Microsoft.PowerToys",
     "Devolutions.UniGetUI",
     "voidtools.Everything",
@@ -2103,11 +2103,6 @@ if (!(Get-Command hermes -ErrorAction SilentlyContinue)) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hermesInstaller -SkipSetup -NonInteractive
     }
     Remove-Item $hermesInstaller -ErrorAction SilentlyContinue
-}
-
-if (!(Get-Command kimi -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing Kimi Code CLI..." -ForegroundColor Cyan
-    irm https://code.kimi.com/kimi-code/install.ps1 | iex
 }
 
 if (Get-Command fnm -ErrorAction SilentlyContinue) {

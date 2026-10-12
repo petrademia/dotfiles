@@ -487,10 +487,6 @@ if ! smart_check "hermes" "$HOME/.local/bin/hermes"; then
         bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"
 fi
 
-if ! smart_check "kimi" "$HOME/.kimi-code/bin/kimi"; then
-    curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash || echo "[-] Kimi Code CLI install skipped"
-fi
-
 if ! smart_check "agy" "$HOME/.local/bin/agy"; then
     curl -fsSL https://antigravity.google/cli/install.sh | bash || echo "[-] Antigravity CLI (agy) install skipped"
 fi
@@ -594,7 +590,7 @@ BLOCK=$(cat << EOF
 [ -f "\$HOME/.xmake/profile" ] && . "\$HOME/.xmake/profile"
 [ -s "\$HOME/.sdkman/bin/sdkman-init.sh" ] && . "\$HOME/.sdkman/bin/sdkman-init.sh"
 
-export PATH="\$HOME/.local/share/fnm/aliases/default/bin:\$HOME/.local/share/fnm:\$HOME/.local/bin:\$HOME/.kimi-code/bin:\$HOME/.opencode/bin:\$HOME/.llama-app:\$PATH"
+export PATH="\$HOME/.local/share/fnm/aliases/default/bin:\$HOME/.local/share/fnm:\$HOME/.local/bin:\$HOME/.opencode/bin:\$HOME/.llama-app:\$PATH"
 export GOPATH="\$HOME/go"
 export PATH="\$PATH:/usr/local/go/bin:\$GOPATH/bin"
 
