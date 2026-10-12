@@ -282,6 +282,9 @@ CASKS=(
   grandperspective
   omnidisksweeper
   font-jetbrains-mono-nerd-font
+  netbirdio/tap/netbird-ui
+  progressive-downloader
+  firefox
 )
 
 cask_current_before=$CURRENT_COUNT
