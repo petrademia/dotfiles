@@ -158,7 +158,7 @@ FORMULAS=(
   graphviz z3 zstd jenv mas opencode llama.cpp herdr kimi-code structurizr
   block-goose-cli kind kubernetes-cli k3d podman-compose
   coreutils temporal golangci-lint libpq shellcheck
-  helm k6 pandoc protobuf exiftool vips leetgo
+  helm k6 pandoc protobuf exiftool vips leetgo fd bat
   buf golang-migrate protoc-gen-go protoc-gen-go-grpc
   jundot/omlx/omlx
   charmbracelet/tap/crush
