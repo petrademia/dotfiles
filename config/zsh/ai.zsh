@@ -6,7 +6,6 @@ get-keys() {
 
   local -A items=(
     OPENROUTER_API_KEY OpenRouter
-    ZAI_API_KEY ZAI
     ANTHROPIC_API_KEY Anthropic
     GEMINI_API_KEY Gemini
   )

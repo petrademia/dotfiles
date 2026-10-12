@@ -647,20 +647,12 @@ uv_tool_version() {
 }
 
 if uv_before=$(uv tool list --show-version-specifiers); then
-  for tool in zai-cli graphifyy; do
+  for tool in graphifyy; do
     before=$(uv_tool_version "$uv_before" "$tool")
-    if [ "$tool" = "zai-cli" ]; then
-      if ! uv tool install --upgrade zai-cli --python 3; then
-        record_result failed
-        echo "Warning: uv tool install/upgrade failed: $tool"
-        continue
-      fi
-    else
-      if ! uv tool install --upgrade graphifyy --python 3; then
-        record_result failed
-        echo "Warning: uv tool install/upgrade failed: $tool"
-        continue
-      fi
+    if ! uv tool install --upgrade graphifyy --python 3; then
+      record_result failed
+      echo "Warning: uv tool install/upgrade failed: $tool"
+      continue
     fi
     if uv_after=$(uv tool list --show-version-specifiers); then
       after=$(uv_tool_version "$uv_after" "$tool")
@@ -684,12 +676,8 @@ if uv_before=$(uv tool list --show-version-specifiers); then
   done
 else
   echo "Warning: could not read installed uv tools before updating"
-  for tool in zai-cli graphifyy; do
-    if [ "$tool" = "zai-cli" ]; then
-      uv tool install --upgrade zai-cli --python 3 || true
-    else
-      uv tool install --upgrade graphifyy --python 3 || true
-    fi
+  for tool in graphifyy; do
+    uv tool install --upgrade graphifyy --python 3 || true
     record_result failed
     echo "Warning: could not classify the uv tool result: $tool"
   done
