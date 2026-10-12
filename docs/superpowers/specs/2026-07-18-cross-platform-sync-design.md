@@ -55,7 +55,7 @@ WSL remains a command-line development environment:
 - Git, GitHub CLI, and Atlassian CLI
 - Go, Rust, Node.js, Python, Java, C, and C++ toolchains
 - Neovim and terminal utilities
-- Claude, Codex, OpenCode, Copilot, Z.ai, Playwright, and related AI tooling
+- Claude, Codex, OpenCode, Copilot, Playwright, and related AI tooling
 - Shared agent instructions, commands, skills, Git configuration, and commit hooks
 
 WSL must reuse Windows GUI applications and storage:
