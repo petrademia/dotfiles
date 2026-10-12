@@ -18,6 +18,6 @@ Windows setup only prepares the WSL host (distro, user, VMP). Run `setup.sh` ins
 
 - Add a new app/tool in the matching `setup/` script, then keep `README.md` notes (Install, Java, CLIs, Manual) in sync when the change needs a user-facing step.
 - Add a new dotfile by adding a `link` line in `install.sh` (macOS/WSL) and a `Sync-Dotfile` call in `setup/windows.ps1` when Windows should get it too. Never hand-create symlinks.
-- Keep AI commands in sync across all variants: `ai/commands/*.md` (Cursor/Claude/Zai), `ai/gemini/*.toml`, `ai/codex/*/SKILL.md`.
+- Keep AI commands in sync across all variants: `ai/commands/*.md` (Cursor/Claude), `ai/gemini/*.toml`, `ai/codex/*/SKILL.md`.
 - Bootstrap scripts must be safe and idempotent. Skip already-installed items and continue on individual failures.
 - Scripts fetched via `curl | bash` cannot prompt for `sudo`; anything needing `sudo` (e.g. `.pkg` installs) must be download-then-run.

@@ -352,7 +352,7 @@ Available commands:
 - `/leetcode`
 - `/handoff`
 
-These are available in Cursor, Claude, Copilot, Zai, Gemini/Antigravity, and
+These are available in Cursor, Claude, Copilot, Gemini/Antigravity, and
 Codex.
 
 Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbakaus/impeccable).

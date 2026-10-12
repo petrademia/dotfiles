@@ -1971,7 +1971,6 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
 foreach ($command in @("grammar", "leetcode", "handoff")) {
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".cursor\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".claude\commands\$command.md")
-    Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".zai\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\gemini\$command.toml") (Join-Path $HOME ".gemini\commands\$command.toml")
     $skillSrc = Join-Path $dotfiles "ai\codex\$command"
     Sync-Dotfile $skillSrc (Join-Path $HOME ".agents\skills\$command")
@@ -2073,7 +2072,6 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) { fnm env --use-on-cd --shell
 # AI keys
 function Get-Keys {
     `$env:OPENROUTER_API_KEY = op read "op://Private/OpenRouter/credential"
-    `$env:ZAI_API_KEY = op read "op://Private/ZAI/credential"
     `$env:ANTHROPIC_API_KEY = op read "op://Private/Anthropic/credential"
     `$env:GEMINI_API_KEY = op read "op://Private/Gemini/credential"
     Write-Host "AI keys loaded from 1Password." -ForegroundColor Green
@@ -2149,7 +2147,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
         return $false
     }
     # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
-    # OpenCode is Scoop; Copilot is built into gh; Z.ai is uv zai-cli.
+    # OpenCode is Scoop; Copilot is built into gh.
     [void](Smart-NpmGlobal "@earendil-works/pi-coding-agent" -IgnoreScripts)
     [void](Smart-NpmGlobal "reasonix")
     [void](Smart-NpmGlobal "@deepseek-ai/dsh")
@@ -2250,13 +2248,6 @@ if (!(Test-Path $gooseDesktopExe)) {
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
-    if (Get-Command zai -ErrorAction SilentlyContinue) {
-        Write-Host "[-] zai already present. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped "zai-cli"
-    } else {
-        uv tool install --upgrade zai-cli --python 3
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "zai-cli" }
-    }
     if (Get-Command graphify -ErrorAction SilentlyContinue) {
         Write-Host "[-] graphify already present. Skipping..." -ForegroundColor Gray
         Add-SetupResult Skipped "graphifyy"
