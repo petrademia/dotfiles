@@ -447,7 +447,6 @@ run_npm_global() {
     fi
 }
 
-run_npm_global @z_ai/coding-helper coding-helper
 run_npm_global @earendil-works/pi-coding-agent pi --ignore-scripts
 run_npm_global reasonix reasonix
 run_npm_global @deepseek-ai/dsh dsh

@@ -87,6 +87,18 @@ run '⚕ Update available.' 0 0 20 skip 'unpushed commit'
 git -C "$work/install" reset -q --hard origin/main
 run '⚕ Update available.' 0 0 10 update 'clean again'
 
+# The stable channel checks out a release on a detached HEAD, which has no upstream branch.
+git -C "$work/install" checkout -q --detach
+run '⚕ Update available.' 0 0 10 update 'detached at a commit already on a remote branch'
+echo three > "$work/install/file"
+git -C "$work/install" commit -q -am three
+run '⚕ Update available.' 0 0 20 skip 'detached at an unpushed, untagged commit'
+git -C "$work/install" tag v9.9.9
+run '⚕ Update available.' 0 0 10 update 'detached at a tagged release'
+git -C "$work/install" tag -d v9.9.9 >/dev/null
+git -C "$work/install" checkout -q main
+git -C "$work/install" reset -q --hard origin/main
+
 # no hermes on PATH
 rc=0
 PATH="/usr/bin:/bin" bash "$root/scripts/hermes-update.sh" >/dev/null 2>&1 || rc=$?

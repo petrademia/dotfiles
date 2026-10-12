@@ -551,7 +551,6 @@ run_npm_global() {
   fi
 }
 
-run_npm_global @z_ai/coding-helper
 run_npm_global @earendil-works/pi-coding-agent --ignore-scripts
 run_npm_global reasonix
 run_npm_global @deepseek-ai/dsh
@@ -690,8 +689,16 @@ GO_TOOLS=(
   go.uber.org/mock/mockgen
   github.com/go-gremlins/gremlins/cmd/gremlins
 )
+go_bin=$(go env GOBIN)
+[ -n "$go_bin" ] || go_bin="$(go env GOPATH)/bin"
 for tool in "${GO_TOOLS[@]}"; do
-  if go install "$tool@latest"; then record_result installed
+  # go install always rebuilds, so compare the binary to tell installed, updated and current apart.
+  before=$(shasum "$go_bin/${tool##*/}" 2>/dev/null | awk '{ print $1 }')
+  if go install "$tool@latest"; then
+    after=$(shasum "$go_bin/${tool##*/}" 2>/dev/null | awk '{ print $1 }')
+    if [ -z "$before" ]; then record_result installed
+    elif [ "$before" = "$after" ]; then record_result current
+    else record_result updated; fi
   else record_result failed; echo "Warning: go install failed: $tool"; fi
 done
 

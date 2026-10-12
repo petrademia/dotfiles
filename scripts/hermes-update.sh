@@ -23,14 +23,22 @@ before=$(printf '%s\n' "$info" | sed -n '1p')
 dir=$(printf '%s\n' "$info" | sed -n 's/^Install directory: //p' | sed -n '1p')
 
 worktree=""
-ahead=""
+local_commits=""
 if [ -n "$dir" ] && git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   worktree=$(git -C "$dir" status --porcelain --untracked-files=all \
     -- . ':(exclude).install_method' 2>/dev/null || echo "unavailable")
-  ahead=$(git -C "$dir" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null \
-    | awk '{ print $2 }')
+  if git -C "$dir" rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+    ahead=$(git -C "$dir" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null \
+      | awk '{ print $2 }')
+    [ "$ahead" = "0" ] || local_commits=1
+  elif [ -z "$(git -C "$dir" tag --points-at HEAD 2>/dev/null)" ] \
+    && [ -z "$(git -C "$dir" branch -r --contains HEAD 2>/dev/null)" ]; then
+    # No upstream branch: the stable channel checks out a release detached. That holds no local
+    # commits when HEAD is a tagged release or is already on a remote branch; anything else is local.
+    local_commits=1
+  fi
 fi
-if [ -n "$worktree" ] || { [ -n "$dir" ] && [ "$ahead" != "0" ]; }; then
+if [ -n "$worktree" ] || [ -n "$local_commits" ]; then
   echo "Warning: Hermes Agent has local changes or commits; update skipped to preserve them" >&2
   exit 20
 fi
