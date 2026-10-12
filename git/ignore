@@ -1,0 +1,14 @@
+# Global ignore, linked to ~/.config/git/ignore (git reads that path with no config needed).
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Left behind by merges and patches
+*.orig
+*.rej
+
+# Local tool state that is never meant to be committed
+.codex-artifacts/
+.zcode/

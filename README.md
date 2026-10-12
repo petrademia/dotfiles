@@ -509,6 +509,36 @@ compose` without relying on shell aliases. Interactive shells still alias
 (Homebrew on macOS; `uv tool` on Windows/WSL) as the Compose provider behind
 `podman compose`.
 
+New machines are sized in the same file (`[machine]`: 6 CPUs, 12 GiB, 100 GiB disk).
+Podman's default is far too small for the Temporal, Postgres and Kafka stacks that integration
+tests start. An existing machine keeps its size; change it with
+`podman machine set --cpus 6 --memory 12288` (it needs a stop and start).
+
+Testcontainers' reaper (Ryuk) cannot run under Podman, so test containers are not removed when a
+test run ends and a dozen runs fill the VM. Two interactive helpers in `config/zsh/podman.zsh`
+deal with that:
+
+- `podman-health`: VM memory and load, running containers by image, and how many
+  `org.testcontainers` containers are running or dead.
+- `tc-clean [--yes] [--dead]`: stops running Testcontainers containers older than 10 minutes
+  after listing them and asking. `--dead` also deletes exited and created ones.
+
+Do not set `TESTCONTAINERS_RYUK_DISABLED` globally: it is what makes every run leak. Disable it
+per run, from a runner that cleans up after itself.
+
+### Shell and Git defaults
+
+- `config/zsh/options.zsh`: `interactive_comments` (so a pasted snippet with a `#` comment does not
+  leave the terminal at `quote>`) and shared, long history.
+- `git/gitconfig`: `rerere`, `rebase.autoSquash`/`autoStash`/`updateRefs`, `merge.conflictStyle = zdiff3`,
+  `pull.ff = only` (a diverged pull fails instead of merging), `push.autoSetupRemote`, `fetch.prune`,
+  `diff.algorithm = histogram`, newest-first `branch.sort`, and `git pushf`
+  (`push --force-with-lease --force-if-includes`).
+- `git/ignore`, linked to `~/.config/git/ignore` on macOS and WSL: `.DS_Store`, merge leftovers
+  (`*.orig`, `*.rej`) and local tool state.
+- macOS has no `timeout`; setup installs Homebrew `coreutils` and links a `~/.local/bin/timeout`
+  shim to `gtimeout`. It also installs `temporal`, `golangci-lint` and `libpq` (`psql`, `pg_dump`).
+
 ### Kubernetes
 
 `kubectl`, `kind`, and `k3d` are installed by setup on macOS, Windows, and WSL.
