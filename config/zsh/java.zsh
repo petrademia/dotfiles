@@ -42,4 +42,74 @@ java-use() {
 }
 
 # Default JDK, only when it is installed.
-[[ -d "$JAVA_JVM_DIR/temurin-25.jdk/Contents/Home" ]] && _java_set_home "$JAVA_JVM_DIR/temurin-25.jdk/Contents/Home"
+_java_use_default() {
+  [[ -d "$JAVA_JVM_DIR/temurin-25.jdk/Contents/Home" ]] && _java_set_home "$JAVA_JVM_DIR/temurin-25.jdk/Contents/Home"
+}
+_java_use_default
+
+# Per-project JDK. The nearest .java-version (jenv format: "17" or "21-temurin") or the java line of
+# a .tool-versions (asdf format: "java adoptopenjdk-17.0.12+7") picks the JDK when you cd into the
+# project, and the default comes back when you leave it. A manual java-use sticks until you move to
+# a different project.
+
+# Prints the nearest pin file at or above $PWD.
+_java_pin_file() {
+  local dir="$PWD"
+  while [[ -n "$dir" ]]; do
+    [[ -f "$dir/.java-version" ]] && { print -r -- "$dir/.java-version"; return 0 }
+    if [[ -f "$dir/.tool-versions" ]] && grep -q '^java[[:space:]]' "$dir/.tool-versions"; then
+      print -r -- "$dir/.tool-versions"; return 0
+    fi
+    [[ "$dir" == "$HOME" || "$dir" == "/" ]] && break
+    dir=${dir:h}
+  done
+  return 1
+}
+
+# Turns a pin ("17", "21-temurin", "adoptopenjdk-17.0.12+7", "1.8") into an installed
+# "<version>-<vendor>". The requested vendor wins; otherwise or when it is missing, the first
+# installed vendor with that major version, in the order temurin, zulu, corretto, liberica, microsoft.
+_java_resolve() {
+  local raw="${1:l}" major vendor v installed
+  [[ "$raw" == 1.* ]] && raw=${raw#1.}
+  [[ "$raw" =~ '[0-9]+' ]] || return 1
+  major=$MATCH
+  case "$raw" in
+    *temurin*|*adoptopenjdk*|*adoptium*) vendor=temurin ;;
+    *zulu*) vendor=zulu ;;
+    *corretto*) vendor=corretto ;;
+    *liberica*) vendor=liberica ;;
+    *microsoft*) vendor=microsoft ;;
+  esac
+  installed=$(_java_installed | awk '{ print $1 }')
+  for v in $vendor temurin zulu corretto liberica microsoft; do
+    [[ -n "$v" ]] && print -rl -- ${(f)installed} | grep -qx "$major-$v" && { print -r -- "$major-$v"; return 0 }
+  done
+  return 1
+}
+
+_java_pin_apply() {
+  local file request choice home
+  file=$(_java_pin_file)
+  [[ "$file" == "$_JAVA_PIN_FILE" ]] && return 0
+  _JAVA_PIN_FILE="$file"
+  if [[ -z "$file" ]]; then
+    _java_use_default
+    return 0
+  fi
+  case "${file:t}" in
+    .java-version) request=$(head -n 1 "$file" | tr -d '[:space:]') ;;
+    .tool-versions) request=$(awk '$1 == "java" { print $2; exit }' "$file") ;;
+  esac
+  if choice=$(_java_resolve "$request") && [[ -n "$choice" ]]; then
+    home=$(_java_installed | awk -v w="$choice" '$1 == w { print $2 }')
+    _java_set_home "$home"
+    echo "java: using $choice (from ${file/#$HOME/~})" >&2
+  else
+    echo "java: no installed JDK matches '$request' in ${file/#$HOME/~}; keeping $JAVA_HOME" >&2
+  fi
+}
+
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd _java_pin_apply
+_java_pin_apply
