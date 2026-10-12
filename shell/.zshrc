@@ -7,3 +7,6 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # kimi-code
 export PATH="$HOME/.kimi-code/bin:$PATH"
+
+# Keep PATH free of duplicates (several of the files above prepend the same directories).
+typeset -U path PATH
