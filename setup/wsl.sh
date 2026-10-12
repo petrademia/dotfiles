@@ -395,7 +395,7 @@ else
     echo "[-] k3d ${K3D_CURRENT} is current"
 fi
 
-echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot, Z.ai"
+echo "==> 8) AI layer: Claude, Codex, OpenCode, Crush, Copilot"
 if ! smart_check "claude" "$HOME/.local/bin/claude"; then
     curl -fsSL https://claude.ai/install.sh | bash || echo "[-] claude install skipped"
 fi
@@ -455,12 +455,6 @@ run_npm_global wrangler wrangler
 run_npm_global openclaw@latest openclaw
 run_npm_global impeccable impeccable
 run_npm_global pnpm pnpm
-if command -v zai >/dev/null 2>&1; then
-    record_result skipped
-    echo "[-] zai already present. Skipping..."
-else
-    uv tool install --upgrade zai-cli --python 3 || true
-fi
 if command -v graphify >/dev/null 2>&1; then
     record_result skipped
     echo "[-] graphify already present. Skipping..."
@@ -627,7 +621,6 @@ fi
 
 get-keys() {
   export OPENROUTER_API_KEY=\$(op read "op://Private/OpenRouter/credential")
-  export ZAI_API_KEY=\$(op read "op://Private/ZAI/credential")
   export ANTHROPIC_API_KEY=\$(op read "op://Private/Anthropic/credential")
   export GEMINI_API_KEY=\$(op read "op://Private/Gemini/credential")
   echo "AI keys loaded."

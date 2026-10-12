@@ -232,7 +232,6 @@ install_engineering_skills
 
 mkdir -p "$HOME/.cursor/commands"
 mkdir -p "$HOME/.claude/commands"
-mkdir -p "$HOME/.zai/commands"
 mkdir -p "$HOME/.gemini/commands"
 # Antigravity Desktop, CLI, and IDE look in different skill roots.
 # ~/.gemini/config/skills is the only global path shared by all three.
@@ -271,7 +270,6 @@ link_skill() {
 for command in grammar leetcode handoff; do
   link "$DOTFILES/ai/commands/${command}.md" "$HOME/.cursor/commands/${command}.md"
   link "$DOTFILES/ai/commands/${command}.md" "$HOME/.claude/commands/${command}.md"
-  link "$DOTFILES/ai/commands/${command}.md" "$HOME/.zai/commands/${command}.md"
   link "$DOTFILES/ai/gemini/${command}.toml" "$HOME/.gemini/commands/${command}.toml"
   link_skill "$DOTFILES/ai/codex/${command}" "$command"
 done
