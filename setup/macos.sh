@@ -593,53 +593,6 @@ else
   fi
 fi
 
-if command -v hermes >/dev/null 2>&1; then
-  hermes_cmd=$(command -v hermes)
-  hermes_info=$("$hermes_cmd" --version 2>/dev/null || true)
-  hermes_before=$(printf '%s\n' "$hermes_info" | sed -n '1p')
-  hermes_dir=$(printf '%s\n' "$hermes_info" | sed -n 's/^Install directory: //p' | sed -n '1p')
-  hermes_worktree=""
-  hermes_ahead=""
-  if [ -n "$hermes_dir" ] && git -C "$hermes_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    hermes_worktree=$(git -C "$hermes_dir" status --porcelain --untracked-files=all \
-      -- . ':(exclude).install_method' 2>/dev/null || echo "unavailable")
-    hermes_ahead=$(git -C "$hermes_dir" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null \
-      | awk '{ print $2 }')
-  fi
-  if [ -n "$hermes_worktree" ] || { [ -n "$hermes_dir" ] && [ "$hermes_ahead" != "0" ]; }; then
-    record_result failed
-    echo "Warning: Hermes Agent has local changes or commits; update skipped to preserve them"
-  elif ! hermes_check=$("$hermes_cmd" update --check); then
-    record_result failed
-    printf '%s\n' "$hermes_check"
-    echo "Warning: Hermes Agent update check failed"
-  elif printf '%s\n' "$hermes_check" | grep -Eq '^✓ (Already up to date\.|Up to date with the latest release \()'; then
-    record_result current
-    echo "[-] Hermes Agent is current. Skipping..."
-  elif "$hermes_cmd" update; then
-    hermes_after=$(cli_version "$hermes_cmd")
-    record_update_result "$hermes_before" "$hermes_after" \
-      || echo "Warning: could not verify Hermes Agent version"
-  else
-    record_result failed
-    echo "Warning: Hermes Agent update failed"
-  fi
-else
-  echo "==> Installing Hermes Agent"
-  if curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
-    bash -s -- --skip-setup --non-interactive; then
-    hermes_after=""
-    if hermes_cmd=$(command -v hermes 2>/dev/null); then
-      hermes_after=$(cli_version "$hermes_cmd")
-    fi
-    record_version_result "" "$hermes_after" \
-      || echo "Warning: could not verify Hermes Agent installation"
-  else
-    record_result failed
-    echo "Warning: Hermes Agent install failed"
-  fi
-fi
-
 if command -v omp >/dev/null 2>&1; then
   omp_before=$(cli_version "$(command -v omp)")
   if omp update; then
@@ -829,6 +782,31 @@ echo "==> Installing dotfiles symlinks"
 echo "==> Packaging skills for Claude account upload"
 if ! python3 "$DOTFILES/scripts/package-claude-skills.py"; then
   echo "[!] Could not package every Claude skill; review the package output above"
+fi
+
+echo "==> Hermes Agent"
+if command -v hermes >/dev/null 2>&1; then
+  hermes_rc=0
+  "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
+  case "$hermes_rc" in
+    0) record_result current ;;
+    10) record_result updated ;;
+    *) record_result failed ;;
+  esac
+else
+  echo "==> Installing Hermes Agent"
+  if curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
+    bash -s -- --skip-setup --non-interactive; then
+    hermes_after=""
+    if hermes_cmd=$(command -v hermes 2>/dev/null); then
+      hermes_after=$(cli_version "$hermes_cmd")
+    fi
+    record_version_result "" "$hermes_after" \
+      || echo "Warning: could not verify Hermes Agent installation"
+  else
+    record_result failed
+    echo "Warning: Hermes Agent install failed"
+  fi
 fi
 
 echo
