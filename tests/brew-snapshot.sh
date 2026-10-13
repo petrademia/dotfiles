@@ -11,6 +11,7 @@ cat >"$work/inventory.json" <<'EOF'
   {"name":"python@3.14","full_name":"python@3.14","aliases":["python"],"oldnames":[]},
   {"name":"crush","full_name":"charmbracelet/tap/crush","aliases":[],"oldnames":[]}
 ],"casks":[
+  {"token":"missing-app","full_token":"example/tap/missing-app","old_tokens":["old-missing-app"],"artifacts":[{"app":["Missing.app"],"target":"/nonexistent-dotfiles-test/Missing.app"}]},
   {"token":"postman","full_token":"postman","old_tokens":[]},
   {"token":"open-codesign","full_token":"opencoworkai/tap/open-codesign","old_tokens":["old-codesign"],"outdated":true}
 ]}
@@ -48,6 +49,9 @@ load_brew_snapshot
 [ "$(brew_package_state formula python)" = current ]
 [ "$(brew_package_state formula charmbracelet/tap/crush)" = outdated ]
 [ "$(brew_package_state cask postman)" = outdated ]
+[ "$(brew_package_state cask missing-app)" = broken ]
+[ "$(brew_package_state cask example/tap/missing-app)" = broken ]
+[ "$(brew_package_state cask old-missing-app)" = broken ]
 [ "$(brew_package_state cask opencoworkai/tap/open-codesign)" = current ]
 [ "$(brew_package_state cask old-codesign)" = current ]
 [ "$(brew_package_state formula missing)" = missing ]
@@ -68,6 +72,18 @@ unset BREW_TEST_FAILURE
 echo '{"formulae":[],"casks":[]}' >"$BREW_TEST_DIR/outdated.json"
 load_brew_snapshot
 [ "$(brew_package_state cask postman)" = current ]
-echo 'Homebrew snapshot checks passed.'
+# Drive the real cask loop: only the missing app is reinstalled.
+record_result() { result=$1; }
+brew() { printf '%s\n' "$*" >> "$BREW_TEST_DIR/repair-calls"; }
+CASKS=(missing-app)
+CURRENT_COUNT=0
+load_brew_snapshot() { :; }
+EOF
+sed -n '/^cask_current_before=/,/^echo "\[-\] Homebrew casks:/p' "$root/setup/macos.sh" >>"$work/check.zsh"
+cat >>"$work/check.zsh" <<'EOF'
+[ "$result" = installed ]
+grep -qxF 'reinstall --cask --force missing-app' "$BREW_TEST_DIR/repair-calls"
+echo 'Homebrew snapshot and missing-app repair checks passed.'
+
 EOF
 zsh "$work/check.zsh"
