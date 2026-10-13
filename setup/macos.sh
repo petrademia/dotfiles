@@ -348,7 +348,6 @@ CASKS=(
   localsend
   macpacker
   onedrive
-  progressive-downloader
   qbittorrent
   transmission
 
