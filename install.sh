@@ -268,11 +268,23 @@ link_skill() {
   link_skill_path "$src" "$HOME/.gemini/skills/$name"
 }
 
+remove_duplicate_cursor_command() {
+  local name="$1"
+  local src="$DOTFILES/ai/commands/$name.md"
+  local dest="$HOME/.cursor/commands/$name.md"
+  [ -f "$HOME/.agents/skills/$name/SKILL.md" ] || return 0
+  if { [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; } \
+    || { [ -f "$dest" ] && cmp -s "$src" "$dest"; }; then
+    rm "$dest"
+    echo "[-] Removed redundant Cursor command: $name"
+  fi
+}
+
 for command in grammar leetcode handoff; do
-  link "$DOTFILES/ai/commands/${command}.md" "$HOME/.cursor/commands/${command}.md"
   link "$DOTFILES/ai/commands/${command}.md" "$HOME/.claude/commands/${command}.md"
   link "$DOTFILES/ai/gemini/${command}.toml" "$HOME/.gemini/commands/${command}.toml"
   link_skill "$DOTFILES/ai/codex/${command}" "$command"
+  remove_duplicate_cursor_command "$command"
 done
 
 link_skill "$DOTFILES/ai/codex/make-verifiable" make-verifiable
