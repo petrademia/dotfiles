@@ -4,7 +4,7 @@ repo=${1:-$(cd "$(dirname "$0")/.." && pwd)}
 test_home=$(mktemp -d)
 trap 'rm -rf "$test_home"' EXIT
 
-eval "$(sed -n '/^link() {/,/^}/p; /^install_cursor_pstack() {/,/^}/p; /^remove_duplicate_cursor_pstack_skills() {/,/^}/p' "$repo/install.sh" | sed 's/\$HOME/\$test_home/g')"
+eval "$(sed -n '/^link() {/,/^}/p; /^install_cursor_pstack() {/,/^}/p; /^remove_duplicate_cursor_pstack_skills() {/,/^}/p; /^remove_duplicate_cursor_command() {/,/^}/p' "$repo/install.sh" | sed 's/\$HOME/\$test_home/g')"
 # Keep the real installer flow, but use a local checkout without network access.
 git() { return 0; }
 checkout="$test_home/.local/share/pstack-cursor"
@@ -43,4 +43,19 @@ cmp "$checkout/pstack/settings.json" "$plugin/settings.json"
 # A link with the wrong target must still be repaired.
 link "$checkout/pstack/skills/custom" "$test_home/.agents/skills/shared" >/dev/null
 test "$(readlink "$test_home/.agents/skills/shared")" = "$checkout/pstack/skills/custom"
-printf 'Installer idempotency checks passed.\n'
+DOTFILES="$repo"
+mkdir -p "$test_home/.cursor/commands" "$test_home/.agents/skills/leetcode"
+link "$repo/ai/commands/leetcode.md" "$test_home/.cursor/commands/leetcode.md" >/dev/null
+remove_duplicate_cursor_command leetcode >/dev/null
+test -L "$test_home/.cursor/commands/leetcode.md"
+cp "$repo/ai/codex/leetcode/SKILL.md" "$test_home/.agents/skills/leetcode/SKILL.md"
+remove_duplicate_cursor_command leetcode >/dev/null
+test ! -L "$test_home/.cursor/commands/leetcode.md"
+test -z "$(remove_duplicate_cursor_command leetcode)"
+cp "$repo/ai/commands/leetcode.md" "$test_home/.cursor/commands/leetcode.md"
+remove_duplicate_cursor_command leetcode >/dev/null
+test ! -e "$test_home/.cursor/commands/leetcode.md"
+printf 'custom command\n' > "$test_home/.cursor/commands/leetcode.md"
+remove_duplicate_cursor_command leetcode >/dev/null
+cmp "$test_home/.cursor/commands/leetcode.md" <(printf 'custom command\n')
+printf 'Installer idempotency and Cursor command migration checks passed.\n'

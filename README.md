@@ -326,7 +326,8 @@ Available commands:
 - `/handoff`
 
 These are available in Cursor, Claude, Copilot, Gemini/Antigravity, and
-Codex.
+Codex. Cursor uses shared skills for these commands; setup removes matching
+legacy Cursor command files while preserving custom versions.
 
 Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbakaus/impeccable).
 The Impeccable design skills are available globally for Claude, Codex, Cursor,

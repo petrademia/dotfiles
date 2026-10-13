@@ -1969,11 +1969,18 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
 }
 
 foreach ($command in @("grammar", "leetcode", "handoff")) {
-    Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".cursor\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\commands\$command.md") (Join-Path $HOME ".claude\commands\$command.md")
     Sync-Dotfile (Join-Path $dotfiles "ai\gemini\$command.toml") (Join-Path $HOME ".gemini\commands\$command.toml")
     $skillSrc = Join-Path $dotfiles "ai\codex\$command"
     Sync-Dotfile $skillSrc (Join-Path $HOME ".agents\skills\$command")
+    $cursorCommand = Join-Path $HOME ".cursor\commands\$command.md"
+    $commandSource = Join-Path $dotfiles "ai\commands\$command.md"
+    if ((Test-Path (Join-Path $HOME ".agents\skills\$command\SKILL.md")) -and
+        (Test-Path -LiteralPath $cursorCommand -PathType Leaf) -and
+        (Get-FileHash -LiteralPath $cursorCommand).Hash -eq (Get-FileHash -LiteralPath $commandSource).Hash) {
+        Remove-Item -LiteralPath $cursorCommand
+        Write-Host "[-] Removed redundant Cursor command: $command"
+    }
     Sync-Dotfile $skillSrc (Join-Path $HOME ".codex\skills\$command")
     # Antigravity Desktop/CLI/IDE use different roots; config/skills is shared by all.
     Sync-Dotfile $skillSrc (Join-Path $HOME ".gemini\config\skills\$command")
