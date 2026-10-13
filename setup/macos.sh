@@ -6,6 +6,7 @@ export PATH="$HOME/.local/bin:$PATH"
 INSTALLED_COUNT=0
 UPDATED_COUNT=0
 CURRENT_COUNT=0
+SKIPPED_COUNT=0
 FAILED_COUNT=0
 TARGET_COUNT=0
 
@@ -15,6 +16,7 @@ record_result() {
     installed) INSTALLED_COUNT=$((INSTALLED_COUNT + 1)) ;;
     updated) UPDATED_COUNT=$((UPDATED_COUNT + 1)) ;;
     current) CURRENT_COUNT=$((CURRENT_COUNT + 1)) ;;
+    skipped) SKIPPED_COUNT=$((SKIPPED_COUNT + 1)) ;;
     failed) FAILED_COUNT=$((FAILED_COUNT + 1)) ;;
     *) FAILED_COUNT=$((FAILED_COUNT + 1)); echo "Warning: unknown setup result: $1" ;;
   esac
@@ -94,6 +96,18 @@ load_brew_snapshot() {
         ([.token, .full_token] + .old_tokens | unique)[] |
         ["cask/" + ., (if $casks[$c.token] then "outdated" else "current" end)] | @tsv)
     '); then
+    local app_targets token app_target
+    app_targets=$(printf '%s\n' "$inventory" | jq -r '
+      .casks[] | . as $c | .artifacts[]? |
+      select(has("app") and .target != null) | .target as $target |
+      ([$c.token, $c.full_token] + $c.old_tokens | unique)[] | [., $target] | @tsv')
+    while IFS=$'\t' read -r token app_target; do
+      [ -n "$app_target" ] || continue
+      if [ ! -e "$app_target" ]; then
+        BREW_SNAPSHOT=$(printf '%s\n' "$BREW_SNAPSHOT" | awk -F '\t' -v key="cask/$token" '
+          BEGIN { OFS="\t" } $1 == key { $2="broken" } { print }')
+      fi
+    done <<< "$app_targets"
     BREW_SNAPSHOT_READY=1
   else
     echo "Warning: Homebrew batch check failed; checking packages individually"
@@ -382,6 +396,10 @@ for cask in "${CASKS[@]}"; do
   elif [ "$package_state" = current ]; then
     record_result current
     continue
+  elif [ "$package_state" = broken ]; then
+    echo "==> Restoring missing cask app: $cask"
+    if brew reinstall --cask --force "$cask"; then record_result installed
+    else record_result failed; echo "Warning: cask repair failed: $cask"; fi
   elif [ "$package_state" = outdated ]; then
     echo "==> Updating cask: $cask"
     if brew upgrade --cask --no-ask "$cask"; then record_result updated
@@ -779,6 +797,7 @@ if command -v hermes >/dev/null 2>&1; then
   case "$hermes_rc" in
     0) record_result current ;;
     10) record_result updated ;;
+    20) record_result skipped ;;
     *) record_result failed ;;
   esac
 else
@@ -863,6 +882,7 @@ echo "  Targets:   $TARGET_COUNT"
 echo "  Installed: $INSTALLED_COUNT"
 echo "  Updated:   $UPDATED_COUNT"
 echo "  Current:   $CURRENT_COUNT"
+echo "  Skipped:   $SKIPPED_COUNT"
 echo "  Failed:    $FAILED_COUNT"
 echo
 echo "Restart your terminal or run:"

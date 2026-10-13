@@ -570,7 +570,7 @@ if [ -x "$HOME/.local/bin/hermes" ] || command -v hermes >/dev/null 2>&1; then
     PATH="$HOME/.local/bin:$PATH" bash "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
     case "$hermes_rc" in
         10) record_result updated ;;
-        0) record_result skipped ;;
+        0|20) record_result skipped ;;
         *) record_result failed ;;
     esac
 else

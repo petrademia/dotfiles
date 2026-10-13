@@ -92,4 +92,12 @@ rc=0
 PATH="/usr/bin:/bin" bash "$root/scripts/hermes-update.sh" >/dev/null 2>&1 || rc=$?
 [ "$rc" = 1 ] || fail "missing hermes should exit 1, got $rc"
 
-echo 'Hermes update checks passed.'
+# Both setup callers report preservation as skipped, rather than failed/current.
+record_result() { result=$1; }
+hermes_rc=20
+for platform in macos wsl; do
+  result=""
+  eval "$(sed -n '/case "$hermes_rc" in/,/esac/p' "$root/setup/$platform.sh")"
+  [ "$result" = skipped ] || fail "$platform classified preservation as $result"
+done
+echo 'Hermes update and setup classification checks passed.'
