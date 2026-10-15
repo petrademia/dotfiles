@@ -577,14 +577,23 @@ echo "==> Installing shared dotfiles"
 # Linux cannot exec directly ("required file not found").
 bash "$DOTFILES/install.sh"
 
+# A check that ran recently is skipped (12 hours by default); SETUP_FORCE=1 runs it, and
+# SETUP_UPDATE_INTERVAL_HOURS changes the interval. It is only marked done when it succeeded.
+throttle="$DOTFILES/scripts/update-throttle.sh"
 if [ -x "$HOME/.local/bin/hermes" ] || command -v hermes >/dev/null 2>&1; then
-    hermes_rc=0
-    PATH="$HOME/.local/bin:$PATH" bash "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
-    case "$hermes_rc" in
-        10) record_result updated ;;
-        0|20) record_result skipped ;;
-        *) record_result failed ;;
-    esac
+    if hermes_age=$(bash "$throttle" due hermes); then
+        hermes_rc=0
+        PATH="$HOME/.local/bin:$PATH" bash "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
+        if [ "$hermes_rc" = 0 ] || [ "$hermes_rc" = 10 ]; then bash "$throttle" mark hermes; fi
+        case "$hermes_rc" in
+            10) record_result updated ;;
+            0|20) record_result skipped ;;
+            *) record_result failed ;;
+        esac
+    else
+        echo "[-] Hermes Agent was checked $hermes_age. Skipping (SETUP_FORCE=1 runs it now)"
+        record_result skipped
+    fi
 else
     curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
         bash -s -- --skip-setup --skip-browser --non-interactive || echo "[-] Hermes Agent install skipped"

@@ -54,6 +54,13 @@ Mac App Store apps, Node LTS, npm globals, Rust stable, uv tools, and the
 Claude Code, Hermes Agent, and Oh My Pi CLIs. Transitive dependencies are not
 counted as separate targets.
 
+The Claude and Codex plugin updates and the Hermes update check run at most once every 12
+hours, because each one is a network round trip that is almost always a no-op (about 16 seconds
+together). A check is only recorded as done when it succeeded, so a failure is retried on the next run.
+`SETUP_FORCE=1` runs them all, and `SETUP_UPDATE_INTERVAL_HOURS=N` changes the interval (`0` turns the
+skip off). The timestamps live in `~/.local/state/dotfiles-setup/`; delete a `last-*` file to force one
+check. Homebrew, npm, Rust, Node and the other version checks still run every time.
+
 The macOS bootstrap applies a small login-item allowlist for installed apps:
 
 - 1Password
