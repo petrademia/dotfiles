@@ -43,6 +43,7 @@ cmp "$checkout/pstack/settings.json" "$plugin/settings.json"
 # A link with the wrong target must still be repaired.
 link "$checkout/pstack/skills/custom" "$test_home/.agents/skills/shared" >/dev/null
 test "$(readlink "$test_home/.agents/skills/shared")" = "$checkout/pstack/skills/custom"
+# shellcheck disable=SC2034  # read by remove_duplicate_cursor_command, which eval pulls in from install.sh
 DOTFILES="$repo"
 mkdir -p "$test_home/.cursor/commands" "$test_home/.agents/skills/leetcode"
 link "$repo/ai/commands/leetcode.md" "$test_home/.cursor/commands/leetcode.md" >/dev/null
