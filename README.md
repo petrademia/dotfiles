@@ -287,8 +287,9 @@ Setup includes:
 - `gh`
 - `atlassian-cli`
 - `wrangler` (Cloudflare Pages/Workers)
-- `gcloud` (Google Cloud CLI; macOS cask `gcloud-cli`) and `firebase` (npm `firebase-tools`); sign in
-  with `gcloud auth login` and `firebase login`
+- `gcloud` (Google Cloud CLI: macOS cask `gcloud-cli`, WSL apt `google-cloud-cli`, Windows winget
+  `Google.CloudSDK`) and `firebase` (npm `firebase-tools`, all platforms); sign in with
+  `gcloud auth login` and `firebase login`
 - `pnpm` (installed globally through npm)
 - `structurizr` (C4 architecture-model CLI; installed on macOS, Windows, and WSL)
 

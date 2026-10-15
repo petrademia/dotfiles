@@ -66,7 +66,7 @@ $script:WingetApps = @(
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
     "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
     "Google.GoogleDrive", "Microsoft.OneDrive",
-    "Google.Antigravity", "Google.AntigravityCLI",
+    "Google.Antigravity", "Google.AntigravityCLI", "Google.CloudSDK",
     "Microsoft.VisualStudioCode", "Notepad++.Notepad++", "Microsoft.WindowsTerminal", "Postman.Postman",
     "Alacritty.Alacritty", "wez.wezterm", "Eugeny.Tabby", "Vercel.Hyper", "AmanThanvi.winghostty",
     "Zen-Team.Zen-Browser", "Mozilla.Firefox.DeveloperEdition", "Mozilla.Firefox.ESR",
@@ -2156,6 +2156,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     [void](Smart-NpmGlobal "reasonix")
     [void](Smart-NpmGlobal "@deepseek-ai/dsh")
     [void](Smart-NpmGlobal "wrangler")
+    [void](Smart-NpmGlobal "firebase-tools")
     [void](Smart-NpmGlobal "@openai/codex")
     [void](Smart-NpmGlobal "openclaw@latest")
     [void](Smart-NpmGlobal "impeccable")

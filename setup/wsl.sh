@@ -339,6 +339,18 @@ else
     if sudo apt update && sudo apt install -y ngrok; then record_result installed
     else record_result failed; echo "[-] ngrok install failed"; fi
 fi
+if command -v gcloud >/dev/null 2>&1; then
+    record_result skipped
+    echo "[-] gcloud already present. Skipping..."
+else
+    # Google's documented apt install: https://docs.cloud.google.com/sdk/docs/install-sdk
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+        | sudo gpg --dearmor --yes -o /usr/share/keyrings/cloud.google.gpg
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+        | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
+    if sudo apt update && sudo apt install -y google-cloud-cli; then record_result installed
+    else record_result failed; echo "[-] gcloud install failed"; fi
+fi
 
 if ! smart_check "llama" "$HOME/.llama-app/llama"; then
     curl -fsSL https://llama.app/install.sh | sh || echo "[-] llama.cpp install skipped"
@@ -451,6 +463,7 @@ run_npm_global @earendil-works/pi-coding-agent pi --ignore-scripts
 run_npm_global reasonix reasonix
 run_npm_global @deepseek-ai/dsh dsh
 run_npm_global wrangler wrangler
+run_npm_global firebase-tools firebase
 run_npm_global openclaw@latest openclaw
 run_npm_global impeccable impeccable
 run_npm_global pnpm pnpm
