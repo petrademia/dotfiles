@@ -808,19 +808,6 @@ else
   fi
 fi
 
-if command -v claude >/dev/null 2>&1; then
-  for plugin in caveman@caveman ponytail@ponytail; do
-    CI=1 claude plugin update "$plugin" \
-      || echo "[!] Could not update Claude plugin: $plugin"
-  done
-fi
-if command -v codex >/dev/null 2>&1; then
-  for marketplace in caveman ponytail; do
-    codex plugin marketplace upgrade "$marketplace" 2>/dev/null \
-      || echo "[!] Could not update Codex plugin marketplace: $marketplace"
-  done
-fi
-
 DOTFILES="$HOME/dotfiles"
 
 if [ ! -d "$DOTFILES" ]; then
@@ -836,16 +823,52 @@ if ! python3 "$DOTFILES/scripts/package-claude-skills.py"; then
   echo "[!] Could not package every Claude skill; review the package output above"
 fi
 
+# Update checks that ran recently are skipped (12 hours by default). SETUP_FORCE=1 runs them all;
+# SETUP_UPDATE_INTERVAL_HOURS changes the interval. A check is only marked done when it succeeded.
+throttle="$DOTFILES/scripts/update-throttle.sh"
+
+echo "==> Updating Claude and Codex plugins"
+if command -v claude >/dev/null 2>&1; then
+  if claude_age=$("$throttle" due claude-plugins); then
+    claude_plugins_ok=1
+    for plugin in caveman@caveman ponytail@ponytail; do
+      CI=1 claude plugin update "$plugin" \
+        || { echo "[!] Could not update Claude plugin: $plugin"; claude_plugins_ok=0; }
+    done
+    if [ "$claude_plugins_ok" -eq 1 ]; then "$throttle" mark claude-plugins; fi
+  else
+    echo "[-] Claude plugins were updated $claude_age. Skipping (SETUP_FORCE=1 runs it now)"
+  fi
+fi
+if command -v codex >/dev/null 2>&1; then
+  if codex_age=$("$throttle" due codex-plugins); then
+    codex_plugins_ok=1
+    for marketplace in caveman ponytail; do
+      codex plugin marketplace upgrade "$marketplace" 2>/dev/null \
+        || { echo "[!] Could not update Codex plugin marketplace: $marketplace"; codex_plugins_ok=0; }
+    done
+    if [ "$codex_plugins_ok" -eq 1 ]; then "$throttle" mark codex-plugins; fi
+  else
+    echo "[-] Codex plugins were updated $codex_age. Skipping (SETUP_FORCE=1 runs it now)"
+  fi
+fi
+
 echo "==> Hermes Agent"
 if command -v hermes >/dev/null 2>&1; then
-  hermes_rc=0
-  "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
-  case "$hermes_rc" in
-    0) record_result current ;;
-    10) record_result updated ;;
-    20) record_result skipped ;;
-    *) record_result failed ;;
-  esac
+  if hermes_age=$("$throttle" due hermes); then
+    hermes_rc=0
+    "$DOTFILES/scripts/hermes-update.sh" || hermes_rc=$?
+    if [ "$hermes_rc" = 0 ] || [ "$hermes_rc" = 10 ]; then "$throttle" mark hermes; fi
+    case "$hermes_rc" in
+      0) record_result current ;;
+      10) record_result updated ;;
+      20) record_result skipped ;;
+      *) record_result failed ;;
+    esac
+  else
+    echo "[-] Hermes Agent was checked $hermes_age. Skipping (SETUP_FORCE=1 runs it now)"
+    record_result skipped
+  fi
 else
   echo "==> Installing Hermes Agent"
   if curl -fsSL https://hermes-agent.nousresearch.com/install.sh |
