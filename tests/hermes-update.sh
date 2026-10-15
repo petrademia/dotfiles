@@ -106,6 +106,7 @@ PATH="/usr/bin:/bin" bash "$root/scripts/hermes-update.sh" >/dev/null 2>&1 || rc
 
 # Both setup callers report preservation as skipped, rather than failed/current.
 record_result() { result=$1; }
+# shellcheck disable=SC2034  # read by the case block that eval pulls in from setup/*.sh
 hermes_rc=20
 for platform in macos wsl; do
   result=""
