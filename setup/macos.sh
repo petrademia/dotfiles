@@ -529,29 +529,67 @@ else
   echo "Warning: could not install or select the latest Node.js LTS"
 fi
 
+# npm global state. Two npm calls cover every package (about 1.5 s); asking per package costs two calls
+# each (about 12 s for nine). Falls back to per-package checks when jq or the JSON is unusable.
+npm_snapshot_ok=0
+npm_globals_installed=$(npm ls --global --depth=0 --json 2>/dev/null || true)
+npm_globals_outdated=$(npm outdated --global --json 2>/dev/null || true)
+[ -n "$npm_globals_outdated" ] || npm_globals_outdated='{}'
+if command -v jq >/dev/null 2>&1 \
+  && printf '%s' "$npm_globals_installed" | jq -e 'type == "object"' >/dev/null 2>&1 \
+  && printf '%s' "$npm_globals_outdated" | jq -e 'type == "object" and (has("error") | not)' >/dev/null 2>&1; then
+  npm_snapshot_ok=1
+fi
+
+# Prints missing, current, outdated or failed for one installed package name.
+npm_global_state() {
+  local name=$1 outdated
+  if [ "$npm_snapshot_ok" -eq 1 ]; then
+    if ! printf '%s' "$npm_globals_installed" | jq -e --arg p "$name" '.dependencies[$p] != null' >/dev/null 2>&1; then
+      echo missing
+    elif printf '%s' "$npm_globals_outdated" | jq -e --arg p "$name" 'has($p)' >/dev/null 2>&1; then
+      echo outdated
+    else
+      echo current
+    fi
+    return
+  fi
+  if ! npm list --global --depth=0 "$name" >/dev/null 2>&1; then
+    echo missing
+  elif outdated=$(npm outdated --global --depth=0 "$name" 2>/dev/null); then
+    echo current
+  elif [ -n "$outdated" ]; then
+    echo outdated
+  else
+    echo failed
+  fi
+}
+
 # Install missing npm global tools and update only when outdated.
 run_npm_global() {
   local package=$1
   local ignore_scripts=${2:-}
   local installed_package=${package%@latest}
   local result=installed
-  if npm list --global --depth=0 "$installed_package" >/dev/null 2>&1; then
-    local outdated
-    if outdated=$(npm outdated --global --depth=0 "$installed_package" 2>/dev/null); then
+  case "$(npm_global_state "$installed_package")" in
+    current)
       echo "[-] $installed_package is current. Skipping..."
       record_result current
       return 0
-    elif [ -n "$outdated" ]; then
+      ;;
+    outdated)
       echo "==> Updating npm package: $package"
       result=updated
-    else
+      ;;
+    failed)
       record_result failed
       echo "[-] Could not check npm package: $installed_package"
       return 0
-    fi
-  else
-    echo "==> Installing npm package: $package"
-  fi
+      ;;
+    *)
+      echo "==> Installing npm package: $package"
+      ;;
+  esac
   if [ "$ignore_scripts" = "--ignore-scripts" ]; then
     if npm install -g --ignore-scripts "$package" --silent; then
       record_result "$result"
