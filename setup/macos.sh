@@ -334,6 +334,7 @@ CASKS=(
   zen
 
   # Containers and dev services
+  gcloud-cli
   ngrok
   podman-desktop
   postman
@@ -572,6 +573,7 @@ run_npm_global @earendil-works/pi-coding-agent --ignore-scripts
 run_npm_global reasonix
 run_npm_global @deepseek-ai/dsh
 run_npm_global wrangler
+run_npm_global firebase-tools
 run_npm_global openclaw@latest
 run_npm_global impeccable@latest
 run_npm_global pnpm@latest
@@ -866,6 +868,8 @@ version_line OMP omp --version
 version_line Reasonix reasonix --version
 version_line DSH dsh --version
 version_line Wrangler wrangler --version
+version_line gcloud gcloud --version
+version_line Firebase firebase --version
 version_line Impeccable impeccable --version
 version_line Goose goose --version
 version_line kubectl kubectl version --client
