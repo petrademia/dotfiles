@@ -474,6 +474,21 @@ package-manager builds.
 - VC++ redists in setup: 2015+ x64/x86 and 2013 x64/x86, plus `Microsoft.DirectX`
   for legacy game prerequisites (e.g. UE4).
 
+### macOS cask "Operation not permitted"
+
+macOS blocks changes inside another developer's app bundle unless the terminal has App Management
+access. A cask whose post-install step changes files inside its app (for example `netbird-ui`, which
+runs `chmod` on its scripts) then fails with `Operation not permitted`, and Homebrew rolls the upgrade
+back. Open System Settings > Privacy & Security > App Management, turn on your terminal, restart it and
+run setup again. Setup prints this hint after any cask failure.
+
+### NetBird
+
+Setup manages both the `netbird` formula (the CLI and daemon) and the `netbird-ui` cask so their
+versions stay together. The daemon runs as root and may keep running the old binary after an upgrade;
+restart it with `sudo netbird service restart`, and reconnect with `netbird up` if it shows
+`Management: Disconnected`.
+
 ### Windows utilities
 
 - **Terminals:** WezTerm, Alacritty, Tabby, Hyper, and Windows Terminal (Winget).
