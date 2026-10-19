@@ -59,7 +59,8 @@ hours, because each one is a network round trip that is almost always a no-op (a
 together). A check is only recorded as done when it succeeded, so a failure is retried on the next run.
 `SETUP_FORCE=1` runs them all, and `SETUP_UPDATE_INTERVAL_HOURS=N` changes the interval (`0` turns the
 skip off). The timestamps live in `~/.local/state/dotfiles-setup/`; delete a `last-*` file to force one
-check. Homebrew, npm, Rust, Node and the other version checks still run every time.
+check. A throttled check counts as current in the summary; Skipped is left for a Hermes install with local
+changes. Homebrew, npm, Rust, Node and the other version checks still run every time.
 
 The macOS bootstrap applies a small login-item allowlist for installed apps:
 
