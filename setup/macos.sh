@@ -877,7 +877,8 @@ if command -v hermes >/dev/null 2>&1; then
     esac
   else
     echo "[-] Hermes Agent was checked $hermes_age. Skipping (SETUP_FORCE=1 runs it now)"
-    record_result skipped
+    # Checked recently and found current, so it is not an anomaly; "skipped" stays for local changes.
+    record_result current
   fi
 else
   echo "==> Installing Hermes Agent"

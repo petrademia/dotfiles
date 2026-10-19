@@ -67,7 +67,8 @@ out=$(run_macos)
 for what in 'Claude plugins were updated' 'Codex plugins were updated' 'Hermes Agent was checked'; do
   case "$out" in *"$what"*) ;; *) fail "second run did not say '$what'" ;; esac
 done
-case "$out" in *'result:skipped'*) ;; *) fail "second run did not count Hermes as skipped" ;; esac
+case "$out" in *'result:current'*) ;; *) fail "second run did not count Hermes as current: $out" ;; esac
+case "$out" in *'result:skipped'*) fail "a throttled Hermes check must not count as skipped" ;; esac
 
 SETUP_FORCE=1 run_macos >/dev/null
 [ "$(calls '^claude plugin update')" = 2 ] && [ "$(calls '^hermes-update')" = 1 ] || fail "SETUP_FORCE=1 did not run everything"
