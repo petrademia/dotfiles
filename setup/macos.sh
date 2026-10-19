@@ -238,6 +238,9 @@ FORMULAS=(
   jundot/omlx/omlx
   opencode
 
+  # Network and VPN
+  netbirdio/tap/netbird
+
   # Work tools
   omar16100/atlassian-cli/atlassian-cli
 )
@@ -386,6 +389,13 @@ CASKS=(
   font-jetbrains-mono-nerd-font
 )
 
+# macOS blocks changes inside another developer's app bundle unless the terminal has App Management
+# access, which makes cask post-install steps fail with "Operation not permitted".
+cask_failure_hint() {
+  echo "    If the error above says 'Operation not permitted', give your terminal App Management access:"
+  echo "    System Settings > Privacy & Security > App Management, then restart the terminal and rerun setup."
+}
+
 cask_current_before=$CURRENT_COUNT
 for cask in "${CASKS[@]}"; do
   package_state=$(brew_package_state cask "$cask")
@@ -399,18 +409,18 @@ for cask in "${CASKS[@]}"; do
   elif [ "$package_state" = broken ]; then
     echo "==> Restoring missing cask app: $cask"
     if brew reinstall --cask --force "$cask"; then record_result installed
-    else record_result failed; echo "Warning: cask repair failed: $cask"; fi
+    else record_result failed; echo "Warning: cask repair failed: $cask"; cask_failure_hint; fi
   elif [ "$package_state" = outdated ]; then
     echo "==> Updating cask: $cask"
     if brew upgrade --cask --no-ask "$cask"; then record_result updated
-    else record_result failed; echo "Warning: cask upgrade failed: $cask"; fi
+    else record_result failed; echo "Warning: cask upgrade failed: $cask"; cask_failure_hint; fi
   else
     echo "==> Installing cask: $cask"
     if [ "$cask" = "github-copilot-app" ]; then
       if brew install --cask --appdir="$HOME/Applications" --adopt "$cask"; then record_result installed
-      else record_result failed; echo "Warning: cask install failed: $cask"; fi
+      else record_result failed; echo "Warning: cask install failed: $cask"; cask_failure_hint; fi
     elif brew install --cask "$cask"; then record_result installed
-    else record_result failed; echo "Warning: cask install failed: $cask"; fi
+    else record_result failed; echo "Warning: cask install failed: $cask"; cask_failure_hint; fi
   fi
   load_brew_snapshot
 done
