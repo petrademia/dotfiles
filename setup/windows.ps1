@@ -79,6 +79,7 @@ $script:WingetApps = @(
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
     "FilesCommunity.Files",
+    "Bazwise.FolderSizeExplorer",
     "VideoLAN.VLC", "Stremio.Stremio",
     "qBittorrent.qBittorrent", "Transmission.Transmission",
     "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
