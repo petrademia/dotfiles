@@ -1544,7 +1544,8 @@ Protect-ScoopGit { scoop update | Out-Host }
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
 # True only for an exact app name. A substring match on `scoop export` also matches bucket URLs and
-# longer names (gh and git inside github.com, for example), so an app could look installed when it is not.
+# longer names (git inside github.com, go inside goose, for example), so an app could look installed
+# when it is not.
 function Test-ScoopAppInstalled {
     param([string]$app)
     $name = ($app -split '/')[-1] -replace '@.*$', ''
