@@ -51,6 +51,27 @@ smart_check() {
     return 1
 }
 
+# Upgrades a tool installed from an apt repository when a newer version exists. Returns 1 when the
+# package is not apt-managed (installed some other way), so the caller keeps its plain skip.
+apt_upgrade_present() {
+    local pkg=$1 before after
+    before=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null) || return 1
+    [ -n "$before" ] || return 1
+    if ! sudo apt install -y --only-upgrade "$pkg" >/dev/null; then
+        record_result failed
+        echo "[!] $pkg upgrade failed"
+        return 0
+    fi
+    after=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)
+    if [ "$before" = "$after" ]; then
+        record_result skipped
+        echo "[-] $pkg is current ($after). Skipping..."
+    else
+        record_result updated
+        echo "[+] Updated $pkg: $before -> $after"
+    fi
+}
+
 # Prefer the Windows checkout when present so WSL shares one clone with Windows setup.
 detect_win_user() {
     local win_user="${WSL_WIN_USER:-}" base d
@@ -178,8 +199,7 @@ fi
 
 echo "==> 2) GitHub CLI (gh)"
 if command -v gh >/dev/null 2>&1; then
-    record_result skipped
-    echo "[-] gh already present. Skipping..."
+    apt_upgrade_present gh || { record_result skipped; echo "[-] gh already present. Skipping..."; }
 else
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -223,13 +243,27 @@ fi
 mkdir -p "$HOME/code"
 
 echo "==> 4) Rust & Go"
-if ! smart_check "rustup" "$HOME/.cargo/bin/rustup"; then
+if [ -x "$HOME/.cargo/bin/rustup" ] || command -v rustup >/dev/null 2>&1; then
+    . "$HOME/.cargo/env" 2>/dev/null || true
+    rust_before=$(rustc --version 2>/dev/null || true)
+    if rustup update stable && rustup default stable; then
+        rust_after=$(rustc --version 2>/dev/null || true)
+        if [ "$rust_before" = "$rust_after" ]; then
+            record_result skipped
+            echo "[-] Rust stable is current ($rust_after). Skipping..."
+        else
+            record_result updated
+            echo "[+] Rust updated: $rust_before -> $rust_after"
+        fi
+    else
+        record_result failed
+        echo "[!] rustup update failed"
+    fi
+else
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     . "$HOME/.cargo/env" 2>/dev/null || true
     rustup default stable || echo "Warning: rustup default stable failed"
     record_result installed
-else
-    . "$HOME/.cargo/env" 2>/dev/null || true
 fi
 if ! smart_check "atlassian-cli"; then
     cargo install atlassian-cli || echo "[-] atlassian-cli install skipped"
@@ -329,8 +363,7 @@ if ! smart_check "dust"; then
     cargo install du-dust || echo "[-] dust install skipped"
 fi
 if command -v ngrok >/dev/null 2>&1; then
-    record_result skipped
-    echo "[-] ngrok already present. Skipping..."
+    apt_upgrade_present ngrok || { record_result skipped; echo "[-] ngrok already present. Skipping..."; }
 else
     curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
         | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
@@ -340,8 +373,7 @@ else
     else record_result failed; echo "[-] ngrok install failed"; fi
 fi
 if command -v gcloud >/dev/null 2>&1; then
-    record_result skipped
-    echo "[-] gcloud already present. Skipping..."
+    apt_upgrade_present google-cloud-cli || { record_result skipped; echo "[-] gcloud already present. Skipping..."; }
 else
     # Google's documented apt install: https://docs.cloud.google.com/sdk/docs/install-sdk
     curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
@@ -417,8 +449,7 @@ if ! smart_check "opencode" "$HOME/.opencode/bin/opencode"; then
 fi
 
 if command -v crush >/dev/null 2>&1; then
-    record_result skipped
-    echo "[-] crush already present. Skipping..."
+    apt_upgrade_present crush || { record_result skipped; echo "[-] crush already present. Skipping..."; }
 else
     sudo mkdir -p /etc/apt/keyrings
     curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/charm.gpg
@@ -432,26 +463,64 @@ else
     fi
 fi
 
-# Skip when the CLI is already on PATH so re-runs stay mostly skipped.
+# npm global state. Two npm calls answer every package (about 1.5 s; per package it is about 12 s for
+# nine). Same approach as setup/macos.sh. Falls back to the old "command already on PATH" check when
+# jq or the JSON is unusable.
+npm_snapshot_ok=0
+npm_globals_installed=$(npm ls --global --depth=0 --json 2>/dev/null || true)
+npm_globals_outdated=$(npm outdated --global --json 2>/dev/null || true)
+[ -n "$npm_globals_outdated" ] || npm_globals_outdated='{}'
+if command -v jq >/dev/null 2>&1 \
+    && printf '%s' "$npm_globals_installed" | jq -e 'type == "object"' >/dev/null 2>&1 \
+    && printf '%s' "$npm_globals_outdated" | jq -e 'type == "object" and (has("error") | not)' >/dev/null 2>&1; then
+    npm_snapshot_ok=1
+fi
+
+# Prints missing, current or outdated for one package name; unknown when the snapshot is unusable.
+npm_global_state() {
+    local name=$1
+    [ "$npm_snapshot_ok" -eq 1 ] || { echo unknown; return; }
+    if ! printf '%s' "$npm_globals_installed" | jq -e --arg p "$name" '.dependencies[$p] != null' >/dev/null 2>&1; then
+        echo missing
+    elif printf '%s' "$npm_globals_outdated" | jq -e --arg p "$name" 'has($p)' >/dev/null 2>&1; then
+        echo outdated
+    else
+        echo current
+    fi
+}
+
+# Installs a missing npm global and updates an outdated one.
 run_npm_global() {
     local package=$1
     local cmd=$2
     local ignore_scripts=${3:-}
-    if [ -n "$cmd" ] && command -v "$cmd" >/dev/null 2>&1; then
-        record_result skipped
-        echo "[-] $cmd already present. Skipping..."
-        return 0
+    local name=${package%@latest}
+    local result=installed state
+    state=$(npm_global_state "$name")
+    if [ "$state" = unknown ]; then
+        if [ -n "$cmd" ] && command -v "$cmd" >/dev/null 2>&1; then state=current; else state=missing; fi
     fi
+    case "$state" in
+        current)
+            record_result skipped
+            echo "[-] $name is current. Skipping..."
+            return 0
+            ;;
+        outdated)
+            result=updated
+            echo "==> Updating npm package: $package"
+            ;;
+    esac
     if [ "$ignore_scripts" = "--ignore-scripts" ]; then
         if npm install -g --ignore-scripts "$package" --silent; then
-            record_result installed
+            record_result "$result"
         else
             record_result failed
             echo "[-] npm install failed: $package"
         fi
     else
         if npm install -g "$package" --silent; then
-            record_result installed
+            record_result "$result"
         else
             record_result failed
             echo "[-] npm install failed: $package"

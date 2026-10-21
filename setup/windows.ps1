@@ -1543,12 +1543,24 @@ Write-Host "Updating Scoop manifests..." -ForegroundColor Cyan
 Protect-ScoopGit { scoop update | Out-Host }
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
+# True only for an exact app name. A substring match on `scoop export` also matches bucket URLs and
+# longer names (gh and git inside github.com, for example), so an app could look installed when it is not.
+function Test-ScoopAppInstalled {
+    param([string]$app)
+    $name = ($app -split '/')[-1] -replace '@.*$', ''
+    $roots = @($(if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE "scoop" }))
+    if ($env:SCOOP_GLOBAL) { $roots += $env:SCOOP_GLOBAL }
+    foreach ($root in $roots) {
+        if (Test-Path -LiteralPath (Join-Path $root "apps\$name\current")) { return $true }
+    }
+    return $false
+}
+
 # Repo-managed Scoop apps: install when missing; skip when already present.
 # Upgrades are left to `scoop update *` / UniGetUI so re-runs stay mostly Skipped.
 function Smart-Scoop {
     param([string]$app)
-    $installedList = scoop export
-    if ($installedList -like "*$app*") {
+    if (Test-ScoopAppInstalled $app) {
         Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
         Add-SetupResult Skipped $app
     } else {
@@ -1579,6 +1591,7 @@ $apps = @(
 foreach ($app in $apps) { Smart-Scoop $app }
 
 if (Get-Command rustup -ErrorAction SilentlyContinue) {
+    rustup update stable 2>&1 | Out-Null
     rustup default stable 2>&1 | Out-Null
     $env:PATH = "$HOME\.cargo\bin;$env:PATH"
     Install-AtlassianCli
@@ -2253,12 +2266,21 @@ if (!(Test-Path $gooseDesktopExe)) {
 }
 
 if (Get-Command uv -ErrorAction SilentlyContinue) {
-    if (Get-Command graphify -ErrorAction SilentlyContinue) {
-        Write-Host "[-] graphify already present. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped "graphifyy"
+    $graphifyBefore = (uv tool list 2>$null | Select-String '^graphifyy ' | Select-Object -First 1).Line
+    uv tool install --upgrade graphifyy --python 3
+    if ($LASTEXITCODE -ne 0) {
+        Add-SetupResult Failed "graphifyy"
     } else {
-        uv tool install --upgrade graphifyy --python 3
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "graphifyy" }
+        $graphifyAfter = (uv tool list 2>$null | Select-String '^graphifyy ' | Select-Object -First 1).Line
+        if (-not $graphifyBefore) {
+            Add-SetupResult Installed "graphifyy"
+        } elseif ($graphifyBefore -eq $graphifyAfter) {
+            Write-Host "[-] graphifyy is current ($graphifyAfter). Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped "graphifyy"
+        } else {
+            Write-Host "[+] Updated graphifyy: $graphifyBefore -> $graphifyAfter" -ForegroundColor Cyan
+            Add-SetupResult Updated "graphifyy"
+        }
     }
 }
 
