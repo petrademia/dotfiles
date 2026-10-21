@@ -30,7 +30,14 @@ config if you want one.
 
 Windows and WSL keep their platform-specific package-manager update behavior;
 use `winget upgrade`, `scoop update *`, or `apt upgrade` for packages outside
-their setup manifests.
+their setup manifests. What a rerun updates:
+
+- WSL: apt packages in the base list, the apt-repo tools (`gh`, `ngrok`, `gcloud`, `crush`), npm
+  globals, Rust stable, Zellij, Helix, kubectl, kind, k3d, uv tools and Hermes. Anything else that is
+  already on `PATH` is skipped.
+- Windows: npm globals, Rust stable and graphify (uv). winget and Scoop apps are installed
+  when missing and left to `winget upgrade` / `scoop update *` / UniGetUI afterwards; Scoop apps are
+  matched by exact name.
 Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
 separately inside Ubuntu.
 
