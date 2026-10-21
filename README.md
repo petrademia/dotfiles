@@ -38,6 +38,7 @@ their setup manifests. What a rerun updates:
 - Windows: npm globals, Rust stable and graphify (uv). winget and Scoop apps are installed
   when missing and left to `winget upgrade` / `scoop update *` / UniGetUI afterwards; Scoop apps are
   matched by exact name.
+
 Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
 separately inside Ubuntu.
 
