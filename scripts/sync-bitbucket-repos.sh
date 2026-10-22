@@ -3,6 +3,18 @@ set -e
 
 WORKSPACE="${WORKSPACE:-Amartha}"
 
+# Repositories not updated for this many days are skipped, and paging stops at the first one: the list
+# is requested newest-first (sort=-updated_on), so everything after it is older still. 0 syncs all.
+# Of the 991 repositories in the workspace, 737 were untouched for over a year.
+MAX_AGE_DAYS="${SYNC_MAX_AGE_DAYS:-365}"
+case "$MAX_AGE_DAYS" in
+    ''|*[!0-9]*) echo "SYNC_MAX_AGE_DAYS must be a whole number of days (0 syncs everything)."; exit 1 ;;
+esac
+CUTOFF_DATE=""
+if [ "$MAX_AGE_DAYS" -gt 0 ]; then
+    CUTOFF_DATE=$(date -u -v-"${MAX_AGE_DAYS}"d +%Y-%m-%d 2>/dev/null || date -u -d "$MAX_AGE_DAYS days ago" +%Y-%m-%d)
+fi
+
 # True when the repo has no commits yet (unborn branch / empty clone).
 # Never call bare `git rev-parse HEAD` here - it prints a fatal on empty repos.
 has_commits() {
@@ -58,6 +70,9 @@ if [ -z "$AUTH_CREDS" ]; then
 fi
 
 echo "Fetching repositories from Bitbucket workspace: $WORKSPACE"
+if [ -n "$CUTOFF_DATE" ]; then
+    echo "Skipping repositories not updated since $CUTOFF_DATE (SYNC_MAX_AGE_DAYS=$MAX_AGE_DAYS; 0 syncs everything)"
+fi
 
 URL="https://api.bitbucket.org/2.0/repositories/${WORKSPACE}?sort=-updated_on&pagelen=100"
 PAGE=1
@@ -79,7 +94,17 @@ while [ -n "$URL" ]; do
         exit 1
     fi
 
-    jq -c '.values[]' < "$RESPONSE_FILE" | while read -r repo; do
+    # A repository with no updated_on is kept. Keep this page's recent repos and note whether it also
+    # holds an old one, which ends the paging after this page.
+    STOP=0
+    if [ -n "$CUTOFF_DATE" ] && jq -e --arg cutoff "$CUTOFF_DATE" \
+        'any(.values[]; ((.updated_on // "9999-12-31")[0:10]) < $cutoff)' "$RESPONSE_FILE" >/dev/null; then
+        STOP=1
+    fi
+
+    jq -c --arg cutoff "$CUTOFF_DATE" \
+        '.values[] | select($cutoff == "" or ((.updated_on // "9999-12-31")[0:10]) >= $cutoff)' \
+        < "$RESPONSE_FILE" | while read -r repo; do
         [ -z "$repo" ] || [ "$repo" = "null" ] && continue
 
         PROJECT_NAME=$(jq -r '.project.name // empty' <<< "$repo")
@@ -149,8 +174,13 @@ while [ -n "$URL" ]; do
         echo "------------------------------------------------"
     done
 
-    # Get next page URL
-    URL=$(jq -r '.next // empty' < "$RESPONSE_FILE")
+    # Get next page URL, unless this page already reached the old repositories
+    if [ "$STOP" -eq 1 ]; then
+        echo "Reached repositories not updated since $CUTOFF_DATE; stopping after page $PAGE."
+        URL=""
+    else
+        URL=$(jq -r '.next // empty' < "$RESPONSE_FILE")
+    fi
     PAGE=$((PAGE + 1))
     rm -f "$RESPONSE_FILE"
 done

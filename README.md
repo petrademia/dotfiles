@@ -346,6 +346,13 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/scripts/sy
 
 It uses the 1Password item `Amartha Bitbucket PR Review`.
 
+Repositories not updated for a year are skipped (`SYNC_MAX_AGE_DAYS=365`). The workspace is listed
+newest-first, so paging stops at the first old repository instead of walking every page: of 991
+repositories, 254 are newer than a year, which is 3 pages instead of 10. Use `SYNC_MAX_AGE_DAYS=730`
+for two years, or `SYNC_MAX_AGE_DAYS=0` to sync everything. A skipped repository returns as soon as
+it is pushed to, because that moves it to the top of the list. A local clone of a skipped repository
+is left as it is.
+
 Atlassian API tokens are per-app and scoped. Keep separate 1Password items:
 
 - `Amartha Jira API`: Jira REST
