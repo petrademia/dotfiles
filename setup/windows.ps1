@@ -1710,9 +1710,6 @@ foreach ($name in @("grill-with-docs", "grill-me", "grilling", "domain-modeling"
     }
 }
 
-$goEnv = go env GOENV
-if ($goEnv) { Sync-Dotfile (Join-Path $dotfiles "go\env") $goEnv }
-
 git config --global include.path (Join-Path $dotfiles "git\gitconfig")
 git config --global core.hooksPath (Join-Path $dotfiles "git\hooks")
 # Git for Windows ships its own ssh.exe, which cannot use the 1Password SSH agent.
