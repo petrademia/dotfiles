@@ -97,7 +97,6 @@ Install `atlassian-cli` on all three platforms:
 - Cargo on WSL
 - Cargo on Windows (skipped until Visual Studio Build Tools provide `link.exe`)
 
-
 ### Windows desktop applications
 
 Verified Windows package identifiers for the newly requested host applications:

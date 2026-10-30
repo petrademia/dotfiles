@@ -76,6 +76,7 @@ function Ensure-GhAuth {
 function Show-ManualChecklist {
     Write-Host ""
     Write-Host "Manual follow-ups:" -ForegroundColor Yellow
+    Write-Host "  - 1Password: SSH agent key SSH Key (GitHub)"
     Write-Host "  - Desktop apps: sign into Cursor, Claude, ChatGPT, Antigravity, Goose"
     Write-Host "  - DisplayLink: reboot after driver install if you use a dock"
     Write-Host "  - Wavlink: install model-specific drivers from https://www.wavlink.com/en_us/Drivers.html"
