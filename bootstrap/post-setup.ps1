@@ -2,17 +2,13 @@
 #
 # Usage:
 #   irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex
+#   .\bootstrap\post-setup.ps1 -SkipAuth
 
 param(
     [switch]$SkipAuth
 )
 
 $ErrorActionPreference = 'Continue'
-
-$Dotfiles = Join-Path $HOME "dotfiles"
-if (!(Test-Path (Join-Path $Dotfiles ".git"))) {
-    $Dotfiles = $null
-}
 
 function Test-OpReady {
     if (!(Get-Command op -ErrorAction SilentlyContinue)) {
@@ -77,49 +73,6 @@ function Ensure-GhAuth {
     }
 }
 
-function Ensure-AtlassianAuth {
-    if (!(Get-Command atlassian-cli -ErrorAction SilentlyContinue)) {
-        Write-Host "[-] atlassian-cli not installed; skipping Atlassian auth." -ForegroundColor DarkGray
-        return
-    }
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "[-] atlassian-cli profile 'work' already works." -ForegroundColor Gray
-        return
-    }
-
-    if (-not $token) {
-        return
-    }
-
-    if ($LASTEXITCODE -eq 0) {
-    } else {
-        Write-Host "[!] atlassian-cli auth login failed." -ForegroundColor Yellow
-    }
-}
-
-
-    if ((Get-Command wsl.exe -ErrorAction SilentlyContinue) -and (wsl.exe -l -v 2>$null) -match "Ubuntu") {
-        if ($localScript -and (Test-Path $localScript)) {
-            $wslPath = wsl.exe wslpath -a $localScript 2>$null
-            if ($wslPath) {
-                wsl.exe -d Ubuntu -- bash $wslPath
-                return
-            }
-        }
-        wsl.exe -d Ubuntu -- bash -lc "curl -fsSL $scriptUrl | bash"
-        return
-    }
-
-    $bash = Get-Command bash -ErrorAction SilentlyContinue
-    if ($bash -and $localScript -and (Test-Path $localScript)) {
-        & $bash.Source $localScript
-        return
-    }
-
-    Write-Host "    curl -fsSL $scriptUrl | bash" -ForegroundColor Cyan
-}
-
 function Show-ManualChecklist {
     Write-Host ""
     Write-Host "Manual follow-ups:" -ForegroundColor Yellow
@@ -137,16 +90,9 @@ Write-Host "==> Post-setup" -ForegroundColor Cyan
 if (-not $SkipAuth) {
     if (Test-OpReady) {
         Ensure-GhAuth
-        Ensure-AtlassianAuth
     }
 } else {
     Write-Host "[-] Skipping auth (-SkipAuth)." -ForegroundColor Gray
 }
 
-    if (Test-OpReady) {
-    } else {
-    }
-}
-
 Show-ManualChecklist
-Write-Host ""

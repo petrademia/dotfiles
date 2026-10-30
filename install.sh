@@ -23,13 +23,6 @@ link "$DOTFILES/config/zellij" "$HOME/.config/zellij"
 link "$DOTFILES/global/AGENTS.md" "$HOME/AGENTS.md"
 link "$DOTFILES/global/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 
-case "$(uname -s)" in
-  Darwin) GO_ENV_DIR="$HOME/Library/Application Support/go" ;;
-  *) GO_ENV_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/go" ;;
-esac
-mkdir -p "$GO_ENV_DIR"
-link "$DOTFILES/go/env" "$GO_ENV_DIR/env"
-
 mkdir -p "$HOME/.cursor"
 link "$DOTFILES/cursor/cli-config.json" "$HOME/.cursor/cli-config.json"
 

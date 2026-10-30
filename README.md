@@ -159,13 +159,7 @@ After `windows.ps1`, sign into 1Password and run:
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 | iex
 ```
 
-This configures `gh` and `atlassian-cli` from 1Password when tokens exist.
-
-
-```powershell
-$s = $env:TEMP\post-setup.ps1
-irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-setup.ps1 -OutFile $s
-```
+This configures `gh` from 1Password when a token exists.
 
 Windows directory-backed dotfiles are merged without deleting extra user files.
 
@@ -269,6 +263,7 @@ irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/post-se
 
 Uses the `GitHub CLI Token` item (`password`, `credential`, or `token` field). Git push uses SSH (`SSH Key` in 1Password agent), not `gh`.
 
+### Atlassian
 
 On Windows, no GitHub binary is available for `atlassian-cli`. Setup compiles
 it with MSVC `link.exe` when present, or with Scoop `gcc` and the GNU Rust
@@ -276,16 +271,6 @@ target otherwise. Visual Studio 2022 Build Tools (C++ workload) are installed
 so `rustup-msvc` and UniGetUI Rust packages can link. Setup also installs
 `scoop-search`, `cargo-update`, and `cargo-binstall` for UniGetUI's Scoop
 search and Cargo managers.
-
-```bash
-```
-
-
-```bash
-```
-
-
-Atlassian API tokens are per-app and scoped. Keep separate 1Password items:
 
 
 ## Git and SSH
@@ -295,7 +280,6 @@ Git uses SSH via the 1Password SSH agent (`global/AGENTS.md`). `setup/windows.ps
 | 1Password SSH item | Host |
 |--------------------|------|
 | `SSH Key` | GitHub (`ssh -T git@github.com`) |
-
 
 ## AI
 

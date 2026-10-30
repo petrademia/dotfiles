@@ -44,4 +44,3 @@ Desktop app unlocked; **Settings > Developer**: turn on **Integrate with 1Passwo
 - AI keys: `get-keys` in `~/.zshrc` (`config/zsh/ai.zsh`).
 - Git SSH: 1Password SSH agent (`IdentityAgent` on macOS; WSL uses Windows `op.exe` when bridged).
 
-
