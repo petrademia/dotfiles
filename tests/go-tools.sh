@@ -24,6 +24,8 @@ STUB
 chmod +x "$work/bin/go"
 
 {
+  # Same options as setup/macos.sh: a missing binary used to abort the whole script under pipefail.
+  echo 'set -e -o pipefail'
   echo 'record_result() { echo "result:$1"; }'
   sed -n '/^echo "==> Installing Go tools"/,/^done$/p' "$repo/setup/macos.sh"
 } > "$work/step.zsh"
