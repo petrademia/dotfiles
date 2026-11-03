@@ -2,8 +2,11 @@
 	name = Petrus Damianus Sammy Wiyadi
 	email = petrus.dsw@gmail.com
 
+# Reads use HTTPS so a fresh machine can fetch public repos (Homebrew, taps, this
+# repo) before the 1Password SSH agent is set up. Pushes go over SSH. Private repos
+# are read through the gh credential helper.
 [url "git@github.com:"]
-	insteadOf = https://github.com/
+	pushInsteadOf = https://github.com/
 
 [rerere]
 	# Reuse a conflict resolution when the same conflict comes back, which a rebase of a
