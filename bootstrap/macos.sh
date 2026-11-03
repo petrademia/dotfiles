@@ -44,8 +44,13 @@ defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
 # Per-folder views live in .DS_Store and override FXPreferredViewStyle.
 # Clear them under $HOME only (never system-wide) so list view actually sticks.
 # Leave /Applications alone - icon view there is intentional/common.
-echo "--> Clearing Finder per-folder view memory (~/.DS_Store under \$HOME)"
-find "$HOME" -name .DS_Store -type f -delete 2>/dev/null || true
+echo "--> Clearing Finder per-folder view memory (.DS_Store in your visible folders)"
+# A bare `find $HOME` walks millions of files (Library, caches, toolchains, node_modules, repos), which
+# looks like a hang and makes macOS ask for access to Documents, Downloads and Desktop one by one.
+# Finder only keeps view memory for folders you browse, so skip the hidden and tool directories.
+# (-delete implies -depth, which disables -prune, so remove with -exec.)
+find "$HOME" -maxdepth 4 -type d \( -name '.*' -o -name Library -o -name node_modules \) \
+  -not -path "$HOME" -prune -o -name .DS_Store -type f -exec rm -f {} + 2>/dev/null || true
 # Special locations (iCloud / Recents) keep separate icon-biased settings
 defaults delete com.apple.finder ICloudViewSettings 2>/dev/null || true
 defaults delete com.apple.finder SearchRecentsViewSettings 2>/dev/null || true
