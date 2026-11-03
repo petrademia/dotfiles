@@ -186,6 +186,7 @@ FORMULAS=(
   herdr
   jq
   mas
+  mpv
   neovim
   p7zip
   pandoc
@@ -220,6 +221,7 @@ FORMULAS=(
 
   # API, testing and dev tools
   buf
+  gitleaks
   golang-migrate
   golangci-lint
   k6
@@ -242,6 +244,7 @@ FORMULAS=(
   llama.cpp
   jundot/omlx/omlx
   opencode
+  whisper.cpp
 
   # Network and VPN
   netbirdio/tap/netbird
@@ -716,11 +719,18 @@ echo "==> Updating uv tools"
 uv_tool_version() {
   printf '%s\n' "$1" | awk -v tool="$2" '$1 == tool { print $2; exit }'
 }
+# MLX has no wheels for Python 3.14 or newer, which is what a fresh Mac's python3 is, so pin those tools.
+uv_tool_python() {
+  case "$1" in
+    mlx-*) echo 3.12 ;;
+    *) echo 3 ;;
+  esac
+}
 
 if uv_before=$(uv tool list --show-version-specifiers); then
-  for tool in graphifyy; do
+  for tool in graphifyy mlx-lm mlx-optiq; do
     before=$(uv_tool_version "$uv_before" "$tool")
-    if ! uv tool install --upgrade graphifyy --python 3; then
+    if ! uv tool install --upgrade "$tool" --python "$(uv_tool_python "$tool")"; then
       record_result failed
       echo "Warning: uv tool install/upgrade failed: $tool"
       continue
@@ -747,8 +757,8 @@ if uv_before=$(uv tool list --show-version-specifiers); then
   done
 else
   echo "Warning: could not read installed uv tools before updating"
-  for tool in graphifyy; do
-    uv tool install --upgrade graphifyy --python 3 || true
+  for tool in graphifyy mlx-lm mlx-optiq; do
+    uv tool install --upgrade "$tool" --python "$(uv_tool_python "$tool")" || true
     record_result failed
     echo "Warning: could not classify the uv tool result: $tool"
   done
