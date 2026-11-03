@@ -445,6 +445,7 @@ fi
 MAS_APPS=(
   "1284863847 Unsplash Wallpapers"
   "1398373917 UpNote"
+  "1607635845 Velja"
 )
 
 # App Store targets are version-checked and updated individually. mas requires

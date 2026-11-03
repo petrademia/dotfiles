@@ -450,7 +450,7 @@ package-manager builds.
 
 ### Apps and drivers
 
-- Velja: install from the App Store.
+- Velja: installed by setup from the App Store (needs an interactive terminal signed in to the App Store).
 - JetBrains: install through Toolbox.
 - [Wavlink drivers](https://www.wavlink.com/en_us/Drivers.html): install manually.
 - DisplayLink is included in setup on macOS and Windows; reboot after
