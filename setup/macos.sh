@@ -282,7 +282,6 @@ CASKS=(
   raycast
 
   # Terminals
-  alacritty
   cmux
   ghostty
   hyper
@@ -372,7 +371,6 @@ CASKS=(
   localsend
   macpacker
   onedrive
-  qbittorrent
   transmission
 
   # Network and VPN
@@ -981,3 +979,7 @@ echo "Manual follow-ups (if needed):"
 echo "  Reboot for DisplayLink; install Wavlink drivers: https://www.wavlink.com/en_us/Drivers.html"
 echo "  Sign in to Antigravity; configure Goose with \`goose configure\`."
 echo "  Run \`/impeccable init\` per project; create Kubernetes clusters with \`kind\` or \`k3d\`."
+echo "  Alacritty and qBittorrent are unsigned and disabled in Homebrew, so setup skips them:"
+echo "    Alacritty: build it (git checkout v0.17.0 && make app) or use the release DMG."
+echo "    qBittorrent: download the DMG from qbittorrent.org."
+echo "    Then clear quarantine: xattr -dr com.apple.quarantine /Applications/<App>.app"
