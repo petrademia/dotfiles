@@ -51,6 +51,12 @@ curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/setup.sh |
 The dispatcher fetches the current platform script. When run from a pipe, it
 reconnects to the terminal for interactive checks such as Mac App Store apps.
 
+Alacritty and qBittorrent are not installed by setup: their macOS builds are unsigned, so
+Homebrew disabled both casks (2026-09-01) and a Gatekeeper-blocked install would fail every run.
+Install Alacritty by building it (`git checkout v0.17.0 && make app`) or from the release DMG, and
+qBittorrent from the DMG on qbittorrent.org. Then clear the quarantine flag with
+`xattr -dr com.apple.quarantine /Applications/<App>.app`.
+
 Apply macOS defaults and login items with:
 
 ```bash
