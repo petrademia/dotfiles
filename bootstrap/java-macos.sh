@@ -25,14 +25,14 @@ if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/arch -x86_64 /usr/bin/true >/dev/nu
   softwareupdate --install-rosetta --agree-to-license || true
 fi
 
-# Liberica lives in a third-party tap (uses git clone; with insteadOf this is SSH/1Password).
+# Liberica lives in a third-party tap (a public git clone over HTTPS).
 ensure_liberica_tap() {
   local tap_dir
   tap_dir="$(brew --repository)/Library/Taps/bell-sw/homebrew-liberica"
   if [ -d "$tap_dir/.git" ]; then
     echo "==> skip Liberica tap (already present)"
   else
-    echo "==> Tapping bell-sw/liberica (SSH via git insteadOf - approve 1Password if prompted)"
+    echo "==> Tapping bell-sw/liberica"
     # Drop a broken partial clone so brew tap can recreate it
     rm -rf "$tap_dir"
     brew tap bell-sw/liberica

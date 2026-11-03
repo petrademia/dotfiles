@@ -16,6 +16,13 @@ zsh -fc "source '$repo/config/zsh/options.zsh'; [[ ! -o inc_append_history ]]" \
 # git config
 cfg="$repo/git/gitconfig"
 git config --file "$cfg" --list >/dev/null || fail "git/gitconfig does not parse"
+# Reads must stay on HTTPS: rewriting them to SSH breaks `brew update` and fresh clones on a new machine
+# that has no SSH key yet. Only pushes are rewritten.
+if git config --file "$cfg" --get-regexp '^url\..*\.insteadof$' | grep -q 'https://github.com/'; then
+  fail "git/gitconfig rewrites GitHub reads to SSH; use pushInsteadOf"
+fi
+git config --file "$cfg" --get-regexp '^url\..*\.pushinsteadof$' | grep -q 'https://github.com/' \
+  || fail "git/gitconfig lacks the GitHub pushInsteadOf rewrite"
 want() { [ "$(git config --file "$cfg" --get "$1")" = "$2" ] || fail "git config $1 is not $2"; }
 want rerere.enabled true
 want rebase.autoSquash true
