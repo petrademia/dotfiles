@@ -15,7 +15,7 @@ array_items() {
   ' "$script"
 }
 
-taps=$(grep -E '^brew tap ' "$script" | awk '{ print $3 }')
+taps=$(grep -E '^ *brew tap ' "$script" | awk '{ print $3 }')
 for list in FORMULAS CASKS; do
   items=$(array_items "$list")
   [ -n "$items" ] || fail "could not read the $list array"
@@ -30,5 +30,9 @@ for list in FORMULAS CASKS; do
     esac
   done <<< "$items"
 done
+
+# jundot/omlx lives in a repo without the homebrew- prefix; a bare `brew tap` clones a 404 URL.
+grep -qE '^  brew tap jundot/omlx https://github\.com/jundot/omlx$' "$script" \
+  || fail "jundot/omlx tap must be given its repository URL"
 
 printf 'Package list checks passed.\n'

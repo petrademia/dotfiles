@@ -159,7 +159,12 @@ brew trust omar16100/atlassian-cli
 brew tap netbirdio/tap
 brew trust netbirdio/tap
 
-brew tap jundot/omlx
+# The repo is jundot/omlx, not jundot/homebrew-omlx, so brew's default clone URL
+# 404s (and git then asks for a GitHub login). Pass the URL, but only on first
+# tap: an existing tap with another remote makes brew report a mismatch.
+if ! brew tap | grep -qx "jundot/omlx"; then
+  brew tap jundot/omlx https://github.com/jundot/omlx
+fi
 brew trust jundot/omlx
 
 load_brew_snapshot
