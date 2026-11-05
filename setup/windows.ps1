@@ -1585,7 +1585,7 @@ $apps = @(
     "ninja", "podman", "podman-desktop", "sudo", "uv", "gdb", "cheat-engine",
     "syncthing",
     "xmake", "cmake", "ripgrep", "neovim", "zellij", "helix", "zed", "lapce", "neovide", "trae", "graphviz", "zstd", "ngrok",
-    "gradle", "maven", "plantuml", "z3", "sqlite",
+    "gradle", "maven", "python", "jdtls", "plantuml", "z3", "sqlite",
     "kubectl", "kind", "k3d",
     "potplayer", "firefox-nightly", "thorium", "min", "chromium"
 )
@@ -2292,6 +2292,16 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
     } else {
         go install github.com/charmbracelet/crush@latest
         if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "crush" }
+    }
+
+    # gopls has no Scoop package. It lands in $GOPATH\bin, which is already on PATH above.
+    if (Get-Command gopls -ErrorAction SilentlyContinue) {
+        Write-Host "[-] gopls already present. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "gopls"
+    } else {
+        go install golang.org/x/tools/gopls@latest
+        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed "gopls" }
+        else { Add-SetupResult Failed "gopls" }
     }
 }
 
