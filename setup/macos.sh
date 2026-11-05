@@ -202,6 +202,7 @@ FORMULAS=(
   gcc
   go
   gradle
+  jdtls
   llvm
   maven
   ninja
@@ -224,6 +225,7 @@ FORMULAS=(
   gitleaks
   golang-migrate
   golangci-lint
+  gopls
   k6
   leetgo
   protobuf
