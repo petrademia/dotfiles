@@ -1,5 +1,9 @@
 -- Language servers through Neovim's built-in LSP client (no plugins). Setup installs the servers;
 -- a server is only enabled when its binary is on PATH, so a machine without one stays quiet.
+-- vim.lsp.config and vim.lsp.enable arrived in Neovim 0.11; WSL's apt neovim can be older, so skip quietly.
+if not (vim.lsp.config and vim.lsp.enable) then
+  return
+end
 
 vim.lsp.config("gopls", {
   cmd = { "gopls" },
