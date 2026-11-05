@@ -275,6 +275,69 @@ if ! smart_check "go" "/usr/bin/go"; then
     else record_result failed; echo "[-] Go install failed"; fi
 fi
 
+echo "==> 4b) Language servers (gopls, jdtls)"
+# gopls: go install fetches the latest release, so a rerun updates it. It lands in $GOPATH/bin, which the shell bridge adds to PATH.
+if command -v go >/dev/null 2>&1; then
+    gopls_bin="$(go env GOPATH)/bin/gopls"
+    gopls_before=$(sha256sum "$gopls_bin" 2>/dev/null | awk '{ print $1 }' || true)
+    if go install golang.org/x/tools/gopls@latest; then
+        gopls_after=$(sha256sum "$gopls_bin" 2>/dev/null | awk '{ print $1 }' || true)
+        if [ -z "$gopls_before" ]; then record_result installed
+        elif [ "$gopls_before" = "$gopls_after" ]; then record_result skipped
+        else record_result updated; fi
+    else record_result failed; echo "Warning: gopls install failed"; fi
+else
+    echo "[-] go not available; skipping gopls"
+fi
+
+# jdtls: Eclipse publishes milestone tarballs, not an apt package. It needs the Java 21 runtime from the base package list.
+latest_jdtls_version() {
+    curl -fsSL "https://api.github.com/repos/eclipse-jdtls/eclipse.jdt.ls/tags?per_page=100" \
+        | python3 -c 'import json,sys,re
+tags=[t["name"].lstrip("v") for t in json.load(sys.stdin) if re.fullmatch(r"v?\d+\.\d+\.\d+",t["name"])]
+print(max(tags,key=lambda v:tuple(int(x) for x in v.split("."))))'
+}
+JDTLS_HOME="$HOME/.local/share/jdtls"
+JDTLS_BASE="https://download.eclipse.org/jdtls/milestones"
+JDTLS_LATEST=$(latest_jdtls_version 2>/dev/null || true)
+JDTLS_CURRENT=$(cat "$JDTLS_HOME/.version" 2>/dev/null || true)
+if [ -z "$JDTLS_LATEST" ]; then
+    if [ -n "$JDTLS_CURRENT" ]; then
+        echo "[-] jdtls $JDTLS_CURRENT kept (could not look up the latest version)"
+        record_result skipped
+    else
+        echo "[!] Could not find the latest jdtls release"
+        record_result failed
+    fi
+elif version_matches "$JDTLS_CURRENT" "$JDTLS_LATEST"; then
+    echo "[-] jdtls $JDTLS_CURRENT is current"
+    record_result skipped
+else
+    jdtls_tmp=$(mktemp -d)
+    jdtls_file=$(curl -fsSL "$JDTLS_BASE/$JDTLS_LATEST/latest.txt" | tr -d '\r\n' || true)
+    if [ -n "$jdtls_file" ] \
+        && curl -fsSL "$JDTLS_BASE/$JDTLS_LATEST/$jdtls_file" -o "$jdtls_tmp/jdtls.tar.gz" \
+        && curl -fsSL "$JDTLS_BASE/$JDTLS_LATEST/$jdtls_file.sha256" -o "$jdtls_tmp/jdtls.sha256" \
+        && [ "$(sha256sum "$jdtls_tmp/jdtls.tar.gz" | awk '{ print $1 }')" = "$(awk '{ print $1 }' "$jdtls_tmp/jdtls.sha256")" ] \
+        && rm -rf "$JDTLS_HOME.new" && mkdir -p "$JDTLS_HOME.new" \
+        && tar -xzf "$jdtls_tmp/jdtls.tar.gz" -C "$JDTLS_HOME.new" \
+        && echo "$JDTLS_LATEST" > "$JDTLS_HOME.new/.version" \
+        && rm -rf "$JDTLS_HOME" && mv "$JDTLS_HOME.new" "$JDTLS_HOME" \
+        && mkdir -p "$HOME/.local/bin" && ln -sfn "$JDTLS_HOME/bin/jdtls" "$HOME/.local/bin/jdtls"; then
+        if [ -z "$JDTLS_CURRENT" ]; then
+            echo "[+] Installed jdtls $JDTLS_LATEST"
+            record_result installed
+        else
+            echo "[+] Updated jdtls: $JDTLS_CURRENT -> $JDTLS_LATEST"
+            record_result updated
+        fi
+    else
+        echo "Warning: jdtls install failed"
+        record_result failed
+    fi
+    rm -rf "$jdtls_tmp" "$JDTLS_HOME.new"
+fi
+
 echo "==> 5) fnm & uv"
 if ! smart_check "fnm" "$HOME/.local/share/fnm/fnm"; then
     curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
