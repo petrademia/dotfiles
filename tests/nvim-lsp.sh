@@ -43,4 +43,8 @@ for f in a/A.java b/B.java; do
 done
 [ "$(grep -c -- '-data' "$work/jdtls-args")" -ge 2 ] || fail "jdtls was not started with -data for both projects"
 [ "$(awk '{print $2}' "$work/jdtls-args" | sort -u | wc -l | tr -d ' ')" = 2 ] || fail "two projects must get two different jdtls workspaces"
+# An older Neovim has no vim.lsp.config/enable; loading the file must not error there.
+out=$(nv -c 'lua vim.lsp.config = nil; vim.lsp.enable = nil; package.loaded.lsp = nil; local ok, err = pcall(require, "lsp"); print(ok and "loaded" or ("error: " .. tostring(err)))' -c 'qa!' </dev/null | tail -1 | tr -d '\r')
+[ "$out" = "loaded" ] || fail "lsp.lua must load without vim.lsp.config, got: $out"
+
 echo 'Neovim LSP checks passed.'
