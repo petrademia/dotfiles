@@ -578,8 +578,13 @@ Podman or Docker must be running first.
 setup.sh setup/   installers (macos.sh, windows.ps1, wsl.sh)
 install.sh        symlinks (macOS/WSL; Windows copies via windows.ps1)
 bootstrap/        java-*, macos.sh, post-setup.ps1
-ai/ git/ go/ cursor/ shell/ bin/ (docker shims) config/ (nvim, zellij, zsh, containers) scripts/
+ai/ git/ cursor/ shell/ bin/ (docker shims) config/ (nvim, zellij, zsh, containers) scripts/
 ```
+
+Neovim uses its built-in LSP client (`config/nvim/lua/lsp.lua`, no plugins) with `gopls`, `clangd` and
+`jdtls`; macOS setup installs the Go and Java servers, and a server is only enabled when its binary is on
+`PATH`. `jdtls` pulls in Homebrew's `openjdk` and honours `JAVA_HOME`, so it follows the JDK `java.zsh` selects.
+Helix finds the same servers by name.
 
 ### Separate Claude work account (macOS)
 
