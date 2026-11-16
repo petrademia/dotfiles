@@ -22,6 +22,9 @@ if ($AdminPhase -and $UserPhase) {
     exit 1
 }
 
+# All parameters are switches; kept so a self-update restart can pass them on.
+$script:SetupSwitches = @($PSBoundParameters.Keys | ForEach-Object { "-$_" })
+
 $script:AdminPhasePending = $false
 $script:RunAdminPhase = $false
 $script:RunUserPhase = $false
@@ -153,8 +156,33 @@ function Disable-ConsoleQuickEdit {
     }
 }
 
+# A downloaded copy (not a git checkout) goes stale the moment it is cached. Fetch the latest, and if it
+# differs replace this file and restart on it, so a re-run of the cached path never uses an old script.
+# Offline or any failure keeps the current copy. DOTFILES_NO_SELF_UPDATE=1 turns this off.
+function Update-SetupScriptFromGitHub {
+    if (-not $PSCommandPath -or $env:DOTFILES_NO_SELF_UPDATE -or $env:DOTFILES_SELF_UPDATED) { return }
+    if (Test-Path -LiteralPath (Join-Path $PSScriptRoot "..\.git")) { return }
+    $fresh = "$PSCommandPath.new"
+    try {
+        $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+        & curl.exe -fsSL --max-time 30 "https://raw.githubusercontent.com/petrademia/dotfiles/main/setup/windows.ps1?t=$stamp" -o $fresh 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $fresh) -or (Get-Item -LiteralPath $fresh).Length -lt 10KB) { return }
+        if ((Get-FileHash -LiteralPath $fresh).Hash -eq (Get-FileHash -LiteralPath $PSCommandPath).Hash) { return }
+        Move-Item -LiteralPath $fresh -Destination $PSCommandPath -Force
+    } catch {
+        return
+    } finally {
+        Remove-Item -LiteralPath $fresh -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "[+] Updated setup script from GitHub. Restarting on the new copy..." -ForegroundColor Cyan
+    $env:DOTFILES_SELF_UPDATED = "1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath @script:SetupSwitches
+    exit $LASTEXITCODE
+}
+
 # --- 0. Pre-Flight ---
 Disable-ConsoleQuickEdit
+Update-SetupScriptFromGitHub
 Set-DotfilesBootstrapExecutionPolicy
 # irm | iex often starts in System32; keep installers from writing into that tree.
 Set-Location $HOME
