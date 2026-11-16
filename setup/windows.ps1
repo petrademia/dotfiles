@@ -465,6 +465,79 @@ function Test-WingetNoChange {
     return $Text -match "No available upgrade found|No newer package versions are available|No applicable upgrade|No installed package found|No package found matching|version number cannot be determined"
 }
 
+# Runs a native command with its output echoed live and captured, and kills it (and its children)
+# after $TimeoutSec. A hung download (Delivery Optimization on Opera GX) otherwise blocks setup forever.
+function Invoke-NativeWithTimeout {
+    param([string]$File, [string[]]$ArgumentList, [int]$TimeoutSec)
+    $outFile = [IO.Path]::GetTempFileName()
+    $errFile = [IO.Path]::GetTempFileName()
+    $readers = @()
+    $text = New-Object System.Text.StringBuilder
+    $timedOut = $false
+    try {
+        $p = Start-Process -FilePath $File -ArgumentList $ArgumentList -NoNewWindow -PassThru `
+            -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        $null = $p.Handle   # keeps ExitCode readable after the process exits
+        foreach ($f in $outFile, $errFile) {
+            $fs = [IO.File]::Open($f, 'Open', 'Read', 'ReadWrite')
+            $readers += New-Object IO.StreamReader($fs)
+        }
+        $flush = {
+            foreach ($r in $readers) {
+                $chunk = $r.ReadToEnd()
+                if ($chunk) { [void]$text.Append($chunk); Write-Host $chunk -NoNewline }
+            }
+        }
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        while (-not $p.HasExited) {
+            if ($sw.Elapsed.TotalSeconds -ge $TimeoutSec) {
+                $timedOut = $true
+                if (Get-Command taskkill -ErrorAction SilentlyContinue) { & taskkill /PID $p.Id /T /F 2>&1 | Out-Null }
+                else { $p.Kill() }
+                break
+            }
+            Start-Sleep -Milliseconds 500
+            & $flush
+        }
+        [void]$p.WaitForExit(5000)
+        & $flush
+        $code = if ($timedOut -or -not $p.HasExited) { -1 } else { $p.ExitCode }
+        return [pscustomobject]@{ Text = $text.ToString(); Code = $code; TimedOut = $timedOut }
+    } finally {
+        foreach ($r in $readers) { $r.Dispose() }
+        Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+    }
+}
+
+# Winget has no per-command downloader flag, so the retry swaps in a minimal settings.json that selects
+# the WinINet downloader, then restores the original bytes (or removes the file if there was none).
+function Use-WingetWininetDownloader {
+    param([scriptblock]$Action)
+    $path = Join-Path $env:LOCALAPPDATA "Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\settings.json"
+    $had = Test-Path $path
+    $backup = if ($had) { [IO.File]::ReadAllBytes($path) }
+    try {
+        New-Item -ItemType Directory -Force -Path (Split-Path $path) | Out-Null
+        [IO.File]::WriteAllText($path, '{ "$schema": "https://aka.ms/winget-settings.schema.json", "network": { "downloader": "wininet" } }')
+        & $Action
+    } finally {
+        if ($had) { [IO.File]::WriteAllBytes($path, $backup) }
+        else { Remove-Item $path -ErrorAction SilentlyContinue }
+    }
+}
+
+$script:WingetInstallTimeoutSec = 900
+
+function Invoke-WingetInstallWithRetry {
+    param([string]$Id)
+    $wingetArgs = @("install", "-e", "--id", $Id, "--accept-package-agreements", "--accept-source-agreements", "--silent", "--source", "winget")
+    $result = Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec
+    if (-not $result.TimedOut) { return $result }
+    Write-Host ""
+    Write-Host "[!] $Id install stalled for $([int]($script:WingetInstallTimeoutSec / 60)) min. Retrying once with the WinINet downloader..." -ForegroundColor Yellow
+    return Use-WingetWininetDownloader { Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec }
+}
+
 # Winget's Warp.Warp installer URL is an HTML landing page, so `winget install`
 # sits on "Downloading https://app.warp.dev/download/windows?..." forever.
 function Install-Warp {
@@ -1314,12 +1387,13 @@ function Install-WingetApps {
         $checkText = @($check | ForEach-Object { "$_" }) -join "`n"
         if ([string]::IsNullOrWhiteSpace($checkText) -or (Test-WingetNoChange $checkText)) {
             Write-Host "[+] Installing $app..." -ForegroundColor Cyan
-            $wingetLines = @()
-            winget install -e --id $app --accept-package-agreements --accept-source-agreements --silent --source winget 2>&1 | Tee-Object -Variable wingetLines
-            $wingetText = @($wingetLines | ForEach-Object { "$_" }) -join "`n"
-            $wingetCode = $LASTEXITCODE
+            $wingetResult = Invoke-WingetInstallWithRetry $app
+            $wingetText = $wingetResult.Text
+            $wingetCode = $wingetResult.Code
             $installSucceeded = $wingetCode -eq 0
-            if (Test-WingetExit1603 $wingetText $wingetCode) {
+            if ($wingetResult.TimedOut) {
+                Write-Host "[!] $app install stalled again after the retry. Skipping; re-run later." -ForegroundColor Yellow
+            } elseif (Test-WingetExit1603 $wingetText $wingetCode) {
                 if ($app -eq "Deskflow.Deskflow") {
                     Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
                 } elseif ($AdminOnly) {

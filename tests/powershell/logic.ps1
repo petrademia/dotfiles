@@ -35,7 +35,19 @@ Check "old logic: 'git' matched 'github.com' in a bucket URL (the real collision
 Check "old logic: 'go' matched the installed 'goose'" ('7zip goose' -like '*go*')
 Check "(gh is NOT a substring of github, so it was never at risk from URLs)" (-not ($export -like '*gh*'))
 
-# ---- 2. the graphify block
+# ---- 2. Invoke-NativeWithTimeout (kills a stalled install, keeps output and exit code otherwise)
+$fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-NativeWithTimeout' }, $true)
+Invoke-Expression $fn.Extent.Text
+"Invoke-NativeWithTimeout"
+$pwshExe = (Get-Process -Id $PID).Path
+function EncodedArgs($cmd) { @('-NoProfile', '-EncodedCommand', [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))) }
+$sw = [Diagnostics.Stopwatch]::StartNew()
+$r = Invoke-NativeWithTimeout $pwshExe (EncodedArgs 'Start-Sleep -Seconds 60') 2 | Select-Object -Last 1
+Check "a stalled command is killed at the timeout" ($r.TimedOut -and $r.Code -eq -1 -and $sw.Elapsed.TotalSeconds -lt 30)
+$r = Invoke-NativeWithTimeout $pwshExe (EncodedArgs 'Write-Output hello; exit 3') 30 | Select-Object -Last 1
+Check "a finished command keeps its exit code and output" ((-not $r.TimedOut) -and $r.Code -eq 3 -and $r.Text -match 'hello')
+
+# ---- 3. the graphify block
 $if = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -match 'Get-Command uv' -and $n.Extent.Text -match 'graphifyBefore' }, $true) | Select-Object -First 1
 $block = $if.Extent.Text
 "graphify block"
