@@ -957,21 +957,6 @@ function Initialize-TrafficMonitor {
     }
 }
 
-function Invoke-DesktopShellRefresh {
-    if (-not ("DotfilesDesktopNotify" -as [type])) {
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class DotfilesDesktopNotify {
-    [DllImport("shell32.dll")]
-    public static extern void SHChangeNotify(int wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
-}
-"@
-    }
-    # SHCNE_ASSOCCHANGED: Explorer re-reads desktop icons without a restart.
-    [DotfilesDesktopNotify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
-}
-
 # Settings > Personalization > Background / Lock screen = Windows Spotlight (daily image).
 # Registry mode flags alone leave an OEM picture in place; SPI a Spotlight starter
 # image first so the Iris service can take over rotation.
