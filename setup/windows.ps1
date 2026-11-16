@@ -63,7 +63,7 @@ $script:WingetApps = @(
     "Microsoft.PowerToys",
     "Devolutions.UniGetUI",
     "voidtools.Everything",
-    "hluk.CopyQ", "File-New-Project.EarTrumpet", "AltSnap.AltSnap", "xanderfrangos.twinkletray", "ShareX.ShareX",
+    "MNardit.Beetroot", "File-New-Project.EarTrumpet", "AltSnap.AltSnap", "xanderfrangos.twinkletray", "ShareX.ShareX",
     "Ollama.Ollama", "ElementLabs.LMStudio", "ggml.llamacpp", "SST.OpenCodeDesktop",
     "Google.Chrome", "Google.Chrome.Beta", "Google.Chrome.Canary",
     "Google.GoogleDrive", "Microsoft.OneDrive",
