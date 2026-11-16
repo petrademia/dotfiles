@@ -46,6 +46,10 @@ $r = Invoke-NativeWithTimeout $pwshExe (EncodedArgs 'Start-Sleep -Seconds 60') 2
 Check "a stalled command is killed at the timeout" ($r.TimedOut -and $r.Code -eq -1 -and $sw.Elapsed.TotalSeconds -lt 30)
 $r = Invoke-NativeWithTimeout $pwshExe (EncodedArgs 'Write-Output hello; exit 3') 30 | Select-Object -Last 1
 Check "a finished command keeps its exit code and output" ((-not $r.TimedOut) -and $r.Code -eq 3 -and $r.Text -match 'hello')
+$o = @(Invoke-NativeWithTimeout $pwshExe (EncodedArgs 'Write-Output keep; Write-Output "No available upgrade found."') 30 '^No available' 6>&1)
+$shown = ($o | Where-Object { $_ -is [Management.Automation.InformationRecord] } | ForEach-Object { "$_" }) -join ''
+$r = $o | Where-Object { $_ -isnot [Management.Automation.InformationRecord] } | Select-Object -Last 1
+Check "a hidden line is not echoed but stays in the captured text" (($shown -match 'keep') -and ($shown -notmatch 'No available') -and ($r.Text -match 'No available upgrade found'))
 
 # ---- 3. the graphify block
 $if = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -match 'Get-Command uv' -and $n.Extent.Text -match 'graphifyBefore' }, $true) | Select-Object -First 1

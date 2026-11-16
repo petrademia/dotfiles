@@ -35,9 +35,11 @@ their setup manifests. What a rerun updates:
 - WSL: apt packages in the base list, the apt-repo tools (`gh`, `ngrok`, `gcloud`, `crush`), npm
   globals, Rust stable, Zellij, Helix, kubectl, kind, k3d, uv tools and Hermes. Anything else that is
   already on `PATH` is skipped.
-- Windows: npm globals, Rust stable and graphify (uv). winget and Scoop apps are installed
-  when missing and left to `winget upgrade` / `scoop update *` / UniGetUI afterwards; Scoop apps are
-  matched by exact name.
+- Windows: npm globals, Rust stable and graphify (uv). winget and Scoop apps in the setup lists are
+  installed when missing and upgraded when a newer version exists (the summary counts them as
+  Updated); Scoop apps are matched by exact name and `app@version` pins are never upgraded. An app
+  that is running can fail to upgrade; close it and re-run. Anything outside the lists is left to
+  `winget upgrade` / `scoop update *` / UniGetUI.
 
 Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
 separately inside Ubuntu.

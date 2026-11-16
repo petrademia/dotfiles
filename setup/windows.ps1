@@ -40,6 +40,7 @@ $script:WingetDeferFile = Join-Path $env:TEMP "dotfiles-winget-user-phase.txt"
 $script:NvidiaAppDeferFile = Join-Path $env:TEMP "dotfiles-nvidia-app-after-reboot.txt"
 $script:GeForceExperienceRemovedThisRun = $false
 $script:UserPhaseLogFile = Join-Path $env:TEMP "dotfiles-windows-user-phase.log"
+$script:UserPhasePidFile = Join-Path $env:TEMP "dotfiles-user-phase.pid"
 $script:UserPhaseTranscriptStarted = $false
 $script:WingetApps = @(
     "DisplayLink.GraphicsDriver",
@@ -49,6 +50,7 @@ $script:WingetApps = @(
     "Microsoft.VCRedist.2013.x86",
     "Microsoft.DirectX",
     "Microsoft.DotNet.DesktopRuntime.10",
+    "Microsoft.WSL",
     "PatchMyPC.PatchMyPC",
     "CodecGuide.K-LiteCodecPack.Full",
     "TheDocumentFoundation.LibreOffice",
@@ -339,15 +341,6 @@ function Unregister-DotfilesAdminPhaseTask {
     Unregister-ScheduledTask -TaskName $script:DotfilesAdminTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 }
 
-function Get-DotfilesUserPhaseProcesses {
-    param([string]$Path)
-    @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.CommandLine -and
-            ($_.CommandLine -like "*$Path*") -and
-            ($_.CommandLine -like "*UserPhase*")
-        })
-}
 
 function Start-DotfilesUserPhaseNonElevated {
     param([switch]$Wait)
@@ -358,6 +351,7 @@ function Start-DotfilesUserPhaseNonElevated {
         return 1
     }
     Unregister-ScheduledTask -TaskName $script:DotfilesUserTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    Remove-Item -LiteralPath $script:UserPhasePidFile -Force -ErrorAction SilentlyContinue
 
     $wd = Split-Path $path
     $windowArgs = @(
@@ -387,19 +381,20 @@ function Start-DotfilesUserPhaseNonElevated {
         }
         if ($Wait) {
             Write-Host "[+] Waiting for user phase window (close it when done)..." -ForegroundColor Gray
-            $started = $false
-            for ($i = 0; $i -lt 20; $i++) {
+            # The child records its own PID; matching command lines through CIM missed the window.
+            $userPid = $null
+            for ($i = 0; $i -lt 60 -and -not $userPid; $i++) {
                 Start-Sleep -Seconds 1
-                if ((Get-DotfilesUserPhaseProcesses $path).Count -gt 0) { $started = $true; break }
+                if (Test-Path $script:UserPhasePidFile) {
+                    $userPid = [int]((Get-Content -LiteralPath $script:UserPhasePidFile -Raw -ErrorAction SilentlyContinue) -replace '\D', '')
+                }
             }
-            if (-not $started) {
+            if (-not $userPid) {
                 Write-Host "[!] User phase window did not start." -ForegroundColor Yellow
                 Write-Host "    Normal PS: $manual" -ForegroundColor Cyan
                 return 1
             }
-            do {
-                Start-Sleep -Seconds 2
-            } while ((Get-DotfilesUserPhaseProcesses $path).Count -gt 0)
+            Wait-Process -Id $userPid -ErrorAction SilentlyContinue
             if (Test-Path $script:UserPhaseLogFile) {
                 Write-Host "[+] User phase log: $script:UserPhaseLogFile" -ForegroundColor Green
             }
@@ -440,6 +435,7 @@ function Test-DotfilesRunUserPhase {
 function Start-DotfilesUserPhaseLogging {
     if (-not (Test-DotfilesRunUserPhase)) { return }
     if ($script:UserPhaseTranscriptStarted) { return }
+    Set-Content -LiteralPath $script:UserPhasePidFile -Value $PID -ErrorAction SilentlyContinue
     try {
         Start-Transcript -Path $script:UserPhaseLogFile -Append -Force | Out-Null
         $script:UserPhaseTranscriptStarted = $true
@@ -484,15 +480,14 @@ function Test-WingetHashMismatch {
     return $Text -match "Installer hash does not match"
 }
 
-function Test-WingetNoChange {
-    param([string]$Text)
-    return $Text -match "No available upgrade found|No newer package versions are available|No applicable upgrade|No installed package found|No package found matching|version number cannot be determined"
-}
+# Winget exit codes: 0x8A15002B (installed, no newer version) and 0x8A150014 (not installed).
+$script:WingetNotApplicableCode = -1978335189
+$script:WingetNotInstalledCode = -1978335212
 
 # Runs a native command with its output echoed live and captured, and kills it (and its children)
 # after $TimeoutSec. A hung download (Delivery Optimization on Opera GX) otherwise blocks setup forever.
 function Invoke-NativeWithTimeout {
-    param([string]$File, [string[]]$ArgumentList, [int]$TimeoutSec)
+    param([string]$File, [string[]]$ArgumentList, [int]$TimeoutSec, [string]$HideLinePattern)
     $outFile = [IO.Path]::GetTempFileName()
     $errFile = [IO.Path]::GetTempFileName()
     $readers = @()
@@ -509,7 +504,11 @@ function Invoke-NativeWithTimeout {
         $flush = {
             foreach ($r in $readers) {
                 $chunk = $r.ReadToEnd()
-                if ($chunk) { [void]$text.Append($chunk); Write-Host $chunk -NoNewline }
+                if ($chunk) {
+                    [void]$text.Append($chunk)
+                    $shown = if ($HideLinePattern) { (($chunk -split '(?<=\n)') | Where-Object { $_ -notmatch $HideLinePattern }) -join '' } else { $chunk }
+                    if ($shown) { Write-Host $shown -NoNewline }
+                }
             }
         }
         $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -552,14 +551,16 @@ function Use-WingetWininetDownloader {
 
 $script:WingetInstallTimeoutSec = 900
 
-function Invoke-WingetInstallWithRetry {
-    param([string]$Id)
-    $wingetArgs = @("install", "-e", "--id", $Id, "--accept-package-agreements", "--accept-source-agreements", "--silent", "--source", "winget")
-    $result = Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec
+# Verb is "upgrade" or "install". The "current" and "not installed" lines are hidden: the caller prints its own status.
+function Invoke-WingetWithRetry {
+    param([ValidateSet("install", "upgrade")][string]$Verb, [string]$Id)
+    $wingetArgs = @($Verb, "-e", "--id", $Id, "--accept-package-agreements", "--accept-source-agreements", "--silent", "--source", "winget")
+    $hide = "No available upgrade found|No newer package versions are available|No installed package found"
+    $result = Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec $hide
     if (-not $result.TimedOut) { return $result }
     Write-Host ""
-    Write-Host "[!] $Id install stalled for $([int]($script:WingetInstallTimeoutSec / 60)) min. Retrying once with the WinINet downloader..." -ForegroundColor Yellow
-    return Use-WingetWininetDownloader { Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec }
+    Write-Host "[!] $Id $Verb stalled for $([int]($script:WingetInstallTimeoutSec / 60)) min. Retrying once with the WinINet downloader..." -ForegroundColor Yellow
+    return Use-WingetWininetDownloader { Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec $hide }
 }
 
 # Winget's Warp.Warp installer URL is an HTML landing page, so `winget install`
@@ -1407,46 +1408,51 @@ function Install-WingetApps {
             $script:AdminPhasePending = $true
             continue
         }
-        $check = winget list --id $app --source winget 2>$null
-        $checkText = @($check | ForEach-Object { "$_" }) -join "`n"
-        if ([string]::IsNullOrWhiteSpace($checkText) -or (Test-WingetNoChange $checkText)) {
-            Write-Host "[+] Installing $app..." -ForegroundColor Cyan
-            $wingetResult = Invoke-WingetInstallWithRetry $app
-            $wingetText = $wingetResult.Text
-            $wingetCode = $wingetResult.Code
-            $installSucceeded = $wingetCode -eq 0
-            if ($wingetResult.TimedOut) {
-                Write-Host "[!] $app install stalled again after the retry. Skipping; re-run later." -ForegroundColor Yellow
-            } elseif (Test-WingetExit1603 $wingetText $wingetCode) {
-                if ($app -eq "Deskflow.Deskflow") {
-                    Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
-                } elseif ($AdminOnly) {
-                    Write-Host "[!] $app installer failed (exit 1603). Reboot, then re-run -AdminPhase." -ForegroundColor Yellow
-                } else {
-                    Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Run -AdminPhase." -ForegroundColor Yellow
-                    $script:AdminPhasePending = $true
-                }
-            } elseif (Test-WingetAdminContext $wingetText) {
-                if ($AdminOnly) {
-                    Write-Host "[-] $app deferred to user phase (installer refuses elevated session)." -ForegroundColor Gray
-                    Add-DotfilesWingetDefer $app
-                    Add-SetupResult Skipped $app
-                } else {
-                    Write-Host "[!] $app refuses an elevated session. Re-run -UserPhase." -ForegroundColor Yellow
-                    Add-SetupResult Skipped $app
-                }
-                continue
-            } elseif (Test-WingetHashMismatch $wingetText) {
-                Write-Host "[!] $app Winget manifest/installer hash mismatch. Skipping; retry later." -ForegroundColor Yellow
-            } elseif ($wingetCode -ne 0) {
-                Write-Host "[!] Exact Winget install failed for $app. Skipping." -ForegroundColor Yellow
-            }
-            if ($installSucceeded) { Add-SetupResult Installed $app }
-            else { Add-SetupResult Failed $app }
-        } else {
-            Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
+        # One call per app: upgrade tells us "current" or "missing" through its exit code.
+        $verb = "upgrade"
+        $wingetResult = Invoke-WingetWithRetry $verb $app
+        if ($wingetResult.Code -eq $script:WingetNotApplicableCode) {
+            Write-Host "[-] $app is up to date. Skipping..." -ForegroundColor Gray
             Add-SetupResult Skipped $app
+            continue
         }
+        if ($wingetResult.Code -eq $script:WingetNotInstalledCode) {
+            Write-Host "[+] Installing $app..." -ForegroundColor Cyan
+            $verb = "install"
+            $wingetResult = Invoke-WingetWithRetry $verb $app
+        } else {
+            Write-Host "[+] Upgrading $app..." -ForegroundColor Cyan
+        }
+        $wingetText = $wingetResult.Text
+        $wingetCode = $wingetResult.Code
+        if ($wingetResult.TimedOut) {
+            Write-Host "[!] $app $verb stalled again after the retry. Skipping; re-run later." -ForegroundColor Yellow
+        } elseif (Test-WingetExit1603 $wingetText $wingetCode) {
+            if ($app -eq "Deskflow.Deskflow") {
+                Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
+            } elseif ($AdminOnly) {
+                Write-Host "[!] $app installer failed (exit 1603). Reboot, then re-run -AdminPhase." -ForegroundColor Yellow
+            } else {
+                Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Run -AdminPhase." -ForegroundColor Yellow
+                $script:AdminPhasePending = $true
+            }
+        } elseif (Test-WingetAdminContext $wingetText) {
+            if ($AdminOnly) {
+                Write-Host "[-] $app deferred to user phase (installer refuses elevated session)." -ForegroundColor Gray
+                Add-DotfilesWingetDefer $app
+            } else {
+                Write-Host "[!] $app refuses an elevated session. Re-run -UserPhase." -ForegroundColor Yellow
+            }
+            Add-SetupResult Skipped $app
+            continue
+        } elseif (Test-WingetHashMismatch $wingetText) {
+            Write-Host "[!] $app Winget manifest/installer hash mismatch. Skipping; retry later." -ForegroundColor Yellow
+        } elseif ($wingetCode -ne 0) {
+            $hint = if ($verb -eq "upgrade") { " (close the app if it is running)" } else { "" }
+            Write-Host "[!] Exact Winget $verb failed for $app$hint. Skipping." -ForegroundColor Yellow
+        }
+        if ($wingetCode -eq 0) { Add-SetupResult $(if ($verb -eq "install") { "Installed" } else { "Updated" }) $app }
+        else { Add-SetupResult Failed $app }
     }
 }
 
@@ -1624,6 +1630,8 @@ Install-GitHubKnownHosts
 
 Write-Host "Updating Scoop manifests..." -ForegroundColor Cyan
 Protect-ScoopGit { scoop update | Out-Host }
+# One `scoop status` after the refresh lists every outdated app; Smart-Scoop upgrades from this set.
+$script:ScoopOutdated = @(Protect-ScoopGit { scoop status 6>$null } | ForEach-Object { $_.Name } | Where-Object { $_ })
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
 # True only for an exact app name. A substring match on `scoop export` also matches bucket URLs and
@@ -1640,13 +1648,23 @@ function Test-ScoopAppInstalled {
     return $false
 }
 
-# Repo-managed Scoop apps: install when missing; skip when already present.
-# Upgrades are left to `scoop update *` / UniGetUI so re-runs stay mostly Skipped.
+# Repo-managed Scoop apps: install when missing, upgrade when outdated (version-pinned `app@x` stay put).
 function Smart-Scoop {
     param([string]$app)
     if (Test-ScoopAppInstalled $app) {
-        Write-Host "[-] $app already present. Skipping..." -ForegroundColor Gray
-        Add-SetupResult Skipped $app
+        $name = ($app -split '/')[-1]
+        if ($app -notmatch '@' -and $name -in $script:ScoopOutdated) {
+            Write-Host "[+] Upgrading $app..." -ForegroundColor Cyan
+            Protect-ScoopGit { scoop update $name }
+            if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app }
+            else {
+                Write-Host "[!] scoop update $app failed (close the app if it is running). Skipping." -ForegroundColor Yellow
+                Add-SetupResult Failed $app
+            }
+        } else {
+            Write-Host "[-] $app is up to date. Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped $app
+        }
     } else {
         Write-Host "[+] $app not found. Installing now..." -ForegroundColor Cyan
         scoop install $app
@@ -2792,13 +2810,6 @@ function Invoke-DotfilesAdminPhase {
     Set-WindowsHostAdminDefaults
     Install-DeskflowFirewallRule
     Remove-Item -LiteralPath $script:WingetDeferFile -Force -ErrorAction SilentlyContinue
-    foreach ($vcRedist in @(
-            "Microsoft.VCRedist.2015+.x64"
-            "Microsoft.VCRedist.2015+.x86"
-        )) {
-        Write-Host "[+] Upgrading $vcRedist if a newer build exists..." -ForegroundColor Cyan
-        winget upgrade -e --id $vcRedist --accept-package-agreements --accept-source-agreements --silent --source winget
-    }
     $adminWinget = Get-DotfilesWingetAdminApps
     Write-Host "[+] Installing Winget apps in admin phase ($($adminWinget.Count) packages, denylist $($script:WingetDenylist.Count))..." -ForegroundColor Cyan
     Install-WingetApps -Apps $adminWinget -AdminOnly
