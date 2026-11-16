@@ -59,8 +59,29 @@ $script:results = @()
 function Add-SetupResult { param($Status, $Item) $script:results += "$Status $Item" }
 $bin = Join-Path $Work 'bin'
 New-Item -ItemType Directory -Force -Path $bin | Out-Null
-$uv = Join-Path $bin 'uv'
-@'
+if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+    # Windows cannot run an extensionless sh script; a .cmd stub is resolved through PATHEXT.
+    @'
+@echo off
+set "list=%STUB_DIR%\uvlist"
+if "%1 %2"=="tool list" goto list
+if "%1 %2"=="tool install" goto install
+exit /b 99
+:list
+if exist "%list%" type "%list%"
+exit /b 0
+:install
+if defined STUB_FAIL exit /b 1
+if defined STUB_UPGRADE_TO goto upgrade
+if not exist "%list%" (echo graphifyy v0.9.92& echo - graphify) > "%list%"
+exit /b 0
+:upgrade
+(echo graphifyy %STUB_UPGRADE_TO%& echo - graphify) > "%list%"
+exit /b 0
+'@ -replace "`r?`n", "`r`n" | Set-Content -Path (Join-Path $bin 'uv.cmd')   # cmd.exe needs CRLF
+} else {
+    $uv = Join-Path $bin 'uv'
+    @'
 #!/bin/sh
 list="$STUB_DIR/uvlist"
 case "$1 $2" in
@@ -73,7 +94,8 @@ case "$1 $2" in
 esac
 exit 99
 '@ | Set-Content -Path $uv -NoNewline
-chmod +x $uv
+    chmod +x $uv
+}
 $env:PATH = "$bin$([System.IO.Path]::PathSeparator)$env:PATH"
 $env:STUB_DIR = $Work
 $list = Join-Path $Work 'uvlist'
