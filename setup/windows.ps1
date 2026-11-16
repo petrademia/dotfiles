@@ -129,7 +129,30 @@ if ((Get-ExecutionPolicy -Scope CurrentUser) -in 'Restricted','Undefined') {
     }
 }
 
+# Console QuickEdit freezes the running process after any click in the window until Enter is pressed
+# (a known Windows console behavior; it looks like a stalled install). Turn it off for this session.
+function Disable-ConsoleQuickEdit {
+    try {
+        if (-not ('DotfilesConsoleMode' -as [type])) {
+            Add-Type -Namespace '' -Name DotfilesConsoleMode -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern System.IntPtr GetStdHandle(int h);
+[DllImport("kernel32.dll")] public static extern bool GetConsoleMode(System.IntPtr h, out uint m);
+[DllImport("kernel32.dll")] public static extern bool SetConsoleMode(System.IntPtr h, uint m);
+'@
+        }
+        $handle = [DotfilesConsoleMode]::GetStdHandle(-10)
+        $mode = 0
+        if ([DotfilesConsoleMode]::GetConsoleMode($handle, [ref]$mode)) {
+            # clear ENABLE_QUICK_EDIT_MODE (0x40), set ENABLE_EXTENDED_FLAGS (0x80)
+            [void][DotfilesConsoleMode]::SetConsoleMode($handle, (($mode -band (-bnot 0x40)) -bor 0x80))
+        }
+    } catch {
+        Write-Host "[-] Could not disable console QuickEdit: $_" -ForegroundColor DarkGray
+    }
+}
+
 # --- 0. Pre-Flight ---
+Disable-ConsoleQuickEdit
 Set-DotfilesBootstrapExecutionPolicy
 # irm | iex often starts in System32; keep installers from writing into that tree.
 Set-Location $HOME
