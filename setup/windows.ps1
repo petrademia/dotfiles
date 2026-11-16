@@ -2827,6 +2827,21 @@ function Invoke-DotfilesUserPhaseWslCheck {
     $script:AdminPhasePending = $true
 }
 
+# Installers drop .lnk files on the desktop; every app is in the Start Menu already. Only shortcuts are
+# removed, never other files. The public desktop needs admin, so the user phase leaves it alone.
+function Remove-DesktopShortcuts {
+    $dirs = @([Environment]::GetFolderPath("Desktop"))
+    if (Test-IsAdmin) { $dirs += [Environment]::GetFolderPath("CommonDesktopDirectory") }
+    $removed = 0
+    foreach ($dir in $dirs | Where-Object { $_ -and (Test-Path -LiteralPath $_) }) {
+        foreach ($lnk in Get-ChildItem -LiteralPath $dir -Filter "*.lnk" -File -ErrorAction SilentlyContinue) {
+            try { Remove-Item -LiteralPath $lnk.FullName -Force -ErrorAction Stop; $removed++ }
+            catch { Write-Host "[!] Could not remove $($lnk.FullName): $_" -ForegroundColor Yellow }
+        }
+    }
+    if ($removed -gt 0) { Write-Host "[-] Removed $removed desktop shortcut(s) added by installers." -ForegroundColor Gray }
+}
+
 function Invoke-DotfilesAdminPhase {
     Write-Host "==> Dotfiles admin phase (elevated)" -ForegroundColor Cyan
     Set-WindowsHostAdminDefaults
@@ -2838,6 +2853,7 @@ function Invoke-DotfilesAdminPhase {
     Install-VsBuildTools
     Uninstall-GeForceExperience
     Install-NvidiaApp
+    Remove-DesktopShortcuts
     Invoke-DotfilesWslAdminProvisioning
     Unregister-DotfilesAdminPhaseTask
 }
@@ -2864,6 +2880,7 @@ if (Test-DotfilesRunAdminPhase) {
 
 Invoke-DotfilesUserPhaseWslCheck
 Set-WindowsHostUserDefaults
+Remove-DesktopShortcuts
 if (Test-DotfilesRunUserPhase) { scoop cleanup * }
 if ($script:SetupResults.Failed -eq 0) {
     Write-Host "Setup phase finished." -ForegroundColor Green
