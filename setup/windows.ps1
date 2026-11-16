@@ -2257,12 +2257,15 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
         } else {
             Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
         }
-        if ($IgnoreScripts) { npm install -g --ignore-scripts $Package --silent | Out-Null }
-        else { npm install -g $Package --silent | Out-Null }
+        $npmArgs = @("install", "-g", $Package, "--silent")
+        if ($IgnoreScripts) { $npmArgs += "--ignore-scripts" }
+        $npmOut = npm @npmArgs 2>&1
         if ($LASTEXITCODE -eq 0) {
             Add-SetupResult $(if ($isUpdate) { "Updated" } else { "Installed" }) $Package
             return $true
         }
+        Write-Host "[!] npm install -g $Package failed:" -ForegroundColor Yellow
+        $npmOut | Select-Object -Last 6 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
         Add-SetupResult Failed $Package
         return $false
     }
@@ -2289,7 +2292,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
         npx playwright install chromium
     }
     Write-Host "==> Updating Impeccable skills" -ForegroundColor Cyan
-    & npx --yes impeccable update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks
+    & npx --yes impeccable update --yes --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[!] Impeccable skill update failed" -ForegroundColor Yellow
     }
