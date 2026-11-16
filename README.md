@@ -480,7 +480,6 @@ restart it with `sudo netbird service restart`, and reconnect with `netbird up` 
 ### Windows utilities
 
 - **Terminals:** WezTerm, Alacritty, Tabby, Hyper, and Windows Terminal (Winget).
-  **winghostty** (`AmanThanvi.winghostty`) is the Windows Ghostty-engine terminal.
   Kovid Goyal's **Kitty** has no native Windows build; use **kitty** in WSL
   (`apt`) or another terminal on the Windows host.
 - NetSpeedTray and TrafficMonitor Lite provide taskbar network speed.
