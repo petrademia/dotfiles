@@ -1648,6 +1648,11 @@ function Test-ScoopAppInstalled {
     return $false
 }
 
+function Test-ScoopOutdated {
+    param([string]$name)
+    return @(Protect-ScoopGit { scoop status 6>$null } | Where-Object { $_.Name -eq $name }).Count -gt 0
+}
+
 # Repo-managed Scoop apps: install when missing, upgrade when outdated (version-pinned `app@x` stay put).
 function Smart-Scoop {
     param([string]$app)
@@ -1655,10 +1660,18 @@ function Smart-Scoop {
         $name = ($app -split '/')[-1]
         if ($app -notmatch '@' -and $name -in $script:ScoopOutdated) {
             Write-Host "[+] Upgrading $app..." -ForegroundColor Cyan
-            Protect-ScoopGit { scoop update $name }
-            if ($LASTEXITCODE -eq 0) { Add-SetupResult Updated $app }
+            $ok = $false
+            # A network error makes scoop throw, which would end the whole setup under $ErrorActionPreference Stop.
+            # Some failures (Defender blocking the download) still exit 0, so confirm the app left the outdated list.
+            try {
+                Protect-ScoopGit { scoop update $name }
+                $ok = ($LASTEXITCODE -eq 0) -and -not (Test-ScoopOutdated $name)
+            } catch {
+                Write-Host "[!] $_" -ForegroundColor DarkGray
+            }
+            if ($ok) { Add-SetupResult Updated $app }
             else {
-                Write-Host "[!] scoop update $app failed (close the app if it is running). Skipping." -ForegroundColor Yellow
+                Write-Host "[!] scoop update $app failed (network, antivirus, or the app is running). Skipping; re-run later." -ForegroundColor Yellow
                 Add-SetupResult Failed $app
             }
         } else {
@@ -1667,8 +1680,14 @@ function Smart-Scoop {
         }
     } else {
         Write-Host "[+] $app not found. Installing now..." -ForegroundColor Cyan
-        scoop install $app
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed $app }
+        $ok = $false
+        try {
+            scoop install $app
+            $ok = $LASTEXITCODE -eq 0
+        } catch {
+            Write-Host "[!] $_" -ForegroundColor DarkGray
+        }
+        if ($ok) { Add-SetupResult Installed $app }
         else { Add-SetupResult Failed $app }
     }
 }
