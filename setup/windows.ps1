@@ -1709,6 +1709,7 @@ $msStoreApps = @(
     @{ Id = "9NKSQGP7F2NH"; Label = "WhatsApp"; Appx = "*WhatsApp*" }
     @{ Id = "9NCBCSZSJRSB"; Label = "Spotify"; Appx = "SpotifyAB.SpotifyMusic" }
     @{ Id = "9P2B8MCSVPLN"; Label = "Realtek Audio Control"; Appx = "RealtekSemiconductorCorp.RealtekAudioControl" }
+    @{ Id = "9P8LTPGCBZXD"; Label = "Wintoys"; Appx = "*Wintoys*" }
 )
 foreach ($app in $msStoreApps) {
     if (Get-AppxPackage -Name $app.Appx -ErrorAction SilentlyContinue) {
