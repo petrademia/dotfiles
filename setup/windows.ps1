@@ -583,7 +583,7 @@ $script:WingetInstallTimeoutSec = 900
 function Invoke-WingetWithRetry {
     param([ValidateSet("install", "upgrade")][string]$Verb, [string]$Id)
     $wingetArgs = @($Verb, "-e", "--id", $Id, "--accept-package-agreements", "--accept-source-agreements", "--silent", "--source", "winget")
-    $hide = "No available upgrade found|No newer package versions are available|No installed package found"
+    $hide = "No available upgrade found|No newer package versions are available|No installed package found|version number cannot be determined"
     $result = Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec $hide
     if (-not $result.TimedOut) { return $result }
     Write-Host ""
@@ -1448,8 +1448,6 @@ function Install-WingetApps {
             Write-Host "[+] Installing $app..." -ForegroundColor Cyan
             $verb = "install"
             $wingetResult = Invoke-WingetWithRetry $verb $app
-        } else {
-            Write-Host "[+] Upgrading $app..." -ForegroundColor Cyan
         }
         $wingetText = $wingetResult.Text
         $wingetCode = $wingetResult.Code
