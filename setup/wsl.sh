@@ -634,7 +634,11 @@ if ! smart_check "goose" "$HOME/.local/bin/goose"; then
 fi
 
 echo "==> Updating Impeccable skills"
-npx --yes impeccable update --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks \
+impeccable_args="--yes --scope=global --providers=claude,codex,cursor,gemini,opencode,pi --no-hooks"
+# First run has nothing to update, so fall back to a fresh install.
+# shellcheck disable=SC2086
+npx --yes impeccable update $impeccable_args \
+    || npx --yes impeccable install $impeccable_args \
     || echo "[!] Impeccable skill update failed"
 
 echo "==> 9) Claude Code & Codex plugins (caveman, ponytail)"
