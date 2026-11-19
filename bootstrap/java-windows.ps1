@@ -59,6 +59,11 @@ $prevAria = $null
 try { $prevAria = scoop config aria2-enabled 6>$null } catch { }
 scoop config aria2-enabled false 6>$null | Out-Null
 
+# Every scoop install/update of a JDK points JAVA_HOME and PATH at itself, so the last one touched would
+# win. Remember the JDK `jv` (scoop reset) had selected and select it again afterwards.
+$activeJdk = $null
+if ("$([Environment]::GetEnvironmentVariable('JAVA_HOME', 'User'))" -match '[\\/]apps[\\/]([^\\/]+)[\\/]current') { $activeJdk = $Matches[1] }
+
 $ok = 0; $upd = 0; $skip = 0; $fail = 0
 try {
     foreach ($p in $packages) {
@@ -90,6 +95,11 @@ try {
     if ($null -ne $prevAria -and "$prevAria" -ne "" -and "$prevAria" -ne "False") {
         scoop config aria2-enabled $prevAria 6>$null | Out-Null
     }
+}
+
+if ($activeJdk -and (Test-ScoopApp $activeJdk) -and ($ok + $upd) -gt 0) {
+    scoop reset $activeJdk 6>$null | Out-Null
+    Write-Host "==> active JDK kept: $activeJdk" -ForegroundColor DarkGray
 }
 
 Write-Host ""

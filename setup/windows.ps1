@@ -1675,6 +1675,7 @@ Write-Host "Updating Scoop manifests..." -ForegroundColor Cyan
 Protect-ScoopGit { scoop update | Out-Host }
 # One `scoop status` after the refresh lists every outdated app; Smart-Scoop upgrades from this set.
 $script:ScoopOutdated = @(Protect-ScoopGit { scoop status 6>$null } | ForEach-Object { $_.Name } | Where-Object { $_ })
+$script:ScoopTried = @()
 scoop config aria2-warning-enabled false 6>$null | Out-Null
 
 # True only for an exact app name. A substring match on `scoop export` also matches bucket URLs and
@@ -1702,6 +1703,7 @@ function Smart-Scoop {
     if (Test-ScoopAppInstalled $app) {
         $name = ($app -split '/')[-1]
         if ($app -notmatch '@' -and $name -in $script:ScoopOutdated) {
+            $script:ScoopTried += $name
             Write-Host "[+] Upgrading $app..." -ForegroundColor Cyan
             $ok = $false
             # A network error makes scoop throw, which would end the whole setup under $ErrorActionPreference Stop.
@@ -1798,7 +1800,8 @@ if ($javaLocal) {
 Install-Structurizr
 
 # Everything else Scoop still reports as outdated (Goose, OpenCode, innounp, any other installed app); held apps stay put.
-$script:ScoopOutdated = @(Protect-ScoopGit { scoop status 6>$null } | Where-Object { $_.Info -notmatch 'Held' } | ForEach-Object { $_.Name } | Where-Object { $_ })
+# Apps Smart-Scoop already tried this run are skipped, so a failed upgrade is not retried or counted twice.
+$script:ScoopOutdated = @(Protect-ScoopGit { scoop status 6>$null } | Where-Object { $_.Info -notmatch 'Held' } | ForEach-Object { $_.Name } | Where-Object { $_ -and $_ -notin $script:ScoopTried })
 foreach ($app in $script:ScoopOutdated) { Smart-Scoop $app }
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
