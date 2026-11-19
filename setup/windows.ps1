@@ -594,6 +594,14 @@ function Invoke-WingetWithRetry {
     return Use-WingetWininetDownloader { Invoke-NativeWithTimeout "winget" $wingetArgs $script:WingetInstallTimeoutSec $hide }
 }
 
+# Some installers (Discord's Squirrel setup while Discord runs) exit 0 without replacing anything, so a
+# successful upgrade is only believed once winget no longer lists a newer version for the package.
+function Test-WingetUpgradeAvailable {
+    param([string]$Id)
+    $text = @(winget list -e --id $Id --upgrade-available --accept-source-agreements --source winget 2>$null | ForEach-Object { "$_" }) -join "`n"
+    return $text -match [regex]::Escape($Id)
+}
+
 # Winget's Warp.Warp installer URL is an HTML landing page, so `winget install`
 # sits on "Downloading https://app.warp.dev/download/windows?..." forever.
 function Install-Warp {
@@ -1483,7 +1491,10 @@ function Install-WingetApps {
             $hint = if ($verb -eq "upgrade") { " (close the app if it is running)" } else { "" }
             Write-Host "[!] Exact Winget $verb failed for $app$hint. Skipping." -ForegroundColor Yellow
         }
-        if ($wingetCode -eq 0) { Add-SetupResult $(if ($verb -eq "install") { "Installed" } else { "Updated" }) $app }
+        if ($wingetCode -eq 0 -and $verb -eq "upgrade" -and (Test-WingetUpgradeAvailable $app)) {
+            Write-Host "[!] $app upgrade exited 0 but a newer version is still listed (close the app and re-run)." -ForegroundColor Yellow
+            Add-SetupResult Failed $app
+        } elseif ($wingetCode -eq 0) { Add-SetupResult $(if ($verb -eq "install") { "Installed" } else { "Updated" }) $app }
         else { Add-SetupResult Failed $app }
     }
 }

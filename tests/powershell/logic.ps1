@@ -112,4 +112,13 @@ Check "installed, same version  -> Skipped"   ((Run-Graphify 'v0.9.92' '' '') -e
 Check "installed, newer version -> Updated"   ((Run-Graphify 'v0.9.92' 'v0.9.93' '') -eq 'Updated graphifyy')
 Check "not installed            -> Installed" ((Run-Graphify '' '' '') -eq 'Installed graphifyy')
 Check "install fails            -> Failed"    ((Run-Graphify 'v0.9.92' '' '1') -eq 'Failed graphifyy')
+# ---- Test-WingetUpgradeAvailable (stubbed winget)
+$fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Test-WingetUpgradeAvailable' }, $true)
+Invoke-Expression $fn.Extent.Text
+"Test-WingetUpgradeAvailable"
+function winget { if ($env:STUB_WINGET_OUTDATED -eq '1') { 'Name Id Version Available'; '---'; 'Discord Discord.Discord 1.0.9268 1.0.9269' } else { 'No installed package found matching input criteria.' } }
+$env:STUB_WINGET_OUTDATED = '1'
+Check "still-outdated package is reported"  (Test-WingetUpgradeAvailable 'Discord.Discord')
+$env:STUB_WINGET_OUTDATED = '0'
+Check "current package is not reported"     (-not (Test-WingetUpgradeAvailable 'Discord.Discord'))
 exit $fail
