@@ -778,7 +778,18 @@ function Test-VsCToolsInstalled {
 
 function Install-VsBuildTools {
     if (Test-VsCToolsInstalled) {
-        Write-Host "[-] Visual Studio C++ Build Tools already installed." -ForegroundColor Gray
+        # Called directly, not through Invoke-WingetWithRetry: its stall timeout could kill a long VS update halfway.
+        Write-Host "[+] Upgrading Visual Studio Build Tools if a newer build exists..." -ForegroundColor Cyan
+        winget upgrade -e --id Microsoft.VisualStudio.2022.BuildTools --accept-package-agreements --accept-source-agreements --disable-interactivity --silent --source winget
+        if ($LASTEXITCODE -eq $script:WingetNotApplicableCode) {
+            Write-Host "[-] Visual Studio C++ Build Tools are up to date." -ForegroundColor Gray
+            Add-SetupResult Skipped "Visual Studio Build Tools"
+        } elseif ($LASTEXITCODE -ne 0 -or (Test-WingetUpgradeAvailable "Microsoft.VisualStudio.2022.BuildTools")) {
+            Write-Host "[!] Build Tools upgrade failed or is still pending (close Visual Studio and the Installer, then re-run -AdminPhase)." -ForegroundColor Yellow
+            Add-SetupResult Failed "Visual Studio Build Tools"
+        } else {
+            Add-SetupResult Updated "Visual Studio Build Tools"
+        }
         return
     }
     Write-Host "[+] Installing Visual Studio 2022 Build Tools (MSVC + Windows SDK)..." -ForegroundColor Cyan
