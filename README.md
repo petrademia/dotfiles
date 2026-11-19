@@ -35,11 +35,13 @@ their setup manifests. What a rerun updates:
 - WSL: apt packages in the base list, the apt-repo tools (`gh`, `ngrok`, `gcloud`, `crush`), npm
   globals, Rust stable, Zellij, Helix, kubectl, kind, k3d, uv tools and Hermes. Anything else that is
   already on `PATH` is skipped.
-- Windows: npm globals, Rust stable and graphify (uv). winget and Scoop apps in the setup lists are
-  installed when missing and upgraded when a newer version exists (the summary counts them as
-  Updated); Scoop apps are matched by exact name and `app@version` pins are never upgraded. An app
-  that is running can fail to upgrade; close it and re-run. Anything outside the lists is left to
-  `winget upgrade` / `scoop update *` / UniGetUI.
+- Windows: npm globals (including npm and corepack), Rust stable, the cargo crates (`atlassian-cli`,
+  `cargo-update`, `cargo-binstall`), pip and graphify (uv). winget and Scoop apps in the setup lists
+  are installed when missing and upgraded when a newer version exists (the summary counts them as
+  Updated); the Java matrix is upgraded too, and any other outdated Scoop app is upgraded after the
+  lists. Held Scoop apps and `app@version` pins are never upgraded. An app that is running can fail
+  to upgrade; close it and re-run. Winget packages outside the list are left to `winget upgrade` /
+  UniGetUI.
 
 Windows setup only prepares the WSL *host* (distro + user); run the Linux stack
 separately inside Ubuntu.
@@ -291,7 +293,7 @@ bash /tmp/java-macos.sh
 # WSL
 curl -fsSL https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-wsl.sh | bash
 
-# Windows (already run by windows.ps1; safe to re-run)
+# Windows (already run by windows.ps1; safe to re-run, also upgrades outdated JDKs)
 irm https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1 | iex
 ```
 

@@ -53,6 +53,8 @@ $script:WingetApps = @(
     "Microsoft.VCRedist.2013.x86",
     "Microsoft.DirectX",
     "Microsoft.DotNet.DesktopRuntime.10",
+    "Microsoft.DotNet.DesktopRuntime.8",
+    "Microsoft.DotNet.Runtime.10",
     "Microsoft.WSL",
     "PatchMyPC.PatchMyPC",
     "CodecGuide.K-LiteCodecPack.Full",
@@ -81,6 +83,7 @@ $script:WingetApps = @(
     "eloston.ungoogled-chromium",
     "Deskflow.Deskflow", "SlackTechnologies.Slack", "Discord.Discord",
     "UpNote.UpNote",
+    "Gyan.FFmpeg", "MoonshotAI.Kimi", "Microsoft.Teams", "RevoUninstaller.RevoUninstallerPro",
     "Streetwriters.Notesnook",
     "StandardNotes.StandardNotes", "Automattic.Simplenote",
     "Joplin.Joplin", "Obsidian.Obsidian",
@@ -918,18 +921,15 @@ function Install-AtlassianCli {
         (Join-Path $HOME ".cargo\bin\atlassian-cli.exe"),
         (Join-Path $HOME ".local\bin\atlassian-cli.exe")
     ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($existing -or (Get-Command atlassian-cli -ErrorAction SilentlyContinue)) {
-        Write-Host "[-] atlassian-cli is already installed." -ForegroundColor Gray
-        return
-    }
+    $present = $existing -or (Get-Command atlassian-cli -ErrorAction SilentlyContinue)
     if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
         Write-Host "[!] cargo not found. Skipping atlassian-cli." -ForegroundColor Yellow
         return
     }
 
+    # `cargo install` upgrades when crates.io has a newer version and is a no-op otherwise.
     if (Get-Command link.exe -ErrorAction SilentlyContinue) {
-        Write-Host "[+] Installing atlassian-cli (cargo)..." -ForegroundColor Cyan
-        cargo install atlassian-cli
+        Invoke-CargoInstall "atlassian-cli" -Present:$present
         return
     }
     if (!(Get-Command gcc -ErrorAction SilentlyContinue)) {
@@ -937,9 +937,22 @@ function Install-AtlassianCli {
         return
     }
     $triple = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "aarch64-pc-windows-gnu" } else { "x86_64-pc-windows-gnu" }
-    Write-Host "[+] Installing atlassian-cli (cargo + $triple; no Windows GitHub binary)..." -ForegroundColor Cyan
-    rustup toolchain install "stable-$triple"
-    & cargo "+stable-$triple" install atlassian-cli
+    if (-not $present) { rustup toolchain install "stable-$triple" }
+    Invoke-CargoInstall "atlassian-cli" -Present:$present -Toolchain "stable-$triple"
+}
+
+# Install or upgrade a crate and record what happened. `cargo install` prints "Replacing" on an upgrade.
+function Invoke-CargoInstall {
+    param([string]$Crate, [switch]$Present, [string]$Toolchain)
+    $ErrorActionPreference = "Continue"  # cargo writes progress to stderr, which Stop would turn into a throw
+    $cargoArgs = @($(if ($Toolchain) { "+$Toolchain" }), "install", $Crate) | Where-Object { $_ }
+    Write-Host "[+] $(if ($Present) { 'Checking' } else { 'Installing' }) $Crate (cargo)..." -ForegroundColor Cyan
+    $out = & cargo @cargoArgs 2>&1 | ForEach-Object { "$_" }
+    $out | Select-Object -Last 3 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    if ($LASTEXITCODE -ne 0) { Add-SetupResult Failed $Crate }
+    elseif (-not $Present) { Add-SetupResult Installed $Crate }
+    elseif ($out -match "Replacing") { Add-SetupResult Updated $Crate }
+    else { Add-SetupResult Skipped $Crate }
 }
 
 function Install-UniGetUiCargoDeps {
@@ -952,15 +965,8 @@ function Install-UniGetUiCargoDeps {
         @{ Crate = "cargo-binstall"; Command = "cargo-binstall" }
     )) {
         $bin = Join-Path $HOME ".cargo\bin\$($pair.Command).exe"
-        if ((Test-Path $bin) -or (Get-Command $pair.Command -ErrorAction SilentlyContinue)) {
-            Write-Host "[-] $($pair.Crate) already present. Skipping..." -ForegroundColor Gray
-            Add-SetupResult Skipped $pair.Crate
-            continue
-        }
-        Write-Host "[+] Installing $($pair.Crate) (UniGetUI cargo manager)..." -ForegroundColor Cyan
-        cargo install $pair.Crate
-        if ($LASTEXITCODE -eq 0) { Add-SetupResult Installed $pair.Crate }
-        else { Add-SetupResult Failed $pair.Crate }
+        $present = (Test-Path $bin) -or [bool](Get-Command $pair.Command -ErrorAction SilentlyContinue)
+        Invoke-CargoInstall $pair.Crate -Present:$present
     }
 }
 
@@ -1749,6 +1755,22 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     uv python install 3 --default
 }
 
+# pip is not a Scoop or Winget package, so upgrade it here. An externally managed Python rejects this; that is not a failure.
+if (Get-Command python -ErrorAction SilentlyContinue) {
+    $pipBefore = python -m pip --version 2>$null
+    & { $ErrorActionPreference = "Continue"; python -m pip install --upgrade pip --quiet --disable-pip-version-check 2>&1 | Out-Null }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[-] pip upgrade skipped (externally managed or offline)." -ForegroundColor Gray
+        Add-SetupResult Skipped "pip"
+    } elseif ((python -m pip --version 2>$null) -ne $pipBefore) {
+        Write-Host "[+] pip updated" -ForegroundColor Green
+        Add-SetupResult Updated "pip"
+    } else {
+        Write-Host "[-] pip is current. Skipping..." -ForegroundColor Gray
+        Add-SetupResult Skipped "pip"
+    }
+}
+
 # --- 4. Java matrix (same packages as bootstrap/java-windows.ps1) ---
 # irm | iex uses ~/dotfiles; pull first so this is not a stale first-run clone.
 $dotfiles = Sync-DotfilesClone
@@ -1763,6 +1785,10 @@ if ($javaLocal) {
     Protect-ScoopGit { irm "https://raw.githubusercontent.com/petrademia/dotfiles/main/bootstrap/java-windows.ps1" | iex }
 }
 Install-Structurizr
+
+# Everything else Scoop still reports as outdated (Goose, OpenCode, innounp, any other installed app); held apps stay put.
+$script:ScoopOutdated = @(Protect-ScoopGit { scoop status 6>$null } | Where-Object { $_.Info -notmatch 'Held' } | ForEach-Object { $_.Name } | Where-Object { $_ })
+foreach ($app in $script:ScoopOutdated) { Smart-Scoop $app }
 
 # --- 5. Winget Apps (2026 Verified IDs) ---
 # Admin phase installs all Winget IDs except $WingetDenylist; refusals defer to user phase via temp file.
@@ -2316,6 +2342,8 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     }
     # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
     # OpenCode is Scoop; Copilot is built into gh.
+    [void](Smart-NpmGlobal "npm")
+    [void](Smart-NpmGlobal "corepack")
     [void](Smart-NpmGlobal "@earendil-works/pi-coding-agent" -IgnoreScripts)
     [void](Smart-NpmGlobal "reasonix")
     [void](Smart-NpmGlobal "@deepseek-ai/dsh")

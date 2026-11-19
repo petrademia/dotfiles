@@ -17,6 +17,7 @@ try {
     foreach ($b in @('java', 'versions')) {
         scoop bucket add $b 6>$null | Out-Null
     }
+    scoop update 6>$null | Out-Null
 } finally {
     if ([string]::IsNullOrEmpty($prevGitConfig)) { Remove-Item Env:GIT_CONFIG_GLOBAL -ErrorAction SilentlyContinue }
     else { $env:GIT_CONFIG_GLOBAL = $prevGitConfig }
@@ -45,10 +46,11 @@ $packages = @(
 )
 
 # Azul (Zulu) CDN rejects aria2 range requests and leaves a truncated zip that fails the hash check.
-$pending = @($packages | Where-Object { -not (Test-ScoopApp $_) })
+$outdated = @(scoop status 6>$null | ForEach-Object { $_.Name })
+$pending = @($packages | Where-Object { -not (Test-ScoopApp $_) -or $_ -in $outdated })
 if ($pending.Count -eq 0) {
     Write-Host ""
-    Write-Host "Done. installed=0 skipped=$($packages.Count) failed=0" -ForegroundColor Green
+    Write-Host "Done. installed=0 updated=0 skipped=$($packages.Count) failed=0" -ForegroundColor Green
     Write-Host "Switch JDKs:  jv <name>   (e.g. jv temurin21-jdk)"
     return
 }
@@ -57,12 +59,23 @@ $prevAria = $null
 try { $prevAria = scoop config aria2-enabled 6>$null } catch { }
 scoop config aria2-enabled false 6>$null | Out-Null
 
-$ok = 0; $skip = 0; $fail = 0
+$ok = 0; $upd = 0; $skip = 0; $fail = 0
 try {
     foreach ($p in $packages) {
         if (Test-ScoopApp $p) {
-            Write-Host "==> skip $p (already installed)" -ForegroundColor DarkGray
-            $skip++
+            if ($p -notin $outdated) {
+                Write-Host "==> skip $p (up to date)" -ForegroundColor DarkGray
+                $skip++
+                continue
+            }
+            Write-Host "==> Updating $p" -ForegroundColor Cyan
+            scoop update $p
+            if ($LASTEXITCODE -eq 0 -and -not (@(scoop status 6>$null | ForEach-Object { $_.Name }) -contains $p)) {
+                $upd++
+            } else {
+                Write-Host "==> FAILED update $p (close running Java processes and re-run)" -ForegroundColor Red
+                $fail++
+            }
             continue
         }
         Write-Host "==> Installing $p" -ForegroundColor Cyan
@@ -80,5 +93,5 @@ try {
 }
 
 Write-Host ""
-Write-Host "Done. installed=$ok skipped=$skip failed=$fail" -ForegroundColor Green
+Write-Host "Done. installed=$ok updated=$upd skipped=$skip failed=$fail" -ForegroundColor Green
 Write-Host "Switch JDKs:  jv <name>   (e.g. jv temurin21-jdk)"
