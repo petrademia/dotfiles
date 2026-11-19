@@ -121,4 +121,29 @@ $env:STUB_WINGET_OUTDATED = '1'
 Check "still-outdated package is reported"  (Test-WingetUpgradeAvailable 'Discord.Discord')
 $env:STUB_WINGET_OUTDATED = '0'
 Check "current package is not reported"     (-not (Test-WingetUpgradeAvailable 'Discord.Discord'))
+# ---- Winget prefilter token sets
+foreach ($name in 'ConvertTo-WingetTokenSet', 'Test-WingetTokenSetHas') {
+    $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
+    Invoke-Expression $fn.Extent.Text
+}
+"Winget token sets"
+$ellipsis = [string][char]0x2026
+$outdated = ConvertTo-WingetTokenSet @(
+    'Name Id Version Available',
+    'UpNote 9.22.2 UpNote.UpNote 9.22.2 9.22.9',
+    "Visual Studio Build Tools Microsoft.VisualStudio.2022.Bui$ellipsis 17.14.39 17.14.45")
+Check "whole ID in the outdated listing is found"            (Test-WingetTokenSetHas $outdated 'UpNote.UpNote')
+Check "ID behind a truncated token counts as possibly outdated" (Test-WingetTokenSetHas $outdated 'Microsoft.VisualStudio.2022.BuildTools')
+Check "unrelated ID is not found"                            (-not (Test-WingetTokenSetHas $outdated 'Microsoft.VisualStudioCode'))
+$installed = ConvertTo-WingetTokenSet @("Visual Studio Code Microsoft.VisualStudioCode 1.146.0", "Microsoft.Visual$ellipsis")
+Check "installed set trusts only whole tokens"               ($installed.Whole.Contains('microsoft.visualstudiocode') -and -not $installed.Whole.Contains('Microsoft.VisualStudio.2022.BuildTools'))
+
+# ---- npm status from the batched state
+$fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-NpmPackageStatus' }, $true)
+Invoke-Expression $fn.Extent.Text
+"Get-NpmPackageStatus (batched state)"
+$script:NpmState = @{ Installed = @('npm', 'wrangler'); Outdated = @('npm') }
+Check "installed and outdated -> outdated" ((Get-NpmPackageStatus 'npm') -eq 'outdated')
+Check "installed and current  -> current"  ((Get-NpmPackageStatus 'wrangler') -eq 'current')
+Check "not installed          -> missing"  ((Get-NpmPackageStatus 'pnpm') -eq 'missing')
 exit $fail

@@ -1445,12 +1445,51 @@ function Install-DeskflowFirewallRule {
     }
 }
 
+# Splits `winget list`/`winget upgrade` output into whole tokens plus the prefixes of cut-off ones.
+function ConvertTo-WingetTokenSet {
+    param([string[]]$Lines)
+    $whole = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $cut = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in $Lines) {
+        foreach ($token in ($line -split '\s+')) {
+            if ($token.EndsWith([string][char]0x2026)) { $cut.Add($token.TrimEnd([char]0x2026)) }
+            elseif ($token) { [void]$whole.Add($token) }
+        }
+    }
+    return @{ Whole = $whole; Cut = $cut }
+}
+
+# True when the ID is listed, or could be hidden behind a truncated token. Doubt counts as listed, so the caller probes.
+function Test-WingetTokenSetHas {
+    param($Set, [string]$Id)
+    if ($Set.Whole.Contains($Id)) { return $true }
+    foreach ($prefix in $Set.Cut) { if ($Id.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) { return $true } }
+    return $false
+}
+
+# One `winget list` plus one `winget upgrade` (about 2s) replace a probe per app (about 0.8s each, 87 apps).
+# Returns $null when either listing looks wrong; the caller then probes every app as before.
+function Get-WingetState {
+    $previous = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $installed = @(winget list --accept-source-agreements --source winget 2>$null | ForEach-Object { "$_" })
+        $listExit = $LASTEXITCODE
+        $outdated = @(winget upgrade --accept-source-agreements --source winget 2>$null | ForEach-Object { "$_" })
+    } finally {
+        [Console]::OutputEncoding = $previous
+    }
+    if ($listExit -ne 0 -or $installed.Count -lt 5) { return $null }
+    return @{ Installed = (ConvertTo-WingetTokenSet $installed); Outdated = (ConvertTo-WingetTokenSet $outdated) }
+}
+
 function Install-WingetApps {
     param(
         [string[]]$Apps,
         [switch]$AdminOnly,
         [switch]$UserOnly
     )
+    $wingetState = if ($Apps.Count -gt 3 -and -not $UserOnly) { Get-WingetState }
     foreach ($app in $Apps) {
         if ($UserOnly -and (Test-IsAdmin)) {
             Write-Host "[-] $app deferred (installer refuses elevated session)." -ForegroundColor Gray
@@ -1460,6 +1499,13 @@ function Install-WingetApps {
         if ($AdminOnly -and -not (Test-IsAdmin)) {
             Write-Host "[-] $app skipped (needs -AdminPhase)." -ForegroundColor Gray
             $script:AdminPhasePending = $true
+            continue
+        }
+        # Exactly listed as installed and not (even possibly) listed as outdated: nothing to do, no per-app probe needed.
+        # A truncated token never proves an install, only a possible upgrade, so doubt always falls through to the probe.
+        if ($wingetState -and $wingetState.Installed.Whole.Contains($app) -and -not (Test-WingetTokenSetHas $wingetState.Outdated $app)) {
+            Write-Host "[-] $app is up to date. Skipping..." -ForegroundColor Gray
+            Add-SetupResult Skipped $app
             continue
         }
         # One call per app: upgrade tells us "current" or "missing" through its exit code.
@@ -2330,29 +2376,58 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 }
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
+    # One `npm ls` and one `npm outdated` for every global package instead of two calls per package.
+    # Returns $null when either answer cannot be parsed; Get-NpmPackageStatus then probes package by package.
+    function Get-NpmGlobalState {
+        try { $ls = npm ls --global --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction Stop } catch { return $null }
+        if (-not $ls) { return $null }
+        $outdatedJson = npm outdated --global --depth=0 --json 2>$null
+        $outdatedExit = $LASTEXITCODE
+        $outdated = @()
+        if ($outdatedExit -ne 0) {
+            try { $parsed = $outdatedJson | ConvertFrom-Json -ErrorAction Stop } catch { return $null }
+            if (-not $parsed) { return $null }
+            $outdated = @($parsed.PSObject.Properties.Name)
+        }
+        return @{ Installed = @($ls.dependencies.PSObject.Properties.Name); Outdated = $outdated }
+    }
+
+    # "missing", "current", "outdated" or "unknown".
+    function Get-NpmPackageStatus {
+        param([string]$Spec)
+        if ($script:NpmState) {
+            if ($Spec -notin $script:NpmState.Installed) { return "missing" }
+            if ($Spec -in $script:NpmState.Outdated) { return "outdated" }
+            return "current"
+        }
+        npm list --global --depth=0 $Spec --silent *> $null
+        if ($LASTEXITCODE -ne 0) { return "missing" }
+        $json = npm outdated --global --depth=0 $Spec --json 2>$null
+        if ($LASTEXITCODE -eq 0) { return "current" }
+        try { if ($json | ConvertFrom-Json -ErrorAction Stop) { return "outdated" } } catch {}
+        return "unknown"
+    }
+
     function Smart-NpmGlobal {
         param([string]$Package, [switch]$IgnoreScripts)
         $spec = $Package -replace '@latest$', ''
         $isUpdate = $false
-        npm list --global --depth=0 $spec --silent *> $null
-        if ($LASTEXITCODE -eq 0) {
-            $outdatedJson = npm outdated --global --depth=0 $spec --json 2>$null
-            $outdatedExit = $LASTEXITCODE
-            if ($outdatedExit -eq 0) {
+        switch (Get-NpmPackageStatus $spec) {
+            "current" {
                 Write-Host "[-] $Package is current. Skipping..." -ForegroundColor Gray
                 Add-SetupResult Skipped $Package
                 return $true
             }
-            try { $outdated = $outdatedJson | ConvertFrom-Json -ErrorAction Stop } catch { $outdated = $null }
-            if (-not $outdated) {
+            "unknown" {
                 Write-Host "[!] Could not check whether $Package is outdated." -ForegroundColor Yellow
                 Add-SetupResult Failed $Package
                 return $false
             }
-            $isUpdate = $true
-            Write-Host "[+] Updating $Package..." -ForegroundColor Cyan
-        } else {
-            Write-Host "[+] Installing $Package..." -ForegroundColor Cyan
+            "outdated" {
+                $isUpdate = $true
+                Write-Host "[+] Updating $Package..." -ForegroundColor Cyan
+            }
+            default { Write-Host "[+] Installing $Package..." -ForegroundColor Cyan }
         }
         $npmArgs = @("install", "-g", $Package, "--silent")
         if ($IgnoreScripts) { $npmArgs += "--ignore-scripts" }
@@ -2368,6 +2443,7 @@ if (Get-Command npm -ErrorAction SilentlyContinue) {
     }
     # Pi / Reasonix / dsh / OpenClaw / Impeccable are Node-only. Codex CLI is npm on Windows.
     # OpenCode is Scoop; Copilot is built into gh.
+    $script:NpmState = Get-NpmGlobalState
     [void](Smart-NpmGlobal "npm")
     [void](Smart-NpmGlobal "corepack")
     [void](Smart-NpmGlobal "@earendil-works/pi-coding-agent" -IgnoreScripts)

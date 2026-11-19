@@ -65,6 +65,7 @@ $activeJdk = $null
 if ("$([Environment]::GetEnvironmentVariable('JAVA_HOME', 'User'))" -match '[\\/]apps[\\/]([^\\/]+)[\\/]current') { $activeJdk = $Matches[1] }
 
 $ok = 0; $upd = 0; $skip = 0; $fail = 0
+$updated = @()
 try {
     foreach ($p in $packages) {
         if (Test-ScoopApp $p) {
@@ -75,8 +76,8 @@ try {
             }
             Write-Host "==> Updating $p" -ForegroundColor Cyan
             scoop update $p
-            if ($LASTEXITCODE -eq 0 -and -not (@(scoop status 6>$null | ForEach-Object { $_.Name }) -contains $p)) {
-                $upd++
+            if ($LASTEXITCODE -eq 0) {
+                $updated += $p   # confirmed by one `scoop status` after the loop (it takes ~8s per call)
             } else {
                 Write-Host "==> FAILED update $p (close running Java processes and re-run)" -ForegroundColor Red
                 $fail++
@@ -94,6 +95,19 @@ try {
 } finally {
     if ($null -ne $prevAria -and "$prevAria" -ne "" -and "$prevAria" -ne "False") {
         scoop config aria2-enabled $prevAria 6>$null | Out-Null
+    }
+}
+
+# Some failures (Defender blocking the download) still exit 0, so an update only counts if the app left the outdated list.
+if ($updated.Count -gt 0) {
+    $stillOutdated = @(scoop status 6>$null | ForEach-Object { $_.Name })
+    foreach ($p in $updated) {
+        if ($p -in $stillOutdated) {
+            Write-Host "==> FAILED update $p (close running Java processes and re-run)" -ForegroundColor Red
+            $fail++
+        } else {
+            $upd++
+        }
     }
 }
 
