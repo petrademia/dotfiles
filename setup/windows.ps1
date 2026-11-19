@@ -1653,8 +1653,7 @@ function Set-WindowsStartupApps {
     Set-AppXStartupState "Microsoft.MicrosoftOfficeHub_" "WebViewHostStartupId" 0
     Set-AppXStartupState "MicrosoftTeams_" "TeamsStartupTask" 0
     Set-AppXStartupState "MSTeams_" "TeamsTfwStartupTask" 0
-    Set-AppXStartupState "OpenAI.ChatGPT-Desktop_" "ChatGPT" 0
-    Set-AppXStartupState "SpotifyAB.SpotifyMusic_" "Spotify" 0
+        Set-AppXStartupState "SpotifyAB.SpotifyMusic_" "Spotify" 0
     Set-AppXStartupState "AdvancedMicroDevicesInc-2.AMDRadeonSoftware_" "launcherrsxruntimeTask" 0
     Set-AppXStartupState "Microsoft.CommandPalette_" "CmdPalStartup" 0
     Set-AppXStartupState "Microsoft.YourPhone_" "YourPhone.Start" 0
@@ -1885,12 +1884,11 @@ Uninstall-GeForceExperience
 Install-NvidiaApp
 
 # --- 5b. Microsoft Store apps ---
-# 9PLM9XGG6VKS = unified ChatGPT/Codex; 9NT1R1C2HH7J = ChatGPT Classic
+# 9PLM9XGG6VKS = unified ChatGPT/Codex (replaces the old ChatGPT Classic app, 9NT1R1C2HH7J)
 # Spotify's Winget NSIS installer refuses an elevated / UAC-elevated session.
 Write-Host "Checking Microsoft Store apps..." -ForegroundColor Cyan
 $msStoreApps = @(
     @{ Id = "9PLM9XGG6VKS"; Label = "ChatGPT (unified Codex app)"; Appx = "OpenAI.Codex" }
-    @{ Id = "9NT1R1C2HH7J"; Label = "ChatGPT Classic"; Appx = "OpenAI.ChatGPT-Desktop" }
     @{ Id = "9MSX91WQCM2V"; Label = "ThreeFingerDrag"; Appx = "50931ClmentGrennerat.ThreeFingersDragOnWindows" }
     @{ Id = "9NKSQGP7F2NH"; Label = "WhatsApp"; Appx = "*WhatsApp*" }
     @{ Id = "9NCBCSZSJRSB"; Label = "Spotify"; Appx = "SpotifyAB.SpotifyMusic" }
