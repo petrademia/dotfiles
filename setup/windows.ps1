@@ -1828,12 +1828,13 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
 
 # pip is not a Scoop or Winget package, so upgrade it here. An externally managed Python rejects this; that is not a failure.
 if (Get-Command python -ErrorAction SilentlyContinue) {
-    $pipBefore = python -m pip --version 2>$null
+    # `pip --version` prints two lines; compare joined strings, since -ne on an array filters instead of returning a boolean.
+    $pipBefore = (python -m pip --version 2>$null) -join "`n"
     & { $ErrorActionPreference = "Continue"; python -m pip install --upgrade pip --quiet --disable-pip-version-check 2>&1 | Out-Null }
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[-] pip upgrade skipped (externally managed or offline)." -ForegroundColor Gray
         Add-SetupResult Skipped "pip"
-    } elseif ((python -m pip --version 2>$null) -ne $pipBefore) {
+    } elseif (((python -m pip --version 2>$null) -join "`n") -ne $pipBefore) {
         Write-Host "[+] pip updated" -ForegroundColor Green
         Add-SetupResult Updated "pip"
     } else {
