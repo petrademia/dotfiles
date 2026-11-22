@@ -66,7 +66,7 @@ $script:WingetApps = @(
     "SoftDeluxe.FreeDownloadManager",
     "seerge.g-helper",
     "AgileBits.1Password", "Surfshark.Surfshark", "OpenVPNTechnologies.OpenVPNConnect",
-    "Anysphere.Cursor", "Anthropic.Claude", "GitHub.Copilot",
+    "Anysphere.Cursor", "Anthropic.Claude", "GitHub.Copilot", "GitHub.CopilotApp",
     "Microsoft.PowerToys",
     "Devolutions.UniGetUI",
     "voidtools.Everything",
