@@ -1765,11 +1765,17 @@ function Smart-Scoop {
             $ok = $false
             # A network error makes scoop throw, which would end the whole setup under $ErrorActionPreference Stop.
             # Some failures (Defender blocking the download) still exit 0, so confirm the app left the outdated list.
-            try {
-                Protect-ScoopGit { scoop update $name }
-                $ok = ($LASTEXITCODE -eq 0) -and -not (Test-ScoopOutdated $name)
-            } catch {
-                Write-Host "[!] $_" -ForegroundColor DarkGray
+            # One retry: a download that times out on a flaky route (maven on dlcdn.apache.org) often works a moment later.
+            foreach ($attempt in 1..2) {
+                try {
+                    Protect-ScoopGit { scoop update $name }
+                    $ok = ($LASTEXITCODE -eq 0) -and -not (Test-ScoopOutdated $name)
+                } catch {
+                    Write-Host "[!] $_" -ForegroundColor DarkGray
+                }
+                if ($ok -or $attempt -eq 2) { break }
+                Write-Host "[!] scoop update $app failed. Retrying once in 10 s..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 10
             }
             if ($ok) { Add-SetupResult Updated $app }
             else {
