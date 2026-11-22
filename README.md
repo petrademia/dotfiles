@@ -182,7 +182,7 @@ integrations:
 - **Security:** enable Windows Security SmartScreen and PUA protection, and
   disable Smart App Control.
 - **Startup:** use a default-deny policy. Enabled at login: 1Password,
-  ThreeFingerDrag, Windows Security, TrafficMonitor, and window-switcher.
+  ThreeFingerDrag, Windows Security, NetSpeedTray, and window-switcher.
   - Start on demand: Surfshark, Google Drive, OneDrive, Everything, and FDM.
   - Disabled at startup: DisplayLink's tray UI, browser helpers (Opera / GX /
     Air, Brave update), Steam, EA / Riot launchers and tray apps, UniGetUI,
@@ -486,9 +486,7 @@ restart it with `sudo netbird service restart`, and reconnect with `netbird up` 
 - **Terminals:** WezTerm, Alacritty, Tabby, Hyper, and Windows Terminal (Winget).
   Kovid Goyal's **Kitty** has no native Windows build; use **kitty** in WSL
   (`apt`) or another terminal on the Windows host.
-- NetSpeedTray and TrafficMonitor Lite provide taskbar network speed.
-- Setup adds a Start Menu shortcut and autostart for TrafficMonitor, and turns
-  on its taskbar window.
+- NetSpeedTray provides taskbar network speed.
 - [ThreeFingerDragOnWindows](https://github.com/ClementGre/ThreeFingerDragOnWindows)
   (`9MSX91WQCM2V`) provides macOS-style three-finger drag. Windows three-finger
   Task View swipes are disabled so it can work.

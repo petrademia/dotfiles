@@ -91,7 +91,7 @@ $script:WingetApps = @(
     "Bazwise.FolderSizeExplorer",
     "VideoLAN.VLC", "Stremio.Stremio",
     "qBittorrent.qBittorrent", "Transmission.Transmission",
-    "erez-c137.NetSpeedTray", "zhongyang219.TrafficMonitor.Lite"
+    "erez-c137.NetSpeedTray"
 )
 
 $script:SetupResults = [ordered]@{
@@ -1047,68 +1047,6 @@ function New-StartMenuShortcut {
     $lnk.Save()
 }
 
-function Set-UserRun {
-    param([string]$Name, [string]$Target)
-    if (!(Test-Path $Target)) { return }
-    $reg = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-    if (!(Test-Path $reg)) { New-Item -Path $reg -Force | Out-Null }
-    Set-ItemProperty -Path $reg -Name $Name -Value "`"$Target`""
-}
-
-function Set-IniKeyPreserveEncoding {
-    param([string]$Path, [string]$Key, [string]$Value)
-    if (!(Test-Path $Path)) { return }
-    $bytes = [IO.File]::ReadAllBytes($Path)
-    $enc = New-Object System.Text.UTF8Encoding $false
-    if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
-        $enc = [Text.Encoding]::Unicode
-    } elseif ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-        $enc = New-Object System.Text.UTF8Encoding $true
-    }
-    $text = $enc.GetString($bytes)
-    $pattern = "(?m)^" + [regex]::Escape($Key) + "\s*=.*$"
-    $line = "$Key = $Value"
-    if ($text -match $pattern) {
-        $next = [regex]::Replace($text, $pattern, $line)
-    } else {
-        $next = [regex]::Replace($text, "(?m)^(\[config\])", "`$1`r`n$line")
-    }
-    if ($next -ne $text) { [IO.File]::WriteAllText($Path, $next, $enc) }
-}
-
-function Initialize-TrafficMonitor {
-    $exe = $null
-    $pkgRoot = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages"
-    if (Test-Path $pkgRoot) {
-        $pkg = Get-ChildItem -LiteralPath $pkgRoot -Directory -Filter "zhongyang219.TrafficMonitor.Lite*" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($pkg) {
-            $candidate = Join-Path $pkg.FullName "TrafficMonitor\TrafficMonitor.exe"
-            if (Test-Path $candidate) { $exe = $candidate }
-        }
-    }
-    if (-not $exe) {
-        $exe = Get-ChildItem -Path @($env:ProgramFiles, ${env:ProgramFiles(x86)}) -Filter "TrafficMonitor.exe" -Recurse -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName -First 1
-    }
-    if (-not $exe) {
-        Write-Host "[!] TrafficMonitor.exe not found (WinGet package missing or install failed)." -ForegroundColor Yellow
-        return
-    }
-
-    $ini = Join-Path (Split-Path $exe) "config.ini"
-    $running = Get-Process TrafficMonitor -ErrorAction SilentlyContinue
-    if (-not $running) { Set-IniKeyPreserveEncoding $ini "show_task_bar_wnd" "true" }
-
-    New-StartMenuShortcut -Name "TrafficMonitor" -Target $exe
-    Set-UserRun -Name "TrafficMonitor" -Target $exe
-    if (-not $running) {
-        Start-Process $exe -WorkingDirectory (Split-Path $exe)
-        Write-Host "[+] TrafficMonitor started (Start Menu + autostart)." -ForegroundColor Green
-    } else {
-        Write-Host "[-] TrafficMonitor already running (Start Menu + autostart set)." -ForegroundColor Gray
-    }
-}
-
 # Settings > Personalization > Background / Lock screen = Windows Spotlight (daily image).
 # Registry mode flags alone leave an OEM picture in place; SPI a Spotlight starter
 # image first so the Iris service can take over rotation.
@@ -1619,7 +1557,7 @@ function Set-WindowsStartupApps {
     $folder = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder"
 
     # Default deny: optional tools, sync clients, launchers, and helpers start on demand.
-    # TrafficMonitor and WindowSwitcher stay on; they are added to Run earlier.
+    # NetSpeedTray and WindowSwitcher stay on; they add their own Run entries.
     foreach ($name in @(
         "Surfshark",
         "GoogleDriveFS",
@@ -1649,7 +1587,7 @@ function Set-WindowsStartupApps {
         "Free Download Manager"
     )) { Set-StartupApproved $run $name $false }
 
-    foreach ($name in @("TrafficMonitor", "WindowSwitcher")) {
+    foreach ($name in @("NetSpeedTray", "WindowSwitcher")) {
         Set-StartupApproved $run $name $true
     }
 
@@ -1891,8 +1829,6 @@ New-StartMenuShortcut -Name "UniGetUI" -Target $uniGetUiExe
 
 Install-Warp
 Install-EjectLens
-
-Initialize-TrafficMonitor
 
 Uninstall-GeForceExperience
 Install-NvidiaApp
