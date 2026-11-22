@@ -1526,9 +1526,7 @@ function Install-WingetApps {
         if ($wingetResult.TimedOut) {
             Write-Host "[!] $app $verb stalled again after the retry. Skipping; re-run later." -ForegroundColor Yellow
         } elseif (Test-WingetExit1603 $wingetText $wingetCode) {
-            if ($app -eq "Deskflow.Deskflow") {
-                Write-Host "[!] Deskflow needs VC++ 14.50+ (Winget may still have 14.30). Upgrade Microsoft.VCRedist.2015+.x64, then re-run." -ForegroundColor Yellow
-            } elseif ($AdminOnly) {
+            if ($AdminOnly) {
                 Write-Host "[!] $app installer failed (exit 1603). Reboot, then re-run -AdminPhase." -ForegroundColor Yellow
             } else {
                 Write-Host "[!] $app installer needs elevation or a reboot (exit 1603). Run -AdminPhase." -ForegroundColor Yellow
@@ -1551,8 +1549,8 @@ function Install-WingetApps {
         }
         $stillListed = $false
         if ($wingetCode -eq 0 -and $verb -eq "upgrade") {
-            # The installed version can lag a moment behind the installer (Postman listed 12.37.4 as still outdated
-            # right after installing it), so look again before calling it a failure.
+            # The installed version can lag a moment behind the installer, so a package may still be listed as
+            # outdated right after a good install. Look again before calling it a failure.
             $stillListed = Test-WingetUpgradeAvailable $app
             if ($stillListed) { Start-Sleep -Seconds 5; $stillListed = Test-WingetUpgradeAvailable $app }
         }
@@ -1775,7 +1773,7 @@ function Smart-Scoop {
             $ok = $false
             # A network error makes scoop throw, which would end the whole setup under $ErrorActionPreference Stop.
             # Some failures (Defender blocking the download) still exit 0, so confirm the app left the outdated list.
-            # One retry: a download that times out on a flaky route (maven on dlcdn.apache.org) often works a moment later.
+            # One retry: a download that times out on a flaky route often works a moment later.
             foreach ($attempt in 1..2) {
                 try {
                     Protect-ScoopGit { scoop update $name }
@@ -3085,7 +3083,6 @@ Write-Host "Manual follow-ups:" -ForegroundColor Yellow
 Write-Host "  - NVIDIA App: reboot after GFE uninstall, re-run -AdminPhase, then update Game Ready in the app"
 Write-Host "  - G-Helper: uninstall or quit Armoury Crate if both are installed"
 Write-Host "  - DisplayLink: reboot after -AdminPhase if Winget still reports 1603"
-Write-Host "  - Deskflow: needs VC++ 14.50+; setup upgrades Microsoft.VCRedist.2015+.x64/.x86 first"
 Write-Host "  - LibreOffice: reboot if the MSI asked to finish install"
 Write-Host "  - WSL host: -AdminPhase enables Virtual Machine Platform; reboot before Linux setup if Windows reports a pending feature change"
 Write-Host "  - Hibernate / long paths / Smart App Control Off: applied by -AdminPhase"
