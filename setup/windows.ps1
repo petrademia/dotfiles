@@ -1549,7 +1549,17 @@ function Install-WingetApps {
             $hint = if ($verb -eq "upgrade") { " (close the app if it is running)" } else { "" }
             Write-Host "[!] Exact Winget $verb failed for $app$hint. Skipping." -ForegroundColor Yellow
         }
-        if ($wingetCode -eq 0 -and $verb -eq "upgrade" -and (Test-WingetUpgradeAvailable $app)) {
+        $stillListed = $false
+        if ($wingetCode -eq 0 -and $verb -eq "upgrade") {
+            # The installed version can lag a moment behind the installer (Postman listed 12.37.4 as still outdated
+            # right after installing it), so look again before calling it a failure.
+            $stillListed = Test-WingetUpgradeAvailable $app
+            if ($stillListed) { Start-Sleep -Seconds 5; $stillListed = Test-WingetUpgradeAvailable $app }
+        }
+        if ($stillListed -and $wingetText -match "Restart the application to complete the upgrade") {
+            Write-Host "[+] $app upgraded; restart it to finish (the running copy still reports the old version)." -ForegroundColor Cyan
+            Add-SetupResult Updated $app
+        } elseif ($stillListed) {
             Write-Host "[!] $app upgrade exited 0 but a newer version is still listed (close the app and re-run)." -ForegroundColor Yellow
             Add-SetupResult Failed $app
         } elseif ($wingetCode -eq 0) { Add-SetupResult $(if ($verb -eq "install") { "Installed" } else { "Updated" }) $app }
