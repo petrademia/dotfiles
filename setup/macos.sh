@@ -865,13 +865,18 @@ echo "==> Installing dotfiles symlinks"
 "$DOTFILES/install.sh"
 
 # The Claude work profile keeps its own plugin set. install.sh has just created ~/.claude-work, so
-# it gets Floorplan too; caveman and ponytail stay personal-only.
-if command -v claude >/dev/null 2>&1 && [ -d "$HOME/.claude-work" ] \
-  && ! claude_plugin_present floorplan "$HOME/.claude-work"; then
-  echo "==> Installing Floorplan for the Claude work profile"
-  CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin marketplace add haydenschmitty/floorplan 2>/dev/null || true
-  CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin install floorplan@floorplan 2>/dev/null \
-    || echo "Note: floorplan work-profile plugin install failed - may need manual install"
+# the same plugins are installed there too.
+install_work_claude_plugin() { # <plugin> <marketplace source>
+  claude_plugin_present "$1" "$HOME/.claude-work" && return 0
+  echo "==> Installing $1 for the Claude work profile"
+  CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin marketplace add "$2" 2>/dev/null || true
+  CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin install "$1@$1" 2>/dev/null \
+    || echo "Note: $1 work-profile plugin install failed - may need manual install"
+}
+if command -v claude >/dev/null 2>&1 && [ -d "$HOME/.claude-work" ]; then
+  install_work_claude_plugin caveman https://github.com/JuliusBrussee/caveman
+  install_work_claude_plugin ponytail https://github.com/DietrichGebert/ponytail
+  install_work_claude_plugin floorplan haydenschmitty/floorplan
 fi
 
 echo "==> Packaging skills for Claude account upload"
@@ -891,10 +896,11 @@ if command -v claude >/dev/null 2>&1; then
       CI=1 claude plugin update "$plugin" \
         || { echo "[!] Could not update Claude plugin: $plugin"; claude_plugins_ok=0; }
     done
-    if claude_plugin_present floorplan "$HOME/.claude-work"; then
-      CI=1 CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin update floorplan@floorplan \
-        || { echo "[!] Could not update Claude plugin in the work profile: floorplan@floorplan"; claude_plugins_ok=0; }
-    fi
+    for plugin in caveman ponytail floorplan; do
+      claude_plugin_present "$plugin" "$HOME/.claude-work" || continue
+      CI=1 CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin update "$plugin@$plugin" \
+        || { echo "[!] Could not update Claude plugin in the work profile: $plugin@$plugin"; claude_plugins_ok=0; }
+    done
     if [ "$claude_plugins_ok" -eq 1 ]; then "$throttle" mark claude-plugins; fi
   else
     echo "[-] Claude plugins were updated $claude_age. Skipping (SETUP_FORCE=1 runs it now)"

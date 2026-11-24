@@ -51,7 +51,9 @@ work_check() { # <label> <expected: install|none> [setup]
   eval "${3:-:}"
   PATH="$work/bin:$PATH" zsh "$work/work.zsh" >/dev/null 2>&1 || true
   if [ "$2" = install ]; then
-    grep -qxF "claude plugin install floorplan@floorplan" "$STUB_LOG" || fail "$1: floorplan was not installed"
+    for plugin in caveman ponytail floorplan; do
+      grep -qxF "claude plugin install $plugin@$plugin" "$STUB_LOG" || fail "$1: $plugin was not installed"
+    done
     [ "$(sort -u "$STUB_LOG.cfg")" = "cfg=$HOME/.claude-work" ] || fail "$1: install did not target the work profile: $(cat "$STUB_LOG.cfg")"
   else
     [ ! -s "$STUB_LOG" ] || fail "$1: expected no install, got: $(cat "$STUB_LOG")"
@@ -59,7 +61,7 @@ work_check() { # <label> <expected: install|none> [setup]
 }
 work_check "work profile present" install 'mkdir -p "$HOME/.claude-work"'
 work_check "work profile missing" none
-work_check "already installed" none 'mkdir -p "$HOME/.claude-work/plugins/cache/floorplan"'
+work_check "already installed" none 'mkdir -p "$HOME/.claude-work/plugins/cache/caveman" "$HOME/.claude-work/plugins/cache/ponytail" "$HOME/.claude-work/plugins/cache/floorplan"'
 
 # Plugins belong to the personal profile: a terminal opened from the work profile exports
 # CLAUDE_CONFIG_DIR=~/.claude-work, which would redirect every `claude plugin` command there.

@@ -31,6 +31,7 @@ done
 {
   echo 'record_result() { echo "result:$1"; }'
   echo "DOTFILES='$work/dotfiles'"
+  sed -n '/^claude_plugin_present() {/,/^}/p' "$repo/setup/macos.sh"
   sed -n '/^throttle="\$DOTFILES\/scripts\/update-throttle.sh"/,/^else$/p' "$repo/setup/macos.sh" | sed '$d'
   echo 'fi'
 } > "$work/macos.zsh"
@@ -72,6 +73,13 @@ case "$out" in *'result:skipped'*) fail "a throttled Hermes check must not count
 
 SETUP_FORCE=1 run_macos >/dev/null
 [ "$(calls '^claude plugin update')" = 3 ] && [ "$(calls '^hermes-update')" = 1 ] || fail "SETUP_FORCE=1 did not run everything"
+
+# plugins installed in the work profile are updated there too, with that profile's config dir
+rm -rf "$SETUP_STATE_DIR"
+mkdir -p "$HOME/.claude-work/plugins/cache/caveman" "$HOME/.claude-work/plugins/cache/ponytail" "$HOME/.claude-work/plugins/cache/floorplan"
+run_macos >/dev/null
+[ "$(calls '^claude plugin update')" = 6 ] || fail "work-profile plugins were not updated (expected 3 personal + 3 work updates)"
+rm -rf "$HOME/.claude-work"
 
 # a failing Claude plugin update is not marked, so only that group retries
 rm -rf "$SETUP_STATE_DIR"

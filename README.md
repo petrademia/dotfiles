@@ -596,7 +596,8 @@ existing personal data folder. Sign in with your company email in Claude Work
 and `claude-work`. Claude Code uses
 `~/.claude-work`; Desktop uses `~/.claude-profiles/work/desktop`. Personal login
 and history stay in their existing locations. The terminal work profile shares
-skills and global personal standards, while settings and plugins stay separate.
+skills and global personal standards, while settings and plugins stay separate. Setup installs
+Caveman, ponytail and Floorplan into both profiles, and updates both on a rerun.
 The Desktop launcher uses the app's `--user-data-dir` option; recheck isolation
 after major Claude updates because this is not a documented Desktop profile feature.
 
