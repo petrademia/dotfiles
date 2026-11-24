@@ -40,4 +40,7 @@ check() { # <shell> <file> <label>
 }
 check zsh "$work/macos.zsh" macOS
 check bash "$work/wsl.sh" WSL
+# Plugins belong to the personal profile: a terminal opened from the work profile exports
+# CLAUDE_CONFIG_DIR=~/.claude-work, which would redirect every `claude plugin` command there.
+grep -q '^unset CLAUDE_CONFIG_DIR$' "$repo/setup/macos.sh" || fail "macOS setup must unset CLAUDE_CONFIG_DIR"
 echo 'Floorplan plugin checks passed.'

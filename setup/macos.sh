@@ -2,6 +2,9 @@
 
 set -e -o pipefail
 trap 'echo "Setup interrupted"; exit 130' INT
+# Setup configures the personal Claude profile. A terminal opened from the Claude work profile
+# exports CLAUDE_CONFIG_DIR=~/.claude-work, which sent every `claude plugin` command there instead.
+unset CLAUDE_CONFIG_DIR
 export PATH="$HOME/.local/bin:$PATH"
 INSTALLED_COUNT=0
 UPDATED_COUNT=0
