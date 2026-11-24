@@ -10,7 +10,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 mkdir -p "$work/bin"
 for tool in claude codex; do
-  printf '#!/bin/sh\necho "$(basename "$0") $*" >> "$STUB_LOG"\n' > "$work/bin/$tool"
+  printf '#!/bin/sh\necho "$(basename "$0") $*" >> "$STUB_LOG"\necho "cfg=${CLAUDE_CONFIG_DIR:-}" >> "$STUB_LOG.cfg"\n' > "$work/bin/$tool"
   chmod +x "$work/bin/$tool"
 done
 
@@ -40,6 +40,27 @@ check() { # <shell> <file> <label>
 }
 check zsh "$work/macos.zsh" macOS
 check bash "$work/wsl.sh" WSL
+# The work profile gets Floorplan too, but only once install.sh has created ~/.claude-work.
+{
+  sed -n '/^claude_plugin_present() {/,/^}/p' "$repo/setup/macos.sh"
+  sed -n '/^# The Claude work profile keeps/,/^fi$/p' "$repo/setup/macos.sh"
+} > "$work/work.zsh"
+grep -q 'CLAUDE_CONFIG_DIR' "$work/work.zsh" || fail "could not extract the work-profile step"
+work_check() { # <label> <expected: install|none> [setup]
+  rm -rf "$HOME"; mkdir -p "$HOME"; : > "$STUB_LOG"; : > "$STUB_LOG.cfg"
+  eval "${3:-:}"
+  PATH="$work/bin:$PATH" zsh "$work/work.zsh" >/dev/null 2>&1 || true
+  if [ "$2" = install ]; then
+    grep -qxF "claude plugin install floorplan@floorplan" "$STUB_LOG" || fail "$1: floorplan was not installed"
+    [ "$(sort -u "$STUB_LOG.cfg")" = "cfg=$HOME/.claude-work" ] || fail "$1: install did not target the work profile: $(cat "$STUB_LOG.cfg")"
+  else
+    [ ! -s "$STUB_LOG" ] || fail "$1: expected no install, got: $(cat "$STUB_LOG")"
+  fi
+}
+work_check "work profile present" install 'mkdir -p "$HOME/.claude-work"'
+work_check "work profile missing" none
+work_check "already installed" none 'mkdir -p "$HOME/.claude-work/plugins/cache/floorplan"'
+
 # Plugins belong to the personal profile: a terminal opened from the work profile exports
 # CLAUDE_CONFIG_DIR=~/.claude-work, which would redirect every `claude plugin` command there.
 grep -q '^unset CLAUDE_CONFIG_DIR$' "$repo/setup/macos.sh" || fail "macOS setup must unset CLAUDE_CONFIG_DIR"

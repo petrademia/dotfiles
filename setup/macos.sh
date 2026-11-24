@@ -794,10 +794,12 @@ done
 # Do not install github/gh-copilot; that retired extension collides with gh.
 
 echo "==> Installing Claude Code & Codex plugins (caveman, ponytail)"
+# claude_plugin_present <name> [config dir]: the personal profile unless a config dir is given.
 claude_plugin_present() {
-  [ -d "$HOME/.claude/plugins/cache/$1" ] \
-    || [ -d "$HOME/.claude/plugins/marketplaces/$1" ] \
-    || [ -d "$HOME/.claude/plugins/installed/$1" ]
+  local root="${2:-$HOME/.claude}"
+  [ -d "$root/plugins/cache/$1" ] \
+    || [ -d "$root/plugins/marketplaces/$1" ] \
+    || [ -d "$root/plugins/installed/$1" ]
 }
 codex_plugin_present() {
   [ -d "$HOME/.codex/plugins/cache/$1" ] \
@@ -862,6 +864,16 @@ fi
 echo "==> Installing dotfiles symlinks"
 "$DOTFILES/install.sh"
 
+# The Claude work profile keeps its own plugin set. install.sh has just created ~/.claude-work, so
+# it gets Floorplan too; caveman and ponytail stay personal-only.
+if command -v claude >/dev/null 2>&1 && [ -d "$HOME/.claude-work" ] \
+  && ! claude_plugin_present floorplan "$HOME/.claude-work"; then
+  echo "==> Installing Floorplan for the Claude work profile"
+  CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin marketplace add haydenschmitty/floorplan 2>/dev/null || true
+  CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin install floorplan@floorplan 2>/dev/null \
+    || echo "Note: floorplan work-profile plugin install failed - may need manual install"
+fi
+
 echo "==> Packaging skills for Claude account upload"
 if ! python3 "$DOTFILES/scripts/package-claude-skills.py"; then
   echo "[!] Could not package every Claude skill; review the package output above"
@@ -879,6 +891,10 @@ if command -v claude >/dev/null 2>&1; then
       CI=1 claude plugin update "$plugin" \
         || { echo "[!] Could not update Claude plugin: $plugin"; claude_plugins_ok=0; }
     done
+    if claude_plugin_present floorplan "$HOME/.claude-work"; then
+      CI=1 CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude plugin update floorplan@floorplan \
+        || { echo "[!] Could not update Claude plugin in the work profile: floorplan@floorplan"; claude_plugins_ok=0; }
+    fi
     if [ "$claude_plugins_ok" -eq 1 ]; then "$throttle" mark claude-plugins; fi
   else
     echo "[-] Claude plugins were updated $claude_age. Skipping (SETUP_FORCE=1 runs it now)"
