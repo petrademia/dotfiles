@@ -2537,7 +2537,7 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
 # GitHub Copilot CLI is winget GitHub.Copilot (`copilot`).
 # Do not install github/gh-copilot; that retired extension collides with gh.
 
-# --- 10b. Claude Code & Codex plugins (caveman, ponytail) ---
+# --- 10b. Claude Code & Codex plugins (caveman, ponytail, floorplan) ---
 if (Get-Command claude -ErrorAction SilentlyContinue) {
     Write-Host "Installing Claude Code plugins..." -ForegroundColor Cyan
     Protect-ScoopGit {
@@ -2545,6 +2545,8 @@ if (Get-Command claude -ErrorAction SilentlyContinue) {
         claude plugin marketplace add https://github.com/DietrichGebert/ponytail 2>$null
         claude plugin install caveman 2>$null
         claude plugin install ponytail 2>$null
+        claude plugin marketplace add haydenschmitty/floorplan 2>$null
+        claude plugin install floorplan@floorplan 2>$null
     }
 }
 if (Get-Command codex -ErrorAction SilentlyContinue) {
@@ -2554,8 +2556,10 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
         codex plugin marketplace add DietrichGebert/ponytail 2>$null
         codex plugin add caveman@caveman 2>$null
         codex plugin add ponytail@ponytail 2>$null
+        codex plugin marketplace add haydenschmitty/floorplan 2>$null
+        codex plugin add floorplan@floorplan 2>$null
     }
-    foreach ($marketplace in @("caveman", "ponytail")) {
+    foreach ($marketplace in @("caveman", "ponytail", "floorplan")) {
         Protect-ScoopGit { codex plugin marketplace upgrade $marketplace 2>$null }
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[!] Could not update Codex plugin marketplace: $marketplace" -ForegroundColor Yellow
@@ -2563,7 +2567,7 @@ if (Get-Command codex -ErrorAction SilentlyContinue) {
     }
 }
 if (Get-Command claude -ErrorAction SilentlyContinue) {
-    foreach ($plugin in @("caveman@caveman", "ponytail@ponytail")) {
+    foreach ($plugin in @("caveman@caveman", "ponytail@ponytail", "floorplan@floorplan")) {
         claude plugin update $plugin
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[!] Could not update Claude plugin: $plugin" -ForegroundColor Yellow

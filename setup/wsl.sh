@@ -693,14 +693,24 @@ else
     fi
 fi
 
+# Floorplan has its own marketplace, so it is installed apart from caveman/ponytail.
+if command -v claude >/dev/null 2>&1 && ! claude_plugin_present floorplan; then
+    claude plugin marketplace add haydenschmitty/floorplan 2>/dev/null || true
+    claude plugin install floorplan@floorplan 2>/dev/null || echo "Note: floorplan plugin install failed"
+fi
+if command -v codex >/dev/null 2>&1 && ! codex_plugin_present floorplan; then
+    codex plugin marketplace add haydenschmitty/floorplan 2>/dev/null || true
+    codex plugin add floorplan@floorplan 2>/dev/null || echo "Note: floorplan Codex plugin install failed"
+fi
+
 if command -v claude >/dev/null 2>&1; then
-    for plugin in caveman@caveman ponytail@ponytail; do
+    for plugin in caveman@caveman ponytail@ponytail floorplan@floorplan; do
         claude plugin update "$plugin" \
             || echo "[!] Could not update Claude plugin: $plugin"
     done
 fi
 if command -v codex >/dev/null 2>&1; then
-    for marketplace in caveman ponytail; do
+    for marketplace in caveman ponytail floorplan; do
         codex plugin marketplace upgrade "$marketplace" 2>/dev/null \
             || echo "[!] Could not update Codex plugin marketplace: $marketplace"
     done

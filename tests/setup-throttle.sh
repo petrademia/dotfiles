@@ -56,8 +56,8 @@ calls() { grep -c "$1" "$STUB_LOG" || true; }
 
 echo "-- macOS"
 out=$(run_macos)
-[ "$(calls '^claude plugin update')" = 2 ] || fail "first run: expected 2 claude plugin updates"
-[ "$(calls '^codex plugin marketplace upgrade')" = 2 ] || fail "first run: expected 2 codex marketplace upgrades"
+[ "$(calls '^claude plugin update')" = 3 ] || fail "first run: expected 3 claude plugin updates"
+[ "$(calls '^codex plugin marketplace upgrade')" = 3 ] || fail "first run: expected 3 codex marketplace upgrades"
 [ "$(calls '^hermes-update')" = 1 ] || fail "first run: expected the Hermes update to run"
 case "$out" in *'result:current'*) ;; *) fail "first run: Hermes was not counted: $out" ;; esac
 for k in claude-plugins codex-plugins hermes; do [ -f "$SETUP_STATE_DIR/last-$k" ] || fail "first run did not mark $k"; done
@@ -71,7 +71,7 @@ case "$out" in *'result:current'*) ;; *) fail "second run did not count Hermes a
 case "$out" in *'result:skipped'*) fail "a throttled Hermes check must not count as skipped" ;; esac
 
 SETUP_FORCE=1 run_macos >/dev/null
-[ "$(calls '^claude plugin update')" = 2 ] && [ "$(calls '^hermes-update')" = 1 ] || fail "SETUP_FORCE=1 did not run everything"
+[ "$(calls '^claude plugin update')" = 3 ] && [ "$(calls '^hermes-update')" = 1 ] || fail "SETUP_FORCE=1 did not run everything"
 
 # a failing Claude plugin update is not marked, so only that group retries
 rm -rf "$SETUP_STATE_DIR"
@@ -79,7 +79,7 @@ STUB_FAIL_ON="update ponytail" run_macos >/dev/null
 [ ! -f "$SETUP_STATE_DIR/last-claude-plugins" ] || fail "a failed Claude plugin update was marked as done"
 [ -f "$SETUP_STATE_DIR/last-codex-plugins" ] || fail "the Codex group should still be marked"
 run_macos >/dev/null
-[ "$(calls '^claude plugin update')" = 2 ] || fail "the failed Claude group did not retry"
+[ "$(calls '^claude plugin update')" = 3 ] || fail "the failed Claude group did not retry"
 [ "$(calls '^codex plugin')" = 0 ] || fail "the Codex group should have been skipped"
 
 # Hermes marks only on success (0) or an update (10); failure (1) and preserved local changes (20) retry

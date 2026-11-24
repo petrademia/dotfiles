@@ -836,6 +836,19 @@ else
   fi
 fi
 
+# Floorplan (haydenschmitty/floorplan) maps a codebase for Claude Code and Codex. It has its own
+# marketplace, so it is installed apart from caveman/ponytail to keep their messages accurate.
+if command -v claude >/dev/null 2>&1 && ! claude_plugin_present floorplan; then
+  echo "==> Installing Floorplan for Claude Code"
+  claude plugin marketplace add haydenschmitty/floorplan 2>/dev/null || true
+  claude plugin install floorplan@floorplan 2>/dev/null || echo "Note: floorplan plugin install failed - may need manual install"
+fi
+if command -v codex >/dev/null 2>&1 && ! codex_plugin_present floorplan; then
+  echo "==> Installing Floorplan for Codex"
+  codex plugin marketplace add haydenschmitty/floorplan 2>/dev/null || true
+  codex plugin add floorplan@floorplan 2>/dev/null || echo "Note: floorplan Codex plugin install failed - may need manual install"
+fi
+
 DOTFILES="$HOME/dotfiles"
 
 if [ ! -d "$DOTFILES" ]; then
@@ -859,7 +872,7 @@ echo "==> Updating Claude and Codex plugins"
 if command -v claude >/dev/null 2>&1; then
   if claude_age=$("$throttle" due claude-plugins); then
     claude_plugins_ok=1
-    for plugin in caveman@caveman ponytail@ponytail; do
+    for plugin in caveman@caveman ponytail@ponytail floorplan@floorplan; do
       CI=1 claude plugin update "$plugin" \
         || { echo "[!] Could not update Claude plugin: $plugin"; claude_plugins_ok=0; }
     done
@@ -871,7 +884,7 @@ fi
 if command -v codex >/dev/null 2>&1; then
   if codex_age=$("$throttle" due codex-plugins); then
     codex_plugins_ok=1
-    for marketplace in caveman ponytail; do
+    for marketplace in caveman ponytail floorplan; do
       codex plugin marketplace upgrade "$marketplace" 2>/dev/null \
         || { echo "[!] Could not update Codex plugin marketplace: $marketplace"; codex_plugins_ok=0; }
     done

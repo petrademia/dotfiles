@@ -358,11 +358,11 @@ These are available in Cursor, Claude, Copilot, Gemini/Antigravity, and
 Codex. Cursor uses shared skills for these commands; setup removes matching
 legacy Cursor command files while preserving custom versions.
 
-Setup also installs Caveman, ponytail, and [Impeccable](https://github.com/pbakaus/impeccable).
+Setup also installs Caveman, ponytail, [Floorplan](https://github.com/haydenschmitty/floorplan), and [Impeccable](https://github.com/pbakaus/impeccable).
 The Impeccable design skills are available globally for Claude, Codex, Cursor,
 Gemini, OpenCode, and Pi.
 Re-running setup updates both the Impeccable CLI and its installed skills.
-It also updates Caveman and Ponytail through Claude Code's plugin updater and
+It also updates Caveman, Ponytail and Floorplan through Claude Code's plugin updater and
 refreshes only their Codex marketplace sources.
 
 Setup installs the repository's Make Verifiable skill for Codex, Claude Code,
