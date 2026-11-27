@@ -8,13 +8,15 @@ INSTALLED_COUNT=0
 UPDATED_COUNT=0
 SKIPPED_COUNT=0
 FAILED_COUNT=0
+FAILED_ITEMS=""
 
+# record_result <installed|updated|skipped|failed> [item]; a failed item is named in the summary.
 record_result() {
     case "$1" in
         installed) INSTALLED_COUNT=$((INSTALLED_COUNT + 1)) ;;
         updated) UPDATED_COUNT=$((UPDATED_COUNT + 1)) ;;
         skipped) SKIPPED_COUNT=$((SKIPPED_COUNT + 1)) ;;
-        failed) FAILED_COUNT=$((FAILED_COUNT + 1)) ;;
+        failed) FAILED_COUNT=$((FAILED_COUNT + 1)); [ -z "${2:-}" ] || FAILED_ITEMS="${FAILED_ITEMS:+$FAILED_ITEMS, }$2" ;;
     esac
 }
 
@@ -58,7 +60,7 @@ apt_upgrade_present() {
     before=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null) || return 1
     [ -n "$before" ] || return 1
     if ! sudo apt install -y --only-upgrade "$pkg" >/dev/null; then
-        record_result failed
+        record_result failed "$pkg"
         echo "[!] $pkg upgrade failed"
         return 0
     fi
@@ -160,7 +162,7 @@ if [ -z "$ZELLIJ_CURRENT" ] || { [ -n "$ZELLIJ_VER" ] && ! version_matches "$ZEL
         if [ -n "$ZELLIJ_CURRENT" ]; then record_result updated; echo "Zellij ${ZELLIJ_VER} updated"
         else record_result installed; echo "Zellij ${ZELLIJ_VER} installed"; fi
     else
-        record_result failed
+        record_result failed "Zellij"
         echo "[-] Zellij install/update failed"
     fi
     rm -f /tmp/zellij.tar.gz /tmp/zellij
@@ -188,7 +190,7 @@ if [ -z "$HELIX_CURRENT" ] || { [ -n "$HELIX_VER" ] && ! version_matches "$HELIX
         if [ -n "$HELIX_CURRENT" ]; then record_result updated; echo "Helix ${HELIX_VER} updated"
         else record_result installed; echo "Helix ${HELIX_VER} installed"; fi
     else
-        record_result failed
+        record_result failed "Helix"
         echo "[-] Helix install/update failed"
     fi
     rm -rf /tmp/helix.tar.xz "/tmp/helix-${HELIX_VER}-${HELIX_ARCH}"
@@ -207,7 +209,7 @@ else
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
     if sudo apt update && sudo apt install -y gh; then record_result installed
-    else record_result failed; echo "[-] gh install failed"; fi
+    else record_result failed "gh"; echo "[-] gh install failed"; fi
 fi
 
 echo "==> 3) Git & directory setup"
@@ -256,7 +258,7 @@ if [ -x "$HOME/.cargo/bin/rustup" ] || command -v rustup >/dev/null 2>&1; then
             echo "[+] Rust updated: $rust_before -> $rust_after"
         fi
     else
-        record_result failed
+        record_result failed "Rust stable"
         echo "[!] rustup update failed"
     fi
 else
@@ -272,7 +274,7 @@ fi
 if ! smart_check "go" "/usr/bin/go"; then
     sudo add-apt-repository ppa:longsleep/golang-backports -y && sudo apt update
     if sudo apt install -y golang-go; then record_result installed
-    else record_result failed; echo "[-] Go install failed"; fi
+    else record_result failed "Go"; echo "[-] Go install failed"; fi
 fi
 
 echo "==> 4b) Language servers (gopls, jdtls)"
@@ -285,7 +287,7 @@ if command -v go >/dev/null 2>&1; then
         if [ -z "$gopls_before" ]; then record_result installed
         elif [ "$gopls_before" = "$gopls_after" ]; then record_result skipped
         else record_result updated; fi
-    else record_result failed; echo "Warning: gopls install failed"; fi
+    else record_result failed "gopls"; echo "Warning: gopls install failed"; fi
 else
     echo "[-] go not available; skipping gopls"
 fi
@@ -307,7 +309,7 @@ if [ -z "$JDTLS_LATEST" ]; then
         record_result skipped
     else
         echo "[!] Could not find the latest jdtls release"
-        record_result failed
+        record_result failed "jdtls"
     fi
 elif version_matches "$JDTLS_CURRENT" "$JDTLS_LATEST"; then
     echo "[-] jdtls $JDTLS_CURRENT is current"
@@ -333,7 +335,7 @@ else
         fi
     else
         echo "Warning: jdtls install failed"
-        record_result failed
+        record_result failed "jdtls"
     fi
     rm -rf "$jdtls_tmp" "$JDTLS_HOME.new"
 fi
@@ -365,7 +367,7 @@ else
         record_result installed
     else
         echo "[-] SDKMAN! installer returned a failure; continuing with the remaining WSL setup" >&2
-        record_result failed
+        record_result failed "SDKMAN!"
     fi
 fi
 # sdkman is not nounset-safe; keep +u around every sdk invocation.
@@ -378,7 +380,7 @@ if [ -d "$HOME/.sdkman/candidates/gradle/current" ]; then
 elif (sdk install gradle); then
     record_result installed
 else
-    record_result failed
+    record_result failed "gradle"
     echo "[-] gradle via sdkman install failed"
 fi
 set -u
@@ -394,7 +396,7 @@ if [ -f "$STRUCTURIZR_WAR" ] && command -v java >/dev/null 2>&1; then
         | awk '{ for (i=1; i<NF; i++) if ($i == "structurizr:") { print $(i+1); exit } }' || true)
 fi
 if [ -z "$STRUCTURIZR_VERSION" ]; then
-    record_result failed
+    record_result failed "Structurizr"
     echo "[-] Could not resolve the latest Structurizr release"
 elif [ "$STRUCTURIZR_CURRENT" = "$STRUCTURIZR_VERSION" ]; then
     write_structurizr_launcher
@@ -412,7 +414,7 @@ else
         echo "[+] Structurizr $STRUCTURIZR_VERSION installed"
     else
         rm -f "$STRUCTURIZR_TMP"
-        record_result failed
+        record_result failed "Structurizr"
         echo "[-] Structurizr download or verification failed"
     fi
 fi
@@ -433,7 +435,7 @@ else
     echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
         | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null
     if sudo apt update && sudo apt install -y ngrok; then record_result installed
-    else record_result failed; echo "[-] ngrok install failed"; fi
+    else record_result failed "ngrok"; echo "[-] ngrok install failed"; fi
 fi
 if command -v gcloud >/dev/null 2>&1; then
     apt_upgrade_present google-cloud-cli || { record_result skipped; echo "[-] gcloud already present. Skipping..."; }
@@ -444,7 +446,7 @@ else
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
         | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list >/dev/null
     if sudo apt update && sudo apt install -y google-cloud-cli; then record_result installed
-    else record_result failed; echo "[-] gcloud install failed"; fi
+    else record_result failed "gcloud"; echo "[-] gcloud install failed"; fi
 fi
 
 if ! smart_check "llama" "$HOME/.llama-app/llama"; then
@@ -467,7 +469,7 @@ if [ -z "$KUBECTL_CURRENT" ] || { [ -n "$KVER" ] && ! version_matches "$KUBECTL_
     curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KVER}/bin/linux/${K8S_ARCH}/kubectl" \
         && sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl \
         && { [ -n "$KUBECTL_CURRENT" ] && record_result updated || record_result installed; } \
-        || { record_result failed; echo "[-] kubectl install/update failed"; }
+        || { record_result failed "kubectl"; echo "[-] kubectl install/update failed"; }
     rm -f /tmp/kubectl
 else
     record_result skipped
@@ -481,7 +483,7 @@ if [ -z "$KIND_CURRENT" ] || { [ -n "$KIND_VER" ] && ! version_matches "$KIND_CU
     curl -fsSLo /tmp/kind "https://kind.sigs.k8s.io/dl/${KIND_VER}/kind-linux-${K8S_ARCH}" \
         && sudo install -m 0755 /tmp/kind /usr/local/bin/kind \
         && { [ -n "$KIND_CURRENT" ] && record_result updated || record_result installed; } \
-        || { record_result failed; echo "[-] kind install/update failed"; }
+        || { record_result failed "kind"; echo "[-] kind install/update failed"; }
     rm -f /tmp/kind
 else
     record_result skipped
@@ -494,7 +496,7 @@ if [ -z "$K3D_CURRENT" ] || { [ -n "$K3D_VER" ] && ! version_matches "$K3D_CURRE
     if curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash; then
         [ -n "$K3D_CURRENT" ] && record_result updated || record_result installed
     else
-        record_result failed
+        record_result failed "k3d"
         echo "[-] k3d install/update failed"
     fi
 else
@@ -521,7 +523,7 @@ else
     if sudo apt update && sudo apt install -y crush; then
         record_result installed
     else
-        record_result failed
+        record_result failed "crush"
         echo "[-] crush install failed"
     fi
 fi
@@ -578,14 +580,14 @@ run_npm_global() {
         if npm install -g --ignore-scripts "$package" --silent; then
             record_result "$result"
         else
-            record_result failed
+            record_result failed "$package"
             echo "[-] npm install failed: $package"
         fi
     else
         if npm install -g "$package" --silent; then
             record_result "$result"
         else
-            record_result failed
+            record_result failed "$package"
             echo "[-] npm install failed: $package"
         fi
     fi
@@ -734,7 +736,7 @@ if [ -x "$HOME/.local/bin/hermes" ] || command -v hermes >/dev/null 2>&1; then
         case "$hermes_rc" in
             10) record_result updated ;;
             0|20) record_result skipped ;;
-            *) record_result failed ;;
+            *) record_result failed "Hermes Agent" ;;
         esac
     else
         echo "[-] Hermes Agent was checked $hermes_age. Skipping (SETUP_FORCE=1 runs it now)"
@@ -849,4 +851,5 @@ echo "  Installed: $INSTALLED_COUNT"
 echo "  Updated:   $UPDATED_COUNT"
 echo "  Skipped:   $SKIPPED_COUNT"
 echo "  Failed:    $FAILED_COUNT"
+[ -z "$FAILED_ITEMS" ] || echo "  Failed items: $FAILED_ITEMS"
 echo "Reload your shell: source ~/.zshrc  (or ~/.bashrc)"
