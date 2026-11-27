@@ -11,3 +11,5 @@
 
 # Local tool state that is never meant to be committed
 .codex-artifacts/
+
+**/.claude/settings.local.json
