@@ -4,7 +4,7 @@ repo=${1:-$(cd "$(dirname "$0")/.." && pwd)}
 test_home=$(mktemp -d)
 trap 'rm -rf "$test_home"' EXIT
 
-eval "$(sed -n '/^link() {/,/^}/p; /^install_cursor_pstack() {/,/^}/p; /^remove_duplicate_cursor_pstack_skills() {/,/^}/p; /^remove_duplicate_cursor_command() {/,/^}/p' "$repo/install.sh" | sed 's/\$HOME/\$test_home/g')"
+eval "$(sed -n '/^link() {/,/^}/p; /^install_cursor_pstack() {/,/^}/p; /^remove_duplicate_cursor_pstack_skills() {/,/^}/p; /^remove_duplicate_cursor_command() {/,/^}/p; /^link_claude_work_commands() {/,/^}/p' "$repo/install.sh" | sed 's/\$HOME/\$test_home/g')"
 # Keep the real installer flow, but use a local checkout without network access.
 git() { return 0; }
 checkout="$test_home/.local/share/pstack-cursor"
@@ -59,4 +59,17 @@ test ! -e "$test_home/.cursor/commands/leetcode.md"
 printf 'custom command\n' > "$test_home/.cursor/commands/leetcode.md"
 remove_duplicate_cursor_command leetcode >/dev/null
 cmp "$test_home/.cursor/commands/leetcode.md" <(printf 'custom command\n')
+# The work profile shares the personal slash commands
+mkdir -p "$test_home/.claude/commands" "$test_home/.claude-work"
+printf 'cmd\n' > "$test_home/.claude/commands/grammar.md"
+link_claude_work_commands >/dev/null
+test -L "$test_home/.claude-work/commands"
+cmp "$test_home/.claude-work/commands/grammar.md" <(printf 'cmd\n')
+test -z "$(link_claude_work_commands)"
+rm "$test_home/.claude-work/commands"
+mkdir "$test_home/.claude-work/commands"
+printf 'own\n' > "$test_home/.claude-work/commands/own.md"
+link_claude_work_commands >/dev/null
+test ! -L "$test_home/.claude-work/commands"
+cmp "$test_home/.claude-work/commands/own.md" <(printf 'own\n')
 printf 'Installer idempotency and Cursor command migration checks passed.\n'

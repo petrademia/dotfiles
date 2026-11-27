@@ -23,6 +23,17 @@ setup_codex_work() {
   link "$HOME/.codex/skills" "$HOME/.codex-work/skills"
 }
 
+# claude-work shares the personal profile's slash commands (/grammar, /leetcode, /handoff) the same way it
+# shares skills; without this they only exist in the personal profile.
+link_claude_work_commands() {
+  local dest="$HOME/.claude-work/commands"
+  if [ -d "$dest" ] && [ ! -L "$dest" ]; then
+    echo "[-] Existing Claude work commands directory preserved: $dest"
+    return 0
+  fi
+  link "$HOME/.claude/commands" "$dest"
+}
+
 if [ "$(uname -s)" = "Darwin" ]; then
   link "$DOTFILES/shell/.zshrc" "$HOME/.zshrc"
   link "$DOTFILES/shell/.zshenv" "$HOME/.zshenv"
@@ -31,6 +42,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
   chmod 700 "$HOME/.claude-work"
   link "$DOTFILES/global/AGENTS.md" "$HOME/.claude-work/CLAUDE.md"
   link "$HOME/.claude/skills" "$HOME/.claude-work/skills"
+  link_claude_work_commands
   if ! python3 "$DOTFILES/bootstrap/claude-work.py"; then
     echo "[!] Could not set up Claude profile launchers"
   fi
