@@ -16,6 +16,10 @@ check fails or jq is unavailable, setup checks packages individually.
   after the target's updater ran.
 - **Failed** - setup or verification failed for a version-managed target.
 
+On macOS, WSL and Windows the summary also prints `Failed items:` with the name of each failure, so
+you do not have to scroll back for the warning. macOS additionally separates `Current` from `Skipped`
+and prints a target total; WSL and Windows count already-present items as `Skipped`.
+
 The macOS target total includes Homebrew formulas and casks, selected Mac App
 Store apps, Node LTS, Rust stable, npm globals, uv tools, Claude Code CLI,
 Hermes Agent, and Oh My Pi. It excludes transitive dependencies, plugins and

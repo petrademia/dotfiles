@@ -11,8 +11,10 @@ UPDATED_COUNT=0
 CURRENT_COUNT=0
 SKIPPED_COUNT=0
 FAILED_COUNT=0
+FAILED_ITEMS=""
 TARGET_COUNT=0
 
+# record_result <installed|updated|current|skipped|failed> [item]; a failed item is named in the summary.
 record_result() {
   TARGET_COUNT=$((TARGET_COUNT + 1))
   case "$1" in
@@ -20,7 +22,7 @@ record_result() {
     updated) UPDATED_COUNT=$((UPDATED_COUNT + 1)) ;;
     current) CURRENT_COUNT=$((CURRENT_COUNT + 1)) ;;
     skipped) SKIPPED_COUNT=$((SKIPPED_COUNT + 1)) ;;
-    failed) FAILED_COUNT=$((FAILED_COUNT + 1)) ;;
+    failed) FAILED_COUNT=$((FAILED_COUNT + 1)); [ -z "${2:-}" ] || FAILED_ITEMS="${FAILED_ITEMS:+$FAILED_ITEMS, }$2" ;;
     *) FAILED_COUNT=$((FAILED_COUNT + 1)); echo "Warning: unknown setup result: $1" ;;
   esac
 }
@@ -28,8 +30,9 @@ record_result() {
 record_version_result() {
   local before=$1
   local after=$2
+  local item=${3:-}
   if [ -z "$after" ]; then
-    record_result failed
+    record_result failed "$item"
     return 1
   elif [ -z "$before" ]; then
     record_result installed
@@ -43,8 +46,9 @@ record_version_result() {
 record_update_result() {
   local before=$1
   local after=$2
+  local item=${3:-}
   if [ -z "$before" ] || [ -z "$after" ]; then
-    record_result failed
+    record_result failed "$item"
     return 1
   elif [ "$before" = "$after" ]; then
     record_result current
@@ -264,7 +268,7 @@ for formula in "${FORMULAS[@]}"; do
   package_state=$(brew_package_state formula "$formula")
   if [ "$package_state" = failed ]; then
     echo "Warning: could not check whether formula is outdated: $formula"
-    record_result failed
+    record_result failed "$formula"
     continue
   elif [ "$package_state" = current ]; then
     record_result current
@@ -272,11 +276,11 @@ for formula in "${FORMULAS[@]}"; do
   elif [ "$package_state" = outdated ]; then
     echo "==> Updating formula: $formula"
     if brew upgrade --formula --no-ask "$formula"; then record_result updated
-    else record_result failed; echo "Warning: formula upgrade failed: $formula"; fi
+    else record_result failed "$formula"; echo "Warning: formula upgrade failed: $formula"; fi
   else
     echo "==> Installing formula: $formula"
     if brew install "$formula"; then record_result installed
-    else record_result failed; echo "Warning: formula install failed: $formula"; fi
+    else record_result failed "$formula"; echo "Warning: formula install failed: $formula"; fi
   fi
   load_brew_snapshot
 done
@@ -413,7 +417,7 @@ for cask in "${CASKS[@]}"; do
   package_state=$(brew_package_state cask "$cask")
   if [ "$package_state" = failed ]; then
     echo "Warning: could not check whether cask is outdated: $cask"
-    record_result failed
+    record_result failed "$cask"
     continue
   elif [ "$package_state" = current ]; then
     record_result current
@@ -421,18 +425,18 @@ for cask in "${CASKS[@]}"; do
   elif [ "$package_state" = broken ]; then
     echo "==> Restoring missing cask app: $cask"
     if brew reinstall --cask --force "$cask"; then record_result installed
-    else record_result failed; echo "Warning: cask repair failed: $cask"; cask_failure_hint; fi
+    else record_result failed "$cask"; echo "Warning: cask repair failed: $cask"; cask_failure_hint; fi
   elif [ "$package_state" = outdated ]; then
     echo "==> Updating cask: $cask"
     if brew upgrade --cask --no-ask "$cask"; then record_result updated
-    else record_result failed; echo "Warning: cask upgrade failed: $cask"; cask_failure_hint; fi
+    else record_result failed "$cask"; echo "Warning: cask upgrade failed: $cask"; cask_failure_hint; fi
   else
     echo "==> Installing cask: $cask"
     if [ "$cask" = "github-copilot-app" ]; then
       if brew install --cask --appdir="$HOME/Applications" --adopt "$cask"; then record_result installed
-      else record_result failed; echo "Warning: cask install failed: $cask"; cask_failure_hint; fi
+      else record_result failed "$cask"; echo "Warning: cask install failed: $cask"; cask_failure_hint; fi
     elif brew install --cask "$cask"; then record_result installed
-    else record_result failed; echo "Warning: cask install failed: $cask"; cask_failure_hint; fi
+    else record_result failed "$cask"; echo "Warning: cask install failed: $cask"; cask_failure_hint; fi
   fi
   load_brew_snapshot
 done
@@ -463,13 +467,13 @@ for app in "${MAS_APPS[@]}"; do
   app_name="${app#* }"
   if ! command -v mas >/dev/null 2>&1 || [ ! -t 0 ]; then
     echo "Warning: cannot check App Store target in this non-interactive run: $app_name"
-    record_result failed
+    record_result failed "$app_name"
     continue
   fi
 
   if ! installed_apps=$(mas list 2>/dev/null); then
     echo "Warning: could not list Mac App Store apps"
-    record_result failed
+    record_result failed "mas list"
     continue
   fi
   installed_version=$(printf '%s\n' "$installed_apps" | awk -v id="$app_id" '$1 == id { print $NF; exit }')
@@ -479,9 +483,9 @@ for app in "${MAS_APPS[@]}"; do
       installed_apps=$(mas list 2>/dev/null || true)
       installed_version=$(printf '%s\n' "$installed_apps" | awk -v id="$app_id" '$1 == id { print $NF; exit }')
       if [ -n "$installed_version" ]; then record_result installed
-      else record_result failed; echo "Warning: could not verify App Store install: $app_name"; fi
+      else record_result failed "$app_name"; echo "Warning: could not verify App Store install: $app_name"; fi
     else
-      record_result failed
+      record_result failed "$app_name"
       echo "Warning: App Store install failed: $app_name ($app_id)"
     fi
     continue
@@ -495,7 +499,7 @@ for app in "${MAS_APPS[@]}"; do
     fi
   else
     echo "Warning: could not check App Store version: $app_name"
-    record_result failed
+    record_result failed "$app_name"
     continue
   fi
 
@@ -506,11 +510,11 @@ for app in "${MAS_APPS[@]}"; do
     if [ -n "$updated_version" ] && [ "$updated_version" != "$installed_version" ]; then
       record_result updated
     else
-      record_result failed
+      record_result failed "$app_name"
       echo "Warning: App Store update did not change the detected version: $app_name"
     fi
   else
-    record_result failed
+    record_result failed "$app_name"
     echo "Warning: App Store update failed: $app_name ($app_id)"
   fi
 done
@@ -526,14 +530,14 @@ if command -v rustup >/dev/null 2>&1; then
   rust_before=$(rustup run stable rustc --version 2>/dev/null || true)
   if rustup update stable && rustup default stable; then
     rust_after=$(rustup run stable rustc --version 2>/dev/null || true)
-    record_version_result "$rust_before" "$rust_after" \
+    record_version_result "$rust_before" "$rust_after" "Rust stable" \
       || echo "Warning: could not verify the Rust stable toolchain version"
   else
-    record_result failed
+    record_result failed "Rust stable"
     echo "Warning: Rust stable toolchain update failed"
   fi
 else
-  record_result failed
+  record_result failed "Rust stable"
   echo "Warning: rustup is unavailable; could not check Rust stable"
 fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
@@ -545,10 +549,10 @@ if command -v fnm >/dev/null 2>&1 \
   && fnm install --lts --use --log-level error \
   && fnm default lts-latest; then
   node_after=$(fnm current 2>/dev/null || true)
-  record_version_result "$node_before" "$node_after" \
+  record_version_result "$node_before" "$node_after" "Node LTS" \
     || echo "Warning: could not verify the Node.js LTS version"
 else
-  record_result failed
+  record_result failed "Node LTS"
   echo "Warning: could not install or select the latest Node.js LTS"
 fi
 
@@ -605,7 +609,7 @@ run_npm_global() {
       result=updated
       ;;
     failed)
-      record_result failed
+      record_result failed "$package"
       echo "[-] Could not check npm package: $installed_package"
       return 0
       ;;
@@ -617,14 +621,14 @@ run_npm_global() {
     if npm install -g --ignore-scripts "$package" --silent; then
       record_result "$result"
     else
-      record_result failed
+      record_result failed "$package"
       echo "[-] npm install failed: $package"
     fi
   else
     if npm install -g "$package" --silent; then
       record_result "$result"
     else
-      record_result failed
+      record_result failed "$package"
       echo "[-] npm install failed: $package"
     fi
   fi
@@ -649,10 +653,10 @@ if [ -n "$claude_cmd" ]; then
   claude_before=$(cli_version "$claude_cmd")
   if "$claude_cmd" update; then
     claude_after=$(cli_version "$claude_cmd")
-    record_update_result "$claude_before" "$claude_after" \
+    record_update_result "$claude_before" "$claude_after" "Claude Code CLI" \
       || echo "Warning: could not verify Claude Code CLI version"
   else
-    record_result failed
+    record_result failed "Claude Code CLI"
     echo "Warning: Claude Code CLI update failed"
   fi
 else
@@ -664,10 +668,10 @@ else
     fi
     claude_after=""
     if [ -n "$claude_cmd" ]; then claude_after=$(cli_version "$claude_cmd"); fi
-    record_version_result "" "$claude_after" \
+    record_version_result "" "$claude_after" "Claude Code CLI" \
       || echo "Warning: could not verify Claude Code CLI installation"
   else
-    record_result failed
+    record_result failed "Claude Code CLI"
     echo "Warning: Claude Code CLI install failed"
   fi
 fi
@@ -676,10 +680,10 @@ if command -v omp >/dev/null 2>&1; then
   omp_before=$(cli_version "$(command -v omp)")
   if omp update; then
     omp_after=$(cli_version "$(command -v omp)")
-    record_update_result "$omp_before" "$omp_after" \
+    record_update_result "$omp_before" "$omp_after" "Oh My Pi" \
       || echo "Warning: could not verify Oh My Pi version"
   else
-    record_result failed
+    record_result failed "Oh My Pi"
     echo "Warning: Oh My Pi update failed"
   fi
 else
@@ -689,10 +693,10 @@ else
     if omp_cmd=$(command -v omp 2>/dev/null); then
       omp_after=$(cli_version "$omp_cmd")
     fi
-    record_version_result "" "$omp_after" \
+    record_version_result "" "$omp_after" "Oh My Pi" \
       || echo "Warning: could not verify Oh My Pi installation"
   else
-    record_result failed
+    record_result failed "Oh My Pi"
     echo "Warning: Oh My Pi install failed"
   fi
 fi
@@ -736,14 +740,14 @@ if uv_before=$(uv tool list --show-version-specifiers); then
   for tool in graphifyy mlx-lm mlx-optiq; do
     before=$(uv_tool_version "$uv_before" "$tool")
     if ! uv tool install --upgrade "$tool" --python "$(uv_tool_python "$tool")"; then
-      record_result failed
+      record_result failed "$tool"
       echo "Warning: uv tool install/upgrade failed: $tool"
       continue
     fi
     if uv_after=$(uv tool list --show-version-specifiers); then
       after=$(uv_tool_version "$uv_after" "$tool")
       if [ -z "$after" ]; then
-        record_result failed
+        record_result failed "$tool"
         echo "Warning: could not verify the installed uv tool: $tool"
         continue
       fi
@@ -754,9 +758,9 @@ if uv_before=$(uv tool list --show-version-specifiers); then
       else
         echo "[+] Updated uv tool $tool: $before -> $after"
       fi
-      record_version_result "$before" "$after"
+      record_version_result "$before" "$after" "$tool"
     else
-      record_result failed
+      record_result failed "$tool"
       echo "Warning: could not check uv tool version after install: $tool"
     fi
   done
@@ -764,7 +768,7 @@ else
   echo "Warning: could not read installed uv tools before updating"
   for tool in graphifyy mlx-lm mlx-optiq; do
     uv tool install --upgrade "$tool" --python "$(uv_tool_python "$tool")" || true
-    record_result failed
+    record_result failed "$tool"
     echo "Warning: could not classify the uv tool result: $tool"
   done
 fi
@@ -787,7 +791,7 @@ for tool in "${GO_TOOLS[@]}"; do
     if [ -z "$before" ]; then record_result installed
     elif [ "$before" = "$after" ]; then record_result current
     else record_result updated; fi
-  else record_result failed; echo "Warning: go install failed: $tool"; fi
+  else record_result failed "$tool"; echo "Warning: go install failed: $tool"; fi
 done
 
 # copilot comes from the copilot-cli cask (GitHub Copilot CLI).
@@ -929,7 +933,7 @@ if command -v hermes >/dev/null 2>&1; then
       0) record_result current ;;
       10) record_result updated ;;
       20) record_result skipped ;;
-      *) record_result failed ;;
+      *) record_result failed "Hermes Agent" ;;
     esac
   else
     echo "[-] Hermes Agent was checked $hermes_age. Skipping (SETUP_FORCE=1 runs it now)"
@@ -944,10 +948,10 @@ else
     if hermes_cmd=$(command -v hermes 2>/dev/null); then
       hermes_after=$(cli_version "$hermes_cmd")
     fi
-    record_version_result "" "$hermes_after" \
+    record_version_result "" "$hermes_after" "Hermes Agent" \
       || echo "Warning: could not verify Hermes Agent installation"
   else
-    record_result failed
+    record_result failed "Hermes Agent"
     echo "Warning: Hermes Agent install failed"
   fi
 fi
@@ -1022,6 +1026,7 @@ echo "  Updated:   $UPDATED_COUNT"
 echo "  Current:   $CURRENT_COUNT"
 echo "  Skipped:   $SKIPPED_COUNT"
 echo "  Failed:    $FAILED_COUNT"
+[ -z "$FAILED_ITEMS" ] || echo "  Failed items: $FAILED_ITEMS"
 echo
 echo "Restart your terminal or run:"
 echo "source ~/.zshrc"
